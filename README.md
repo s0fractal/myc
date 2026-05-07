@@ -18,6 +18,8 @@ This directory is not a data lake. It should not collect payloads that belong to
 other people, models, devices, or private stores. It should collect commitments,
 descriptors, receipts, routes, naming proofs, and projections.
 
+The global development path is tracked in [ROADMAP.md](./ROADMAP.md).
+
 ## Core Formula
 
 ```text
