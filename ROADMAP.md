@@ -485,12 +485,14 @@ Already implemented:
 - PWA summary/source/search views backed by resolver endpoints
 - sanitized `/graph` snapshot endpoint with explicit path opt-in
 - PWA graph loader backed by `/graph`
+- PWA edge list for graph/lineage navigation
+- PWA target navigation updates path-based FQDN URL
 
 Immediate next candidates:
 
-1. PWA lineage graph ergonomics and selected-node summaries.
-2. Offline shell state and resolver reconnection polish.
-3. Nutrition labels and stale verification.
+1. Offline shell state and resolver reconnection polish.
+2. Nutrition labels and stale verification.
+3. Recipe layer design checkpoint after Phase 2 stays stable.
 
 Preferred next step:
 

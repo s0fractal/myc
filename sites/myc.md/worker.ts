@@ -95,6 +95,7 @@ const HTML = `<!doctype html>
             <span id="graph-title">waiting</span>
           </div>
           <canvas id="graph-canvas" width="720" height="420"></canvas>
+          <div id="edge-list" class="edge-list"></div>
           <pre id="graph-report"></pre>
         </section>
       </div>
@@ -380,6 +381,51 @@ canvas {
   border-top: 1px solid var(--line);
 }
 
+.edge-list {
+  display: grid;
+  gap: 6px;
+  max-height: 210px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  padding: 8px;
+  background: #fbfaf5;
+}
+
+.edge-item {
+  display: grid;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--surface);
+}
+
+.edge-item strong,
+.edge-item span {
+  overflow-wrap: anywhere;
+}
+
+.edge-item strong {
+  font-size: 12px;
+}
+
+.edge-item span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.edge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.edge-actions button {
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
 .index-panel .panel-header {
   padding: 0 0 10px;
   border: 0;
@@ -470,6 +516,15 @@ function write(value) {
   $("output").textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
 }
 
+function setTarget(target, updateUrl = true) {
+  $("target-input").value = target;
+  if (!updateUrl || !target) return;
+  const nextPath = "/" + encodeURIComponent(target);
+  if (location.pathname !== nextPath) {
+    history.replaceState(null, "", nextPath);
+  }
+}
+
 function resolverBase() {
   const value = $("resolver-url").value.trim().replace(/\\/+$/, "");
   state.resolver = value || DEFAULT_RESOLVER;
@@ -537,6 +592,7 @@ async function verifyGraph() {
     errors: result.errors || [],
     warnings: result.warnings || [],
   }, null, 2);
+  renderEdges([]);
   write(result);
   return result;
 }
@@ -549,6 +605,7 @@ async function loadGraph() {
     edges: result.count,
   }, null, 2);
   drawGraph({ backward: result.edges || [], forward: [] });
+  renderEdges(result.edges || []);
   write(result);
   return result;
 }
@@ -574,6 +631,7 @@ function switchTab(tab) {
 async function resolveTarget() {
   const target = $("target-input").value.trim();
   if (!target) return;
+  setTarget(target);
   const result = await api("/descriptor?target=" + encodeURIComponent(target));
   $("descriptor-title").textContent = result.descriptor?.type || target;
   
@@ -635,6 +693,7 @@ async function lineageTarget() {
   const result = await api("/lineage?target=" + encodeURIComponent(target));
   $("graph-title").textContent = target;
   drawGraph(result);
+  renderEdges([...(result.backward || []), ...(result.forward || [])]);
   write(result);
 }
 
@@ -657,7 +716,7 @@ function renderIndex() {
     button.type = "button";
     button.textContent = "Open";
     button.addEventListener("click", () => {
-      $("target-input").value = record.fqdn;
+      setTarget(record.fqdn);
       explainTarget();
     });
     text.append(title, meta);
@@ -747,6 +806,54 @@ function drawGraph(lineage) {
   }
 }
 
+function edgeEndpoint(edge, side) {
+  const ref = side === "input" ? edge.input : edge.output;
+  return ref?.fqdn || "";
+}
+
+function renderEdges(edges) {
+  const list = $("edge-list");
+  if (!edges.length) {
+    list.replaceChildren();
+    return;
+  }
+
+  list.replaceChildren(...edges.slice(0, 80).map((edge) => {
+    const row = document.createElement("div");
+    row.className = "edge-item";
+    const title = document.createElement("strong");
+    title.textContent = edge.step + " | " + edge.direction;
+    const meta = document.createElement("span");
+    meta.textContent = (edge.input?.role || "input") + " -> " + (edge.output?.role || "output");
+    const fn = document.createElement("span");
+    fn.textContent = edge.function_fqdn || "no function";
+    const actions = document.createElement("div");
+    actions.className = "edge-actions";
+
+    const buttons = [
+      ["Input", edgeEndpoint(edge, "input")],
+      ["Output", edgeEndpoint(edge, "output")],
+      ["Transform", edge.transform],
+    ];
+
+    for (const [label, target] of buttons) {
+      if (!target) continue;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.addEventListener("click", () => {
+        setTarget(target);
+        explainTarget();
+        lineageTarget();
+      });
+      actions.append(button);
+    }
+
+    row.append(title, meta, fn, actions);
+    return row;
+  }));
+}
+
 $("connect-btn").addEventListener("click", connect);
 $("verify-graph-btn").addEventListener("click", () => verifyGraph().catch((error) => write(error.body || error.message)));
 $("load-graph-btn").addEventListener("click", () => loadGraph().catch((error) => write(error.body || error.message)));
@@ -783,7 +890,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 
-$("target-input").value = initialTarget();
+setTarget(initialTarget(), false);
 connect().then(loadIndex).then(explainTarget).then(lineageTarget).catch(() => {});
 `;
 
