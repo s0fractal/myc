@@ -487,10 +487,13 @@ Already implemented:
 - PWA graph loader backed by `/graph`
 - PWA edge list for graph/lineage navigation
 - PWA target navigation updates path-based FQDN URL
+- PWA degraded offline state with last-seen resolver timestamp
+- PWA cached last index/graph projection in localStorage for offline viewing
+- PWA manual retry and soft reconnect loop
 
 Immediate next candidates:
 
-1. Offline shell state and resolver reconnection polish.
+1. Phase 2 closure audit against privacy and lens-source-of-truth boundaries.
 2. Nutrition labels and stale verification.
 3. Recipe layer design checkpoint after Phase 2 stays stable.
 

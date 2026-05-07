@@ -30,6 +30,11 @@ const HTML = `<!doctype html>
         <button id="connect-btn" type="button">Connect</button>
       </div>
 
+      <div id="connection-note" class="connection-note" aria-live="polite">
+        <span id="connection-message">resolver not checked</span>
+        <button id="retry-btn" class="secondary" type="button">Retry</button>
+      </div>
+
       <div class="status-grid" aria-live="polite">
         <div>
           <span>resolver</span>
@@ -251,6 +256,36 @@ h2 {
 .resolver-bar label {
   color: var(--muted);
   font-size: 14px;
+}
+
+.connection-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 8px 10px;
+}
+
+.connection-note span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.connection-note.online {
+  border-color: #86b9aa;
+}
+
+.connection-note.offline {
+  border-color: #d59a8d;
+}
+
+.connection-note button {
+  min-height: 30px;
+  padding: 0 10px;
 }
 
 .query-row {
@@ -502,6 +537,8 @@ const state = {
   records: [],
   deferredInstall: null,
   searchTimer: null,
+  reconnectTimer: null,
+  lastGraph: null,
 };
 
 $("resolver-url").value = state.resolver;
@@ -514,6 +551,32 @@ function setText(id, value, cls = "") {
 
 function write(value) {
   $("output").textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+}
+
+function readJson(key, fallback = null) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function setConnection(message, status = "unknown") {
+  const note = $("connection-note");
+  note.classList.toggle("online", status === "online");
+  note.classList.toggle("offline", status === "offline");
+  $("connection-message").textContent = message;
+}
+
+function lastSeenText() {
+  const value = localStorage.getItem("myc.lastSeen");
+  if (!value) return "never";
+  return new Date(value).toLocaleString();
 }
 
 function setTarget(target, updateUrl = true) {
@@ -560,16 +623,24 @@ function initialTarget() {
 
 async function connect() {
   setText("health-value", "checking");
+  setConnection("checking local resolver");
   try {
     const health = await api("/health");
     setText("health-value", health.service || "ok", "ok");
     setText("version-value", health.version || "unknown");
+    const now = new Date().toISOString();
+    localStorage.setItem("myc.lastSeen", now);
+    clearTimeout(state.reconnectTimer);
+    setConnection("online | last seen " + new Date(now).toLocaleString(), "online");
     write(health);
     await verifyGraph();
   } catch (error) {
     setText("health-value", "offline", "bad");
     setText("version-value", "unknown", "bad");
     setText("graph-value", "unavailable", "bad");
+    setConnection("offline | last seen " + lastSeenText(), "offline");
+    restoreCachedLens();
+    scheduleReconnect();
     write({
       ok: false,
       message: "Local resolver is not reachable. Run: cd ~/myc && deno task myc serve --port 8787",
@@ -593,6 +664,15 @@ async function verifyGraph() {
     warnings: result.warnings || [],
   }, null, 2);
   renderEdges([]);
+  state.lastGraph = result;
+  writeJson("myc.lastGraph", {
+    ok: result.ok,
+    descriptor_count: result.descriptor_count,
+    transformation_count: result.transformation_count,
+    edge_count: result.edge_count,
+    errors: result.errors || [],
+    warnings: result.warnings || [],
+  });
   write(result);
   return result;
 }
@@ -606,6 +686,10 @@ async function loadGraph() {
   }, null, 2);
   drawGraph({ backward: result.edges || [], forward: [] });
   renderEdges(result.edges || []);
+  writeJson("myc.lastGraphSnapshot", {
+    count: result.count,
+    edges: (result.edges || []).slice(0, 80),
+  });
   write(result);
   return result;
 }
@@ -614,6 +698,10 @@ async function loadIndex() {
   const result = await api("/index");
   state.records = result.records || [];
   setText("descriptor-value", String(result.count ?? state.records.length));
+  writeJson("myc.lastIndex", {
+    count: result.count ?? state.records.length,
+    records: state.records.slice(0, 120),
+  });
   renderIndex();
   write(result);
   return result;
@@ -744,6 +832,40 @@ async function searchIndex() {
   renderIndex();
 }
 
+function restoreCachedLens() {
+  const graph = readJson("myc.lastGraph");
+  if (graph) {
+    setText("graph-value", graph.ok ? "cached-ok" : "cached-failed", graph.ok ? "" : "bad");
+    setText("descriptor-value", String(graph.descriptor_count ?? 0));
+    setText("edge-value", String(graph.edge_count ?? 0));
+    $("graph-title").textContent = "cached graph";
+    $("graph-report").textContent = JSON.stringify({
+      cached: true,
+      ...graph,
+    }, null, 2);
+  }
+
+  const snapshot = readJson("myc.lastGraphSnapshot");
+  if (snapshot?.edges) {
+    drawGraph({ backward: snapshot.edges, forward: [] });
+    renderEdges(snapshot.edges);
+  }
+
+  const index = readJson("myc.lastIndex");
+  if (index?.records) {
+    state.records = index.records;
+    setText("descriptor-value", String(index.count ?? state.records.length));
+    renderIndex();
+  }
+}
+
+function scheduleReconnect() {
+  clearTimeout(state.reconnectTimer);
+  state.reconnectTimer = setTimeout(() => {
+    connect().catch(() => {});
+  }, 15000);
+}
+
 function drawGraph(lineage) {
   const canvas = $("graph-canvas");
   const ctx = canvas.getContext("2d");
@@ -855,6 +977,7 @@ function renderEdges(edges) {
 }
 
 $("connect-btn").addEventListener("click", connect);
+$("retry-btn").addEventListener("click", () => connect().catch((error) => write(error.body || error.message)));
 $("verify-graph-btn").addEventListener("click", () => verifyGraph().catch((error) => write(error.body || error.message)));
 $("load-graph-btn").addEventListener("click", () => loadGraph().catch((error) => write(error.body || error.message)));
 $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) => write(error.body || error.message)));
