@@ -44,3 +44,6 @@ Audits:
 - `phase-3-nutrition.audit.myc.md` records the derived nutrition boundary:
   nutrition can inform summaries, graph warnings, and PWA labels without
   rewriting descriptor identity.
+- `adapter-policy.audit.myc.md` records the audited substrate adapter policy
+  checkpoint: adapter notes must declare read/write/payload/side-effect
+  boundaries before implementation.

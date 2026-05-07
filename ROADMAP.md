@@ -461,6 +461,7 @@ Phase status:
 - Phase 1: implemented and guarded by tests.
 - Phase 2: closed by boundary audit.
 - Phase 3: active as derived nutrition/staleness layer.
+- Adapter policy: implemented as a pre-adapter checkpoint.
 - Phase 4+: design only until the earlier gates stay boring.
 
 Already implemented:
@@ -504,15 +505,20 @@ Already implemented:
 - root `AGENTS.md` contract for future models
 - Phase 3 nutrition boundary audit in `public/verification/`
 - GitHub Actions mirrors local `deno task check`
+- adapter policy document in `substrates/ADAPTER_POLICY.md`
+- Genesis and Liquid substrate notes declare audited adapter policies
+- protocol audit rejects substrate adapter notes without read/write/payload and
+  side-effect boundaries
+- adapter policy audit in `public/verification/`
 
 Immediate next candidates:
 
-1. Adapter policy documents before any adapter implementation.
-2. Recipe layer design checkpoint after guardrails stay stable.
-3. Optional GitHub branch protection requiring the check workflow.
+1. Recipe layer design checkpoint after guardrails stay stable.
+2. Optional GitHub branch protection requiring the check workflow.
+3. Adapter dry-run shape, still without enabling adapter execution.
 
 Preferred next step:
 
 ```text
-Phase 3: Semantic Nutrition Labels
+Phase 4 design checkpoint: Recipe Layer
 ```

@@ -92,3 +92,26 @@ Deno.test("protocol audit rejects nutrition inside function identity body", asyn
     result.errors.join("\n"),
   );
 });
+
+Deno.test("protocol audit rejects substrate adapters without policy", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/substrates/demo/MYC.md`,
+    [
+      "# Demo Adapter Draft",
+      "",
+      "```yaml",
+      "substrate:",
+      '  name: "demo"',
+      '  role: "example"',
+      "```",
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "substrate without policy should fail audit");
+  assert(
+    result.errors.some((error) => error.includes("adapter policy")),
+    result.errors.join("\n"),
+  );
+});

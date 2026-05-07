@@ -35,6 +35,9 @@ export async function auditRoot(root: string): Promise<ProtocolAuditResult> {
     if (relative.startsWith("private/")) {
       auditPrivateFile(relative, errors);
     }
+    if (/^substrates\/[^/]+\/MYC\.md$/.test(relative)) {
+      await auditSubstratePolicy(file, relative, errors);
+    }
     if (file.endsWith(".md")) {
       await auditDescriptorFile(file, relative, errors, warnings);
     }
@@ -86,6 +89,29 @@ function auditPrivateFile(relative: string, errors: string[]): void {
   ]);
   if (!allowed.has(relative)) {
     errors.push(`${relative}: private file is present in repo workspace`);
+  }
+}
+
+async function auditSubstratePolicy(
+  file: string,
+  relative: string,
+  errors: string[],
+): Promise<void> {
+  const text = await Deno.readTextFile(file);
+  for (
+    const key of [
+      "adapter_policy:",
+      "read_policy:",
+      "write_policy:",
+      "payload_policy:",
+      "side_effects:",
+      "verification:",
+      "failure_mode:",
+    ]
+  ) {
+    if (!text.includes(key)) {
+      errors.push(`${relative}: missing required adapter policy key '${key}'`);
+    }
   }
 }
 

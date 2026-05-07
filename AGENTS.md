@@ -30,6 +30,9 @@ GitHub Actions runs the same command. A change that cannot pass
 - Do not make the PWA a source of truth. It is only a lens over resolver output.
 - Do not make adapter output mutate core silently. Adapter output must be a
   descriptor, transform, receipt, or warning.
+- Do not add a substrate adapter note without `adapter_policy`, `read_policy`,
+  `write_policy`, `payload_policy`, `side_effects`, `verification`, and
+  `failure_mode`.
 
 ## Current Phase
 
@@ -56,3 +59,4 @@ When reviewing changes, check these first:
 - generated graph/index freshness
 - premature descriptor families
 - payload, token, or local-path leakage
+- adapter policy drift

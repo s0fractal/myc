@@ -19,6 +19,15 @@ substrate:
   local_path: "/Users/s0fractal/liquid"
   role: "semantic-routing-and-deferred-intents"
 
+adapter_policy:
+  status: "draft"
+  read_policy: "explicit-roots"
+  write_policy: "proposal-only"
+  payload_policy: "descriptor-only"
+  side_effects: ["file-read", "git-read"]
+  verification: ["deno-task-check", "receipt-file"]
+  failure_mode: "warn-only"
+
 useful_organs:
   - fqdn
   - mycelial_parser
@@ -40,3 +49,11 @@ Liquid can be an advanced JAZZ adapter, not the JAZZ core.
 
 JAZZ should borrow Liquid's FQDN, deferred intent, causal ledger, and semantic
 coordinate ideas while keeping a smaller portable protocol surface.
+
+## Adapter Policy
+
+The Liquid adapter may translate semantic coordinates, deferred intents, and
+causal events into MYC proposals or witnessed descriptors.
+
+It must not make Liquid a required runtime dependency for MYC. If Liquid is
+absent, MYC should still resolve, verify, and explain its public graph.
