@@ -1,6 +1,8 @@
 import {
+  auditEntry,
   captureText,
   explainTarget,
+  formatAuditEntry,
   handleRequest,
   lineageFor,
   makeDescriptor,
@@ -318,8 +320,129 @@ Deno.test("resolver endpoints serve correct responses", async () => {
   );
   const resSummary = await handleRequest(root, reqSummary);
   assert(resSummary.status === 200, "summary endpoint should return 200");
+  const summaryJson = await resSummary.json();
+  assert(summaryJson.ok === true, "summary ok");
+  assert(
+    summaryJson.summary.incoming_transformations > 0,
+    "summary should include lineage-derived counts",
+  );
 
   const reqVersion = new Request(`http://localhost/version`);
   const resVersion = await handleRequest(root, reqVersion);
   assert(resVersion.status === 200, "version endpoint should return 200");
+
+  const reqSearch = new Request(`http://localhost/search?q=s0fractal`);
+  const resSearch = await handleRequest(root, reqSearch);
+  assert(resSearch.status === 200, "search endpoint should return 200");
+  const searchJson = await resSearch.json();
+  assert(searchJson.ok === true, "search ok");
+  assert(searchJson.count > 0, "search should return matches");
+  assert(
+    typeof searchJson.results[0].fqdn === "string",
+    "search should return structured records",
+  );
+});
+
+Deno.test("resolver errors and CORS are stable", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+
+  const missing = await handleRequest(
+    root,
+    new Request("http://localhost/descriptor"),
+  );
+  assert(missing.status === 400, "missing target should return 400");
+  const missingBody = await missing.json();
+  assert(missingBody.ok === false, "error body should be negative");
+  assert(
+    missingBody.error === "missing-target",
+    "error code should be stable",
+  );
+  assert(
+    typeof missingBody.message === "string",
+    "error message should be present",
+  );
+
+  const method = await handleRequest(
+    root,
+    new Request("http://localhost/version", { method: "POST" }),
+  );
+  assert(method.status === 405, "unsupported methods should return 405");
+  const methodBody = await method.json();
+  assert(
+    methodBody.error === "method-not-allowed",
+    "method error code should be stable",
+  );
+
+  const allowed = await handleRequest(
+    root,
+    new Request("http://localhost/version", {
+      headers: { origin: "https://myc.md" },
+    }),
+  );
+  assert(
+    allowed.headers.get("access-control-allow-origin") === "https://myc.md",
+    "myc.md should be allowed",
+  );
+
+  const blocked = await handleRequest(
+    root,
+    new Request("http://localhost/version", {
+      headers: { origin: "https://example.com" },
+    }),
+  );
+  assert(
+    blocked.headers.get("access-control-allow-origin") === "null",
+    "unknown origins should not be reflected",
+  );
+});
+
+Deno.test("source endpoint serves descriptor source, not private payload", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  const secretText = "секретний локальний payload";
+  const result = await captureText({
+    root,
+    text: secretText,
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  const response = await handleRequest(
+    root,
+    new Request(`http://localhost/source?target=${result.rawFqdn}`),
+  );
+  assert(response.status === 200, "source should return raw descriptor source");
+  const body = await response.json();
+  assert(
+    typeof body.source === "string",
+    "source response should include markdown source",
+  );
+  assert(
+    body.source.includes("RawDescriptor"),
+    "source should contain descriptor markdown",
+  );
+  assert(
+    !body.source.includes(secretText),
+    "source must not include private payload bytes",
+  );
+});
+
+Deno.test("audit entries include path but not query payload", () => {
+  const request = new Request(
+    "http://127.0.0.1:8787/descriptor?target=secret.raw.myc.md",
+  );
+  const response = new Response("{}", { status: 200 });
+  const entry = auditEntry(
+    request,
+    response,
+    12.4,
+    new Date("2026-05-07T12:00:00.000Z"),
+  );
+  const line = formatAuditEntry(entry);
+
+  assert(entry.path === "/descriptor", "audit path should omit query string");
+  assert(!line.includes("secret.raw"), "audit line must not include query");
+  assert(
+    line === "[audit] 2026-05-07T12:00:00.000Z | GET /descriptor 200 12ms",
+    `unexpected audit line: ${line}`,
+  );
 });

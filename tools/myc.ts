@@ -92,6 +92,14 @@ export interface GraphVerificationResult {
   warnings: string[];
 }
 
+export interface AuditEntry {
+  timestamp: string;
+  method: string;
+  path: string;
+  status: number;
+  duration_ms: number;
+}
+
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
 
@@ -1504,11 +1512,7 @@ export async function handleRequest(
     return new Response(null, { status: 204, headers: corsHeaders(request) });
   }
   if (request.method !== "GET") {
-    return jsonResponse(
-      { ok: false, error: "method-not-allowed" },
-      405,
-      request,
-    );
+    return errorResponse("method-not-allowed", 405, request);
   }
 
   if (url.pathname === "/health") {
@@ -1541,15 +1545,11 @@ export async function handleRequest(
   if (url.pathname === "/resolve") {
     const fqdn = url.searchParams.get("fqdn");
     if (!fqdn) {
-      return jsonResponse({ ok: false, error: "missing-fqdn" }, 400, request);
+      return errorResponse("missing-fqdn", 400, request);
     }
     const record = await resolveFqdn(root, fqdn);
     if (!record) {
-      return jsonResponse(
-        { ok: false, error: "not-found", fqdn },
-        404,
-        request,
-      );
+      return errorResponse("not-found", 404, request, { fqdn });
     }
     return jsonResponse({ ok: true, ...record }, 200, request);
   }
@@ -1557,17 +1557,13 @@ export async function handleRequest(
   if (url.pathname === "/verify") {
     const target = url.searchParams.get("target");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+      return errorResponse("missing-target", 400, request);
     }
     const path = target.startsWith("/")
       ? target
       : (await resolveFqdn(root, target))?.path;
     if (!path) {
-      return jsonResponse(
-        { ok: false, error: "not-found", target },
-        404,
-        request,
-      );
+      return errorResponse("not-found", 404, request, { target });
     }
     const result = await verifyPath(path);
     const privateRequested = ["1", "true", "yes"].includes(
@@ -1598,7 +1594,7 @@ export async function handleRequest(
     const target = url.searchParams.get("target") ??
       url.searchParams.get("fqdn");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+      return errorResponse("missing-target", 400, request);
     }
     const lineage = await lineageFor(root, target);
     return jsonResponse(lineage, lineage.ok ? 200 : 404, request);
@@ -1608,7 +1604,7 @@ export async function handleRequest(
     const target = url.searchParams.get("target") ??
       url.searchParams.get("fqdn");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+      return errorResponse("missing-target", 400, request);
     }
     const explanation = await explainTarget(root, target);
     return jsonResponse(
@@ -1626,15 +1622,11 @@ export async function handleRequest(
     const target = url.searchParams.get("target") ??
       url.searchParams.get("fqdn");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+      return errorResponse("missing-target", 400, request);
     }
     const record = await resolveFqdn(root, target);
     if (!record) {
-      return jsonResponse(
-        { ok: false, error: "not-found", target },
-        404,
-        request,
-      );
+      return errorResponse("not-found", 404, request, { target });
     }
     return jsonResponse(
       { ok: true, descriptor: record.descriptor },
@@ -1647,15 +1639,11 @@ export async function handleRequest(
     const target = url.searchParams.get("target") ??
       url.searchParams.get("fqdn");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+      return errorResponse("missing-target", 400, request);
     }
     const record = await resolveFqdn(root, target);
     if (!record) {
-      return jsonResponse(
-        { ok: false, error: "not-found", target },
-        404,
-        request,
-      );
+      return errorResponse("not-found", 404, request, { target });
     }
     const source = await Deno.readTextFile(record.path);
     return jsonResponse({ ok: true, source }, 200, request);
@@ -1665,35 +1653,21 @@ export async function handleRequest(
     const target = url.searchParams.get("target") ??
       url.searchParams.get("fqdn");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+      return errorResponse("missing-target", 400, request);
     }
     const record = await resolveFqdn(root, target);
     if (!record) {
-      return jsonResponse(
-        { ok: false, error: "not-found", target },
-        404,
-        request,
-      );
+      return errorResponse("not-found", 404, request, { target });
     }
-    const descriptor = record.descriptor;
-    const body = descriptor.body as Record<string, unknown>;
-    const summary = {
-      type: descriptor.type,
-      fqdn: descriptor.fqdn,
-      commitment: descriptor.commitment.value,
-      oct: body.oct,
-      intent_kind: body.intent_kind,
-      kind: body.kind,
-      actor: body.actor,
-      step: body.step,
-    };
+    const lineage = await lineageFor(root, target);
+    const summary = summarizeDescriptor(record.descriptor, lineage);
     return jsonResponse({ ok: true, summary }, 200, request);
   }
 
   if (url.pathname === "/search") {
     const q = url.searchParams.get("q")?.toLowerCase();
     if (!q) {
-      return jsonResponse({ ok: false, error: "missing-query" }, 400, request);
+      return errorResponse("missing-query", 400, request);
     }
     const records = await scanDescriptors(root);
     const results = records
@@ -1701,7 +1675,12 @@ export async function handleRequest(
         record.descriptor.fqdn.toLowerCase().includes(q) ||
         record.descriptor.commitment.value.toLowerCase().includes(q)
       )
-      .map((record) => record.descriptor.fqdn);
+      .map((record) => ({
+        fqdn: record.descriptor.fqdn,
+        type: record.descriptor.type,
+        commitment: record.descriptor.commitment.value,
+        aliases: descriptorAddresses(record.descriptor),
+      }));
     return jsonResponse(
       { ok: true, count: results.length, results },
       200,
@@ -1709,7 +1688,36 @@ export async function handleRequest(
     );
   }
 
-  return jsonResponse({ ok: false, error: "not-found" }, 404, request);
+  return errorResponse("not-found", 404, request, { path: url.pathname });
+}
+
+function errorResponse(
+  code: string,
+  status: number,
+  request?: Request,
+  details: Record<string, Json> = {},
+): Response {
+  return jsonResponse(
+    {
+      ok: false,
+      error: code,
+      message: errorMessage(code),
+      ...details,
+    },
+    status,
+    request,
+  );
+}
+
+function errorMessage(code: string): string {
+  const messages: Record<string, string> = {
+    "method-not-allowed": "Only GET and OPTIONS are supported.",
+    "missing-fqdn": "Required query parameter 'fqdn' is missing.",
+    "missing-target": "Required query parameter 'target' or 'fqdn' is missing.",
+    "missing-query": "Required query parameter 'q' is missing.",
+    "not-found": "Requested MYC descriptor or route was not found.",
+  };
+  return messages[code] ?? code;
 }
 
 function jsonResponse(
@@ -1743,6 +1751,26 @@ function allowedOrigin(origin: string): boolean {
   if (/^http:\/\/127\.0\.0\.1(?::\d+)?$/.test(origin)) return true;
   if (/^http:\/\/\[::1\](?::\d+)?$/.test(origin)) return true;
   return origin === "";
+}
+
+export function auditEntry(
+  request: Request,
+  response: Response,
+  durationMs: number,
+  now = new Date(),
+): AuditEntry {
+  const url = new URL(request.url);
+  return {
+    timestamp: now.toISOString(),
+    method: request.method,
+    path: url.pathname,
+    status: response.status,
+    duration_ms: Math.round(durationMs),
+  };
+}
+
+export function formatAuditEntry(entry: AuditEntry): string {
+  return `[audit] ${entry.timestamp} | ${entry.method} ${entry.path} ${entry.status} ${entry.duration_ms}ms`;
 }
 
 function parseArgs(
@@ -1872,47 +1900,6 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
-  if (command === "dry-run") {
-    const recipeFqdn = rest[0];
-    const targetFqdn = rest[1];
-    if (!recipeFqdn || !targetFqdn) {
-      throw new Error("dry-run requires <recipe-fqdn> and <target-fqdn>");
-    }
-
-    const recipeRecord = await resolveFqdn(root, recipeFqdn);
-    if (!recipeRecord || recipeRecord.descriptor.type !== "RecipeDescriptor") {
-      throw new Error(
-        `Recipe not found or not a RecipeDescriptor: ${recipeFqdn}`,
-      );
-    }
-    const targetRecord = await resolveFqdn(root, targetFqdn);
-    if (!targetRecord) {
-      throw new Error(`Target not found: ${targetFqdn}`);
-    }
-
-    const body = recipeRecord.descriptor.body;
-    const report = {
-      ok: true,
-      recipe: recipeFqdn,
-      target: targetFqdn,
-      context_policy: body.context_policy,
-      payload_policy: body.payload_policy,
-      side_effects: body.side_effects,
-      proof_mode: body.proof_mode,
-      evaluation: "Simulated execution allowed.",
-    };
-
-    if (body.payload_policy === "capability-required") {
-      report.ok = false;
-      report.evaluation =
-        "MISSING_CAPABILITY: private payload requested but no capability provided.";
-    }
-
-    console.log(JSON.stringify(report, null, 2));
-    if (!report.ok) Deno.exitCode = 1;
-    return;
-  }
-
   if (command === "index") {
     const path = await rebuildIndex(root);
     console.log(JSON.stringify({ ok: true, path }, null, 2));
@@ -1959,15 +1946,10 @@ export async function main(args: string[]): Promise<void> {
     const hostname = flagString(flags, "host") ?? "127.0.0.1";
     console.log(JSON.stringify({ ok: true, root, hostname, port }, null, 2));
     Deno.serve({ hostname, port }, async (request) => {
-      const url = new URL(request.url);
       const start = performance.now();
       const response = await handleRequest(root, request);
-      const ms = Math.round(performance.now() - start);
-      console.log(
-        `[audit] ${
-          new Date().toISOString()
-        } | ${request.method} ${url.pathname} ${response.status} ${ms}ms`,
-      );
+      const entry = auditEntry(request, response, performance.now() - start);
+      console.log(formatAuditEntry(entry));
       return response;
     });
     return;

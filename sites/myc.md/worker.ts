@@ -67,7 +67,7 @@ const HTML = `<!doctype html>
       <div class="workspace-grid">
         <section class="panel" aria-label="Descriptor output">
           <div class="panel-header">
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="descriptor-heading">
               <h2>descriptor</h2>
               <span id="privacy-badge" class="badge" hidden></span>
               <span id="nutrition-badge" class="badge" hidden></span>
@@ -75,10 +75,12 @@ const HTML = `<!doctype html>
             <span id="descriptor-title">no target</span>
             <div class="tabs">
               <button id="tab-json" class="tab active" type="button">JSON</button>
+              <button id="tab-summary" class="tab" type="button">Summary</button>
               <button id="tab-source" class="tab" type="button">Source</button>
             </div>
           </div>
           <pre id="output"></pre>
+          <pre id="summary-output" hidden></pre>
           <pre id="source-output" hidden></pre>
         </section>
 
@@ -306,6 +308,12 @@ h2 {
   gap: 12px;
 }
 
+.descriptor-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .tabs {
   display: flex;
   gap: 4px;
@@ -435,6 +443,7 @@ const state = {
   resolver: localStorage.getItem("myc.resolver") || DEFAULT_RESOLVER,
   records: [],
   deferredInstall: null,
+  searchTimer: null,
 };
 
 $("resolver-url").value = state.resolver;
@@ -519,9 +528,11 @@ async function loadIndex() {
 
 function switchTab(tab) {
   $("tab-json").classList.toggle("active", tab === "json");
+  $("tab-summary").classList.toggle("active", tab === "summary");
   $("tab-source").classList.toggle("active", tab === "source");
-  $("output").hidden = tab === "source";
-  $("source-output").hidden = tab === "json";
+  $("output").hidden = tab !== "json";
+  $("summary-output").hidden = tab !== "summary";
+  $("source-output").hidden = tab !== "source";
 }
 
 async function resolveTarget() {
@@ -558,7 +569,19 @@ async function sourceTarget() {
     const result = await api("/source?target=" + encodeURIComponent(target));
     $("source-output").textContent = result.source;
   } catch (error) {
-    $("source-output").textContent = "Source unavailable: Payload is private or sealed.\\n\\nReason: " + (error.body?.error || error.message);
+    $("source-output").textContent = "Descriptor source unavailable.\\n\\nReason: " + (error.body?.error || error.message);
+  }
+}
+
+async function summaryTarget() {
+  const target = $("target-input").value.trim();
+  if (!target) return;
+  $("summary-output").textContent = "Loading summary...";
+  try {
+    const result = await api("/summary?target=" + encodeURIComponent(target));
+    $("summary-output").textContent = JSON.stringify(result.summary, null, 2);
+  } catch (error) {
+    $("summary-output").textContent = "Summary unavailable.\\n\\nReason: " + (error.body?.error || error.message);
   }
 }
 
@@ -605,6 +628,25 @@ function renderIndex() {
     row.append(text, button);
     return row;
   }));
+}
+
+function scheduleSearch() {
+  clearTimeout(state.searchTimer);
+  state.searchTimer = setTimeout(() => {
+    searchIndex().catch((error) => write(error.body || error.message));
+  }, 160);
+}
+
+async function searchIndex() {
+  const query = $("search-input").value.trim();
+  if (!query) {
+    await loadIndex();
+    return;
+  }
+  const result = await api("/search?q=" + encodeURIComponent(query));
+  state.records = result.results || [];
+  setText("descriptor-value", String(result.count ?? state.records.length));
+  renderIndex();
 }
 
 function drawGraph(lineage) {
@@ -675,8 +717,12 @@ $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) =>
 $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) => write(error.body || error.message)));
 $("explain-btn").addEventListener("click", () => explainTarget().catch((error) => write(error.body || error.message)));
 $("lineage-btn").addEventListener("click", () => lineageTarget().catch((error) => write(error.body || error.message)));
-$("search-input").addEventListener("input", renderIndex);
+$("search-input").addEventListener("input", scheduleSearch);
 $("tab-json").addEventListener("click", () => switchTab("json"));
+$("tab-summary").addEventListener("click", () => {
+  switchTab("summary");
+  summaryTarget();
+});
 $("tab-source").addEventListener("click", () => {
   switchTab("source");
   sourceTarget();

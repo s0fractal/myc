@@ -455,6 +455,13 @@ verify-first / local-first / transformation-first.
 
 ## Current State
 
+Phase status:
+
+- Phase 0: closed for the current kernel surface.
+- Phase 1: implemented and guarded by tests.
+- Phase 2: active next phase.
+- Phase 3+: design only until the earlier gates stay boring.
+
 Already implemented:
 
 - local `~/myc` repo
@@ -465,16 +472,22 @@ Already implemented:
 - pre-commit hook
 - local read-only resolver
 - Cloudflare `myc.md` PWA shell
+- resolver endpoints: `/descriptor`, `/source`, `/summary`, `/search`,
+  `/version`
+- stable resolver error envelope: `ok`, `error`, `message`
+- request audit receipt that records method, path, status, timestamp, duration,
+  and omits query strings
+- endpoint tests for resolver success, errors, CORS, descriptor source, search,
+  and audit privacy
 
 Immediate next candidates:
 
-1. Resolver hardening: `/descriptor`, `/source`, `/summary`, `/search`,
-   `/version`.
-2. PWA source/summary/search views.
+1. PWA source/summary/search views.
+2. Resolver health and graph health display polish.
 3. Nutrition labels and stale verification.
 
 Preferred next step:
 
 ```text
-Phase 1: Resolver Hardening
+Phase 2: PWA Lens
 ```
