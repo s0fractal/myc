@@ -22,11 +22,6 @@ const LOCKED_FUNCTION_FQDNS = new Set([
   "h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md",
 ]);
 
-const PUBLIC_PATH_ALLOWLIST = new Set([
-  "public/graph.ndjson",
-  "public/index.ndjson",
-]);
-
 export async function auditRoot(root: string): Promise<ProtocolAuditResult> {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -68,7 +63,7 @@ async function auditPublicFile(
   }
 
   const text = await Deno.readTextFile(file);
-  if (!PUBLIC_PATH_ALLOWLIST.has(relative) && text.includes("/Users/")) {
+  if (/(^|["'\s])\/(?:Users|home)\//.test(text)) {
     errors.push(`${relative}: public file contains a local absolute path`);
   }
   if (text.includes("private/payloads/")) {

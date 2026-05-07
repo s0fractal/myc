@@ -1206,6 +1206,7 @@ function duplicateDescriptorFqdns(records: DescriptorRecord[]): string[] {
 
 function graphLines(edges: GraphEdge[]): string[] {
   return edges
+    .map((edge) => graphEdgeRecord(edge, false))
     .sort((a, b) =>
       `${a.transform}:${JSON.stringify(a.input)}:${JSON.stringify(a.output)}`
         .localeCompare(
@@ -1421,7 +1422,7 @@ export async function rebuildIndex(root: string): Promise<string> {
     .flatMap((record) =>
       descriptorAddresses(record.descriptor).map((fqdn) => ({
         fqdn,
-        path: record.path,
+        path: relativePath(root, record.path),
         type: record.descriptor.type,
         commitment: record.descriptor.commitment.value,
       }))
@@ -1888,6 +1889,11 @@ function graphEdgeRecord(
     input: edge.input,
     output: edge.output,
   };
+}
+
+function relativePath(root: string, file: string): string {
+  const prefix = root.endsWith("/") ? root : `${root}/`;
+  return file.startsWith(prefix) ? file.slice(prefix.length) : file;
 }
 
 function errorResponse(
