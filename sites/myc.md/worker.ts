@@ -722,25 +722,31 @@ async function resolveTarget() {
   setTarget(target);
   const result = await api("/descriptor?target=" + encodeURIComponent(target));
   $("descriptor-title").textContent = result.descriptor?.type || target;
-  
+
   const payloadState = result.descriptor?.body?.payload?.state || result.descriptor?.body?.payload_state || "public";
   const badge = $("privacy-badge");
   badge.textContent = payloadState;
   badge.className = "badge " + payloadState;
   badge.hidden = false;
-  
-  const nutritionStatus = result.descriptor?.body?.nutrition?.status;
-  const nutritionBadge = $("nutrition-badge");
-  if (nutritionStatus) {
-    nutritionBadge.textContent = nutritionStatus;
-    nutritionBadge.className = "badge " + nutritionStatus;
-    nutritionBadge.hidden = false;
-  } else {
-    nutritionBadge.hidden = true;
-  }
-  
+
+  renderNutritionBadge(null);
+  api("/nutrition?target=" + encodeURIComponent(target))
+    .then((nutrition) => renderNutritionBadge(nutrition.nutrition))
+    .catch(() => renderNutritionBadge(null));
+
   write(result.descriptor || result);
   switchTab("json");
+}
+
+function renderNutritionBadge(nutrition) {
+  const nutritionBadge = $("nutrition-badge");
+  if (!nutrition?.status) {
+    nutritionBadge.hidden = true;
+    return;
+  }
+  nutritionBadge.textContent = nutrition.status;
+  nutritionBadge.className = "badge " + nutrition.status;
+  nutritionBadge.hidden = false;
 }
 
 async function sourceTarget() {
@@ -799,7 +805,8 @@ function renderIndex() {
     const title = document.createElement("strong");
     title.textContent = record.fqdn;
     const meta = document.createElement("span");
-    meta.textContent = record.type + " | " + record.commitment;
+    const nutrition = record.nutrition?.status ? " | " + record.nutrition.status : "";
+    meta.textContent = record.type + nutrition + " | " + record.commitment;
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = "Open";

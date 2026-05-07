@@ -459,8 +459,9 @@ Phase status:
 
 - Phase 0: closed for the current kernel surface.
 - Phase 1: implemented and guarded by tests.
-- Phase 2: active next phase.
-- Phase 3+: design only until the earlier gates stay boring.
+- Phase 2: closed by boundary audit.
+- Phase 3: active as derived nutrition/staleness layer.
+- Phase 4+: design only until the earlier gates stay boring.
 
 Already implemented:
 
@@ -491,15 +492,20 @@ Already implemented:
 - PWA cached last index/graph projection in localStorage for offline viewing
 - PWA manual retry and soft reconnect loop
 - Phase 2 PWA lens boundary audit in `public/verification/`
+- derived nutrition labels that do not mutate descriptor identity
+- `/nutrition?target=...` endpoint
+- summary/index/search include derived nutrition
+- graph verifier warns on speculative or stale nutrition states
+- staleness recognition for explicit/expired embedded nutrition metadata
 
 Immediate next candidates:
 
-1. Nutrition labels and stale verification.
-2. Recipe layer design checkpoint after Phase 2 stays stable.
+1. PWA nutrition display polish and graph warning surface.
+2. Recipe layer design checkpoint after Phase 3 stays stable.
 3. Adapter policy documents before any adapter implementation.
 
 Preferred next step:
 
 ```text
-Phase 2: PWA Lens
+Phase 3: Semantic Nutrition Labels
 ```

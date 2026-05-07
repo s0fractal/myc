@@ -6,6 +6,7 @@ import {
   handleRequest,
   lineageFor,
   makeDescriptor,
+  nutritionForDescriptor,
   parseDescriptorFile,
   reprojectRaw,
   resolveFqdn,
@@ -232,6 +233,95 @@ Deno.test("graph endpoint returns sanitized edges by default", async () => {
   );
 });
 
+Deno.test("derived nutrition does not change descriptor identity", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  const result = await captureText({
+    root,
+    text: "просто нейтральна думка",
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  const artifact = await resolveFqdn(root, result.artifactFqdn);
+  assert(artifact, "artifact should resolve");
+  const before = artifact.descriptor.commitment.value;
+  const nutrition = nutritionForDescriptor(artifact.descriptor);
+  const verified = await verifyPath(artifact.path);
+
+  assert(verified.ok, verified.errors.join("\n"));
+  assert(
+    artifact.descriptor.commitment.value === before,
+    "nutrition should be derived and not mutate descriptor commitment",
+  );
+  assert(
+    nutrition.status === "speculative",
+    `expected speculative nutrition, got ${nutrition.status}`,
+  );
+  assert(
+    nutrition.labels.includes("speculative"),
+    "nutrition labels should include status",
+  );
+});
+
+Deno.test("nutrition endpoint and graph warnings expose speculative state", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  const result = await captureText({
+    root,
+    text: "нейтральний запис без явного наміру",
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  const response = await handleRequest(
+    root,
+    new Request(`http://localhost/nutrition?target=${result.artifactFqdn}`),
+  );
+  assert(response.status === 200, "nutrition endpoint should return 200");
+  const body = await response.json();
+  assert(body.ok === true, "nutrition response should be ok");
+  assert(
+    body.nutrition.status === "speculative",
+    "neutral artifact should be speculative",
+  );
+
+  const graph = await verifyGraph(root);
+  assert(graph.ok, graph.errors.join("\n"));
+  assert(
+    graph.warnings.some((warning) => warning.includes("speculative")),
+    "graph verifier should warn about speculative descriptors",
+  );
+});
+
+Deno.test("expired embedded nutrition is reported as stale", async () => {
+  const descriptor = await makeDescriptor(
+    "ArtifactDescriptor",
+    "myc.artifact.v0.1",
+    "artifact.example.h.deadbeef.myc.md",
+    {
+      artifact_hash: "deadbeef",
+      formula: {
+        input: {
+          function_hash: "f",
+          input_commitment: "i",
+          context_commitment: "c",
+          params_commitment: "p",
+        },
+      },
+      classification: { confidence: "medium" },
+      nutrition: {
+        expires_at: "2026-01-01T00:00:00.000Z",
+      },
+    },
+  );
+
+  const nutrition = nutritionForDescriptor(
+    descriptor,
+    new Date("2026-05-07T00:00:00.000Z"),
+  );
+  assert(nutrition.status === "stale", "expired nutrition should be stale");
+  assert(nutrition.freshness === "stale", "freshness should be stale");
+});
+
 Deno.test("explain summarizes transformation context", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-test-" });
   const result = await captureText({
@@ -403,6 +493,10 @@ Deno.test("resolver endpoints serve correct responses", async () => {
   assert(
     summaryJson.summary.incoming_transformations > 0,
     "summary should include lineage-derived counts",
+  );
+  assert(
+    typeof summaryJson.summary.nutrition.status === "string",
+    "summary should include derived nutrition",
   );
 
   const reqVersion = new Request(`http://localhost/version`);
