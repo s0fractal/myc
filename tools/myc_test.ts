@@ -1,6 +1,7 @@
 import {
   auditEntry,
   captureText,
+  defaultRoot,
   explainTarget,
   formatAuditEntry,
   handleRequest,
@@ -18,6 +19,23 @@ import {
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
+
+Deno.test("default root uses repository checkout when MYC_ROOT is unset", () => {
+  const previous = Deno.env.get("MYC_ROOT");
+  try {
+    Deno.env.delete("MYC_ROOT");
+    assert(
+      defaultRoot() === Deno.cwd(),
+      "default root should prefer current repository checkout",
+    );
+  } finally {
+    if (previous === undefined) {
+      Deno.env.delete("MYC_ROOT");
+    } else {
+      Deno.env.set("MYC_ROOT", previous);
+    }
+  }
+});
 
 Deno.test("capture creates a resolvable deterministic descriptor chain", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-test-" });

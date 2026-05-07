@@ -144,6 +144,14 @@ const FUNCTION_DEFINITIONS = {
 export function defaultRoot(): string {
   const envRoot = Deno.env.get("MYC_ROOT");
   if (envRoot) return envRoot;
+  const cwd = Deno.cwd();
+  try {
+    const config = Deno.statSync(joinPath(cwd, "deno.jsonc"));
+    const tools = Deno.statSync(joinPath(cwd, "tools", "myc.ts"));
+    if (config.isFile && tools.isFile) return cwd;
+  } catch {
+    // Fall back to the local operator convention below.
+  }
   const home = Deno.env.get("HOME") ?? "/Users/s0fractal";
   return joinPath(home, "myc");
 }
