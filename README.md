@@ -97,6 +97,12 @@ deno task audit
 It blocks premature descriptor families, core function identity drift, public
 payload leakage, and secret-like material in public files.
 
+GitHub Actions runs the same command on pushes and pull requests:
+
+```bash
+deno task check
+```
+
 ## Root Invariants
 
 - Names point.

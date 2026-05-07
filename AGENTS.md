@@ -14,6 +14,9 @@ deno task check
 This includes formatting, type-checking, linting, tests, graph verification, and
 protocol audit. Do not bypass `.githooks/pre-commit`.
 
+GitHub Actions runs the same command. A change that cannot pass
+`deno task check` is not ready for review.
+
 ## Hard Rules
 
 - Do not embed private payload bytes in `public/`.

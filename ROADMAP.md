@@ -503,12 +503,13 @@ Already implemented:
 - protocol guardrails audit in `public/verification/`
 - root `AGENTS.md` contract for future models
 - Phase 3 nutrition boundary audit in `public/verification/`
+- GitHub Actions mirrors local `deno task check`
 
 Immediate next candidates:
 
 1. Adapter policy documents before any adapter implementation.
 2. Recipe layer design checkpoint after guardrails stay stable.
-3. Optional GitHub branch protection / CI mirror for `deno task check`.
+3. Optional GitHub branch protection requiring the check workflow.
 
 Preferred next step:
 
