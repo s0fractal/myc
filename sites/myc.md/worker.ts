@@ -67,10 +67,19 @@ const HTML = `<!doctype html>
       <div class="workspace-grid">
         <section class="panel" aria-label="Descriptor output">
           <div class="panel-header">
-            <h2>descriptor</h2>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2>descriptor</h2>
+              <span id="privacy-badge" class="badge" hidden></span>
+              <span id="nutrition-badge" class="badge" hidden></span>
+            </div>
             <span id="descriptor-title">no target</span>
+            <div class="tabs">
+              <button id="tab-json" class="tab active" type="button">JSON</button>
+              <button id="tab-source" class="tab" type="button">Source</button>
+            </div>
           </div>
           <pre id="output"></pre>
+          <pre id="source-output" hidden></pre>
         </section>
 
         <section class="panel" aria-label="Graph view">
@@ -297,6 +306,42 @@ h2 {
   gap: 12px;
 }
 
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+.tab {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.tab.active {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+.badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 600;
+}
+.badge.private-local { background: var(--bad); color: white; }
+.badge.known-but-unavailable { background: var(--accent-2); color: white; }
+.badge.public { background: var(--good); color: white; }
+.badge.raw { background: var(--muted); color: white; }
+.badge.verified { background: var(--good); color: white; }
+.badge.speculative { background: var(--accent-2); color: white; }
+.badge.stale { background: var(--bad); color: white; }
+
+
 pre {
   margin: 0;
   min-height: 360px;
@@ -472,12 +517,49 @@ async function loadIndex() {
   return result;
 }
 
+function switchTab(tab) {
+  $("tab-json").classList.toggle("active", tab === "json");
+  $("tab-source").classList.toggle("active", tab === "source");
+  $("output").hidden = tab === "source";
+  $("source-output").hidden = tab === "json";
+}
+
 async function resolveTarget() {
   const target = $("target-input").value.trim();
   if (!target) return;
-  const result = await api("/resolve?fqdn=" + encodeURIComponent(target));
+  const result = await api("/descriptor?target=" + encodeURIComponent(target));
   $("descriptor-title").textContent = result.descriptor?.type || target;
-  write(result);
+  
+  const payloadState = result.descriptor?.body?.payload?.state || result.descriptor?.body?.payload_state || "public";
+  const badge = $("privacy-badge");
+  badge.textContent = payloadState;
+  badge.className = "badge " + payloadState;
+  badge.hidden = false;
+  
+  const nutritionStatus = result.descriptor?.body?.nutrition?.status;
+  const nutritionBadge = $("nutrition-badge");
+  if (nutritionStatus) {
+    nutritionBadge.textContent = nutritionStatus;
+    nutritionBadge.className = "badge " + nutritionStatus;
+    nutritionBadge.hidden = false;
+  } else {
+    nutritionBadge.hidden = true;
+  }
+  
+  write(result.descriptor || result);
+  switchTab("json");
+}
+
+async function sourceTarget() {
+  const target = $("target-input").value.trim();
+  if (!target) return;
+  $("source-output").textContent = "Loading source...";
+  try {
+    const result = await api("/source?target=" + encodeURIComponent(target));
+    $("source-output").textContent = result.source;
+  } catch (error) {
+    $("source-output").textContent = "Source unavailable: Payload is private or sealed.\\n\\nReason: " + (error.body?.error || error.message);
+  }
 }
 
 async function explainTarget() {
@@ -594,6 +676,11 @@ $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) =
 $("explain-btn").addEventListener("click", () => explainTarget().catch((error) => write(error.body || error.message)));
 $("lineage-btn").addEventListener("click", () => lineageTarget().catch((error) => write(error.body || error.message)));
 $("search-input").addEventListener("input", renderIndex);
+$("tab-json").addEventListener("click", () => switchTab("json"));
+$("tab-source").addEventListener("click", () => {
+  switchTab("source");
+  sourceTarget();
+});
 
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();

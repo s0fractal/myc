@@ -236,3 +236,90 @@ Deno.test("verifyGraph detects a bad function commitment", async () => {
     graph.errors.join("\n"),
   );
 });
+
+Deno.test("function descriptors produce stable identity hashes", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  await captureText({
+    root,
+    text: "dummy",
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  const functionsDir = `${root}/public/functions`;
+  const fns = [];
+  for await (const dirEntry of Deno.readDir(functionsDir)) {
+    if (dirEntry.isFile && dirEntry.name.endsWith(".myc.md")) {
+      fns.push(dirEntry.name);
+    }
+  }
+
+  assert(fns.length === 3, "should generate exactly 3 core functions");
+
+  const canonicalizer = fns.find((f) => f.includes(".myc-raw-bytes-sha256."));
+  assert(canonicalizer, "canonicalizer function should exist");
+  assert(
+    canonicalizer.includes("h.4f76fd8466bc"),
+    `expected stable canonicalizer hash h.4f76fd8466bc, got ${canonicalizer}`,
+  );
+
+  const classifier = fns.find((f) =>
+    f.includes(".myc-intent-rules-classifier.")
+  );
+  assert(classifier, "classifier function should exist");
+  assert(
+    classifier.includes("h.340cb8baf52e"),
+    `expected stable classifier hash h.340cb8baf52e, got ${classifier}`,
+  );
+
+  const namingPolicy = fns.find((f) => f.includes(".myc-fqdn-naming-policy."));
+  assert(namingPolicy, "naming policy function should exist");
+  assert(
+    namingPolicy.includes("h.849874aa8a18"),
+    `expected stable naming policy hash h.849874aa8a18, got ${namingPolicy}`,
+  );
+});
+
+Deno.test("resolver endpoints serve correct responses", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  const result = await captureText({
+    root,
+    text: "test message for endpoints",
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  const reqDesc = new Request(
+    `http://localhost/descriptor?target=${result.artifactFqdn}`,
+  );
+  const resDesc = await handleRequest(root, reqDesc);
+  assert(resDesc.status === 200, "descriptor endpoint should return 200");
+  const descJson = await resDesc.json();
+  assert(descJson.ok === true, "descriptor ok");
+  assert(
+    descJson.descriptor.fqdn === result.artifactFqdn,
+    "descriptor fqdn match",
+  );
+
+  const reqSource = new Request(
+    `http://localhost/source?target=${result.artifactFqdn}`,
+  );
+  const resSource = await handleRequest(root, reqSource);
+  assert(
+    resSource.status === 200,
+    "source endpoint should return 200 for public descriptor",
+  );
+  const sourceJson = await resSource.json();
+  assert(sourceJson.ok === true, "source ok");
+  assert(typeof sourceJson.source === "string", "source is string");
+
+  const reqSummary = new Request(
+    `http://localhost/summary?target=${result.artifactFqdn}`,
+  );
+  const resSummary = await handleRequest(root, reqSummary);
+  assert(resSummary.status === 200, "summary endpoint should return 200");
+
+  const reqVersion = new Request(`http://localhost/version`);
+  const resVersion = await handleRequest(root, reqVersion);
+  assert(resVersion.status === 200, "version endpoint should return 200");
+});

@@ -1618,6 +1618,97 @@ export async function handleRequest(
     );
   }
 
+  if (url.pathname === "/version") {
+    return jsonResponse({ ok: true, version: "0.1.0" }, 200, request);
+  }
+
+  if (url.pathname === "/descriptor") {
+    const target = url.searchParams.get("target") ??
+      url.searchParams.get("fqdn");
+    if (!target) {
+      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+    }
+    const record = await resolveFqdn(root, target);
+    if (!record) {
+      return jsonResponse(
+        { ok: false, error: "not-found", target },
+        404,
+        request,
+      );
+    }
+    return jsonResponse(
+      { ok: true, descriptor: record.descriptor },
+      200,
+      request,
+    );
+  }
+
+  if (url.pathname === "/source") {
+    const target = url.searchParams.get("target") ??
+      url.searchParams.get("fqdn");
+    if (!target) {
+      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+    }
+    const record = await resolveFqdn(root, target);
+    if (!record) {
+      return jsonResponse(
+        { ok: false, error: "not-found", target },
+        404,
+        request,
+      );
+    }
+    const source = await Deno.readTextFile(record.path);
+    return jsonResponse({ ok: true, source }, 200, request);
+  }
+
+  if (url.pathname === "/summary") {
+    const target = url.searchParams.get("target") ??
+      url.searchParams.get("fqdn");
+    if (!target) {
+      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
+    }
+    const record = await resolveFqdn(root, target);
+    if (!record) {
+      return jsonResponse(
+        { ok: false, error: "not-found", target },
+        404,
+        request,
+      );
+    }
+    const descriptor = record.descriptor;
+    const body = descriptor.body as Record<string, unknown>;
+    const summary = {
+      type: descriptor.type,
+      fqdn: descriptor.fqdn,
+      commitment: descriptor.commitment.value,
+      oct: body.oct,
+      intent_kind: body.intent_kind,
+      kind: body.kind,
+      actor: body.actor,
+      step: body.step,
+    };
+    return jsonResponse({ ok: true, summary }, 200, request);
+  }
+
+  if (url.pathname === "/search") {
+    const q = url.searchParams.get("q")?.toLowerCase();
+    if (!q) {
+      return jsonResponse({ ok: false, error: "missing-query" }, 400, request);
+    }
+    const records = await scanDescriptors(root);
+    const results = records
+      .filter((record) =>
+        record.descriptor.fqdn.toLowerCase().includes(q) ||
+        record.descriptor.commitment.value.toLowerCase().includes(q)
+      )
+      .map((record) => record.descriptor.fqdn);
+    return jsonResponse(
+      { ok: true, count: results.length, results },
+      200,
+      request,
+    );
+  }
+
   return jsonResponse({ ok: false, error: "not-found" }, 404, request);
 }
 
@@ -1781,6 +1872,47 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  if (command === "dry-run") {
+    const recipeFqdn = rest[0];
+    const targetFqdn = rest[1];
+    if (!recipeFqdn || !targetFqdn) {
+      throw new Error("dry-run requires <recipe-fqdn> and <target-fqdn>");
+    }
+
+    const recipeRecord = await resolveFqdn(root, recipeFqdn);
+    if (!recipeRecord || recipeRecord.descriptor.type !== "RecipeDescriptor") {
+      throw new Error(
+        `Recipe not found or not a RecipeDescriptor: ${recipeFqdn}`,
+      );
+    }
+    const targetRecord = await resolveFqdn(root, targetFqdn);
+    if (!targetRecord) {
+      throw new Error(`Target not found: ${targetFqdn}`);
+    }
+
+    const body = recipeRecord.descriptor.body;
+    const report = {
+      ok: true,
+      recipe: recipeFqdn,
+      target: targetFqdn,
+      context_policy: body.context_policy,
+      payload_policy: body.payload_policy,
+      side_effects: body.side_effects,
+      proof_mode: body.proof_mode,
+      evaluation: "Simulated execution allowed.",
+    };
+
+    if (body.payload_policy === "capability-required") {
+      report.ok = false;
+      report.evaluation =
+        "MISSING_CAPABILITY: private payload requested but no capability provided.";
+    }
+
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.ok) Deno.exitCode = 1;
+    return;
+  }
+
   if (command === "index") {
     const path = await rebuildIndex(root);
     console.log(JSON.stringify({ ok: true, path }, null, 2));
@@ -1826,7 +1958,18 @@ export async function main(args: string[]): Promise<void> {
     const port = Number(flagString(flags, "port") ?? "8787");
     const hostname = flagString(flags, "host") ?? "127.0.0.1";
     console.log(JSON.stringify({ ok: true, root, hostname, port }, null, 2));
-    Deno.serve({ hostname, port }, (request) => handleRequest(root, request));
+    Deno.serve({ hostname, port }, async (request) => {
+      const url = new URL(request.url);
+      const start = performance.now();
+      const response = await handleRequest(root, request);
+      const ms = Math.round(performance.now() - start);
+      console.log(
+        `[audit] ${
+          new Date().toISOString()
+        } | ${request.method} ${url.pathname} ${response.status} ${ms}ms`,
+      );
+      return response;
+    });
     return;
   }
 
