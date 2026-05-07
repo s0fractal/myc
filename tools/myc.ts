@@ -1593,6 +1593,22 @@ export async function handleRequest(
     return jsonResponse(result, result.ok ? 200 : 422, request);
   }
 
+  if (url.pathname === "/graph") {
+    const includePaths = ["1", "true", "yes"].includes(
+      (url.searchParams.get("paths") ?? "").toLowerCase(),
+    );
+    const edges = await graphEdges(root);
+    return jsonResponse(
+      {
+        ok: true,
+        count: edges.length,
+        edges: edges.map((edge) => graphEdgeRecord(edge, includePaths)),
+      },
+      200,
+      request,
+    );
+  }
+
   if (url.pathname === "/lineage") {
     const target = url.searchParams.get("target") ??
       url.searchParams.get("fqdn");
@@ -1704,6 +1720,23 @@ function indexRecord(
     type: record.descriptor.type,
     commitment: record.descriptor.commitment.value,
     aliases: descriptorAddresses(record.descriptor),
+  };
+}
+
+function graphEdgeRecord(
+  edge: GraphEdge,
+  includePath: boolean,
+): Record<string, Json> {
+  return {
+    transform: edge.transform,
+    ...(includePath ? { transform_path: edge.transform_path } : {}),
+    step: edge.step,
+    direction: edge.direction,
+    proof_mode: edge.proof_mode,
+    function_fqdn: edge.function_fqdn,
+    function_commitment: edge.function_commitment,
+    input: edge.input,
+    output: edge.output,
   };
 }
 

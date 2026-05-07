@@ -483,6 +483,8 @@ Already implemented:
   endpoints unless explicitly requested
 - PWA graph report and resolver version display
 - PWA summary/source/search views backed by resolver endpoints
+- sanitized `/graph` snapshot endpoint with explicit path opt-in
+- PWA graph loader backed by `/graph`
 
 Immediate next candidates:
 

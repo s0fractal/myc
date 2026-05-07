@@ -198,6 +198,40 @@ Deno.test("health and index do not expose local paths by default", async () => {
   );
 });
 
+Deno.test("graph endpoint returns sanitized edges by default", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  await captureText({
+    root,
+    text: "зроби sanitized graph endpoint",
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  const graphResponse = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/graph"),
+  );
+  assert(graphResponse.status === 200, "graph should return 200");
+  const graph = await graphResponse.json();
+  assert(graph.ok === true, "graph response should be ok");
+  assert(graph.count > 0, "graph should include edges");
+  assert(
+    !("transform_path" in graph.edges[0]),
+    "graph should omit local transform paths by default",
+  );
+
+  const pathGraphResponse = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/graph?paths=1"),
+  );
+  assert(pathGraphResponse.status === 200, "path graph should return 200");
+  const pathGraph = await pathGraphResponse.json();
+  assert(
+    typeof pathGraph.edges[0].transform_path === "string",
+    "graph paths should be explicit opt-in",
+  );
+});
+
 Deno.test("explain summarizes transformation context", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-test-" });
   const result = await captureText({

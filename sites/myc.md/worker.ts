@@ -64,6 +64,7 @@ const HTML = `<!doctype html>
 
       <div class="action-row">
         <button id="verify-graph-btn" type="button">Verify Graph</button>
+        <button id="load-graph-btn" type="button">Load Graph</button>
         <button id="load-index-btn" type="button">Load Index</button>
         <button id="install-btn" type="button" hidden>Install</button>
       </div>
@@ -540,6 +541,18 @@ async function verifyGraph() {
   return result;
 }
 
+async function loadGraph() {
+  const result = await api("/graph");
+  $("graph-title").textContent = "graph snapshot";
+  $("graph-report").textContent = JSON.stringify({
+    ok: result.ok,
+    edges: result.count,
+  }, null, 2);
+  drawGraph({ backward: result.edges || [], forward: [] });
+  write(result);
+  return result;
+}
+
 async function loadIndex() {
   const result = await api("/index");
   state.records = result.records || [];
@@ -736,6 +749,7 @@ function drawGraph(lineage) {
 
 $("connect-btn").addEventListener("click", connect);
 $("verify-graph-btn").addEventListener("click", () => verifyGraph().catch((error) => write(error.body || error.message)));
+$("load-graph-btn").addEventListener("click", () => loadGraph().catch((error) => write(error.body || error.message)));
 $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) => write(error.body || error.message)));
 $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) => write(error.body || error.message)));
 $("explain-btn").addEventListener("click", () => explainTarget().catch((error) => write(error.body || error.message)));
