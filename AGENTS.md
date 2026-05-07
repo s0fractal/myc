@@ -23,6 +23,8 @@ GitHub Actions runs the same command. A change that cannot pass
 - Do not expose local private payload storage paths in public files.
 - Do not add `CapabilityDescriptor` or `public/capabilities/` before Phase 5.
 - Do not add `RecipeDescriptor` or `public/recipes/` before Phase 4.
+- Do not add recipe drafts without dry-run, payload, path, side-effect, proof,
+  and output contracts.
 - Do not add new core function descriptors without updating the locked function
   policy and tests.
 - Do not put `nutrition` inside `FunctionDescriptor.body`; nutrition is derived

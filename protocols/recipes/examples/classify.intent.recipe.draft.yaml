@@ -1,0 +1,22 @@
+recipe:
+  status: "draft"
+  function: "h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md"
+  params: "none"
+  context_policy: "public"
+  payload_policy: "descriptor-only"
+  allowed_paths:
+    - "public/objects/"
+    - "public/transforms/"
+  forbidden_paths:
+    - "private/payloads/"
+    - "sealed/"
+  side_effects:
+    - "none"
+  proof_mode: "deterministic"
+  output_contract: "descriptor"
+  dry_run: true
+
+notes:
+  intent: "Classify an existing public raw descriptor into an intent proposal."
+  enabled: false
+  reason: "RecipeDescriptor remains disabled until Phase 4 opens."

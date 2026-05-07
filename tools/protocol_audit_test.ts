@@ -115,3 +115,22 @@ Deno.test("protocol audit rejects substrate adapters without policy", async () =
     result.errors.join("\n"),
   );
 });
+
+Deno.test("protocol audit rejects recipe drafts without dry-run contract", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/protocols/recipes/examples/bad.recipe.yaml`,
+    [
+      "recipe:",
+      '  function: "h.bad.function.myc.md"',
+      '  payload_policy: "descriptor-only"',
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "recipe without dry-run contract should fail audit");
+  assert(
+    result.errors.some((error) => error.includes("recipe draft")),
+    result.errors.join("\n"),
+  );
+});

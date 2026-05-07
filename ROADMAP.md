@@ -462,7 +462,8 @@ Phase status:
 - Phase 2: closed by boundary audit.
 - Phase 3: active as derived nutrition/staleness layer.
 - Adapter policy: implemented as a pre-adapter checkpoint.
-- Phase 4+: design only until the earlier gates stay boring.
+- Phase 4: design checkpoint implemented; execution remains disabled.
+- Phase 5+: design only until the earlier gates stay boring.
 
 Already implemented:
 
@@ -510,15 +511,19 @@ Already implemented:
 - protocol audit rejects substrate adapter notes without read/write/payload and
   side-effect boundaries
 - adapter policy audit in `public/verification/`
+- recipe draft spec in `protocols/recipes/SPEC.draft.md`
+- protocol audit rejects recipe drafts without dry-run, path, payload,
+  side-effect, proof, and output contracts
+- recipe draft audit in `public/verification/`
 
 Immediate next candidates:
 
-1. Recipe layer design checkpoint after guardrails stay stable.
-2. Optional GitHub branch protection requiring the check workflow.
-3. Adapter dry-run shape, still without enabling adapter execution.
+1. Optional GitHub branch protection requiring the check workflow.
+2. Adapter dry-run shape, still without enabling adapter execution.
+3. Capability/sealed design checkpoint, without enabling public capabilities.
 
 Preferred next step:
 
 ```text
-Phase 4 design checkpoint: Recipe Layer
+Phase 6 design checkpoint: Adapter Dry-Run Shape
 ```

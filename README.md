@@ -152,6 +152,7 @@ not to reveal the whole causal background.
 ```text
 protocols/
   jazz/              # Anti-orchestration protocol drafts
+  recipes/           # Phase 4 recipe design checkpoint, execution disabled
 public/              # Publishable descriptors and projections
   transforms/        # First-class transformation edges
   verification/      # Graph-level verification notes

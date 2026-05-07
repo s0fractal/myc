@@ -38,6 +38,9 @@ export async function auditRoot(root: string): Promise<ProtocolAuditResult> {
     if (/^substrates\/[^/]+\/MYC\.md$/.test(relative)) {
       await auditSubstratePolicy(file, relative, errors);
     }
+    if (relative.startsWith("protocols/recipes/")) {
+      await auditRecipeDraftPolicy(file, relative, errors);
+    }
     if (file.endsWith(".md")) {
       await auditDescriptorFile(file, relative, errors, warnings);
     }
@@ -111,6 +114,34 @@ async function auditSubstratePolicy(
   ) {
     if (!text.includes(key)) {
       errors.push(`${relative}: missing required adapter policy key '${key}'`);
+    }
+  }
+}
+
+async function auditRecipeDraftPolicy(
+  file: string,
+  relative: string,
+  errors: string[],
+): Promise<void> {
+  const text = await Deno.readTextFile(file);
+  if (!text.includes("recipe:")) return;
+
+  for (
+    const key of [
+      "function:",
+      "params:",
+      "context_policy:",
+      "payload_policy:",
+      "allowed_paths:",
+      "forbidden_paths:",
+      "side_effects:",
+      "proof_mode:",
+      "output_contract:",
+      "dry_run:",
+    ]
+  ) {
+    if (!text.includes(key)) {
+      errors.push(`${relative}: missing required recipe draft key '${key}'`);
     }
   }
 }

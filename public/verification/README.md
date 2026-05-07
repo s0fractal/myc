@@ -47,3 +47,6 @@ Audits:
 - `adapter-policy.audit.myc.md` records the audited substrate adapter policy
   checkpoint: adapter notes must declare read/write/payload/side-effect
   boundaries before implementation.
+- `recipe-draft.audit.myc.md` records the Phase 4 design checkpoint: recipe
+  drafts must declare function, payload, path, side-effect, proof, output, and
+  dry-run contracts before any execution exists.
