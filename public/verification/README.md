@@ -32,3 +32,9 @@ It checks:
 
 This is the first graph-level receipt: not only "does the file hash match", but
 "do the transformations actually connect".
+
+Audits:
+
+- `phase-2-pwa-lens.audit.myc.md` records the PWA lens boundary: resolver
+  projections are observable, but local paths and private payload bytes are not
+  exposed by default.

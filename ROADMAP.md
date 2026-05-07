@@ -490,12 +490,13 @@ Already implemented:
 - PWA degraded offline state with last-seen resolver timestamp
 - PWA cached last index/graph projection in localStorage for offline viewing
 - PWA manual retry and soft reconnect loop
+- Phase 2 PWA lens boundary audit in `public/verification/`
 
 Immediate next candidates:
 
-1. Phase 2 closure audit against privacy and lens-source-of-truth boundaries.
-2. Nutrition labels and stale verification.
-3. Recipe layer design checkpoint after Phase 2 stays stable.
+1. Nutrition labels and stale verification.
+2. Recipe layer design checkpoint after Phase 2 stays stable.
+3. Adapter policy documents before any adapter implementation.
 
 Preferred next step:
 
