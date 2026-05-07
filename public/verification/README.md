@@ -41,3 +41,6 @@ Audits:
 - `protocol-guardrails.audit.myc.md` records the pre-commit protocol guardrails
   that block premature descriptor families, function identity drift, public
   payload leakage, and secret-like material in public files.
+- `phase-3-nutrition.audit.myc.md` records the derived nutrition boundary:
+  nutrition can inform summaries, graph warnings, and PWA labels without
+  rewriting descriptor identity.

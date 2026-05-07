@@ -85,8 +85,17 @@ Enable it in a checkout with:
 git config core.hooksPath .githooks
 ```
 
-The hook runs formatter check, TypeScript check, lint, tests, and graph
-verification before commit.
+The hook runs formatter check, TypeScript check, lint, tests, graph
+verification, and protocol audit before commit.
+
+The protocol audit is intentionally strict:
+
+```bash
+deno task audit
+```
+
+It blocks premature descriptor families, core function identity drift, public
+payload leakage, and secret-like material in public files.
 
 ## Root Invariants
 

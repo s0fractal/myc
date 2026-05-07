@@ -501,12 +501,14 @@ Already implemented:
 - pre-commit protocol audit blocks premature descriptor families, core function
   identity drift, public payload leakage, and public secret-like material
 - protocol guardrails audit in `public/verification/`
+- root `AGENTS.md` contract for future models
+- Phase 3 nutrition boundary audit in `public/verification/`
 
 Immediate next candidates:
 
-1. Phase 3 nutrition boundary audit.
-2. Adapter policy documents before any adapter implementation.
-3. Recipe layer design checkpoint after guardrails stay stable.
+1. Adapter policy documents before any adapter implementation.
+2. Recipe layer design checkpoint after guardrails stay stable.
+3. Optional GitHub branch protection / CI mirror for `deno task check`.
 
 Preferred next step:
 
