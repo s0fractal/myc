@@ -1,0 +1,18 @@
+# Keep private implementation details out of any future repo by default.
+/private/**
+!/private/
+!/private/README.md
+!/private/links/
+!/private/links/README.md
+!/private/capabilities/
+!/private/capabilities/README.md
+
+# Sealed descriptors can be committed intentionally, but encrypted payloads and
+# local proof material should not be added by accident.
+/sealed/**/*.secret
+/sealed/**/*.key
+/sealed/**/*.token
+/sealed/**/*.payload
+
+# Local operating noise.
+.DS_Store

@@ -1,0 +1,17 @@
+{
+  "tasks": {
+    "myc": "deno run --allow-read --allow-write --allow-env tools/myc.ts",
+    "test": "deno test --allow-read --allow-write --allow-env tools/myc_test.ts"
+  },
+  "fmt": {
+    "lineWidth": 80,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+}
