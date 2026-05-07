@@ -102,6 +102,7 @@ export interface AuditEntry {
 
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
+const MYC_VERSION = "0.1.0";
 
 const FUNCTION_DEFINITIONS = {
   canonicalizer: {
@@ -1517,25 +1518,27 @@ export async function handleRequest(
 
   if (url.pathname === "/health") {
     return jsonResponse(
-      { ok: true, root, service: "myc-resolver" },
+      {
+        ok: true,
+        service: "myc-resolver",
+        version: MYC_VERSION,
+        root_state: "local-private",
+      },
       200,
       request,
     );
   }
 
   if (url.pathname === "/index") {
+    const includePaths = ["1", "true", "yes"].includes(
+      (url.searchParams.get("paths") ?? "").toLowerCase(),
+    );
     const records = await scanDescriptors(root);
     return jsonResponse(
       {
         ok: true,
         count: records.length,
-        records: records.map((record) => ({
-          path: record.path,
-          fqdn: record.descriptor.fqdn,
-          type: record.descriptor.type,
-          commitment: record.descriptor.commitment.value,
-          aliases: descriptorAddresses(record.descriptor),
-        })),
+        records: records.map((record) => indexRecord(record, includePaths)),
       },
       200,
       request,
@@ -1615,7 +1618,7 @@ export async function handleRequest(
   }
 
   if (url.pathname === "/version") {
-    return jsonResponse({ ok: true, version: "0.1.0" }, 200, request);
+    return jsonResponse({ ok: true, version: MYC_VERSION }, 200, request);
   }
 
   if (url.pathname === "/descriptor") {
@@ -1689,6 +1692,19 @@ export async function handleRequest(
   }
 
   return errorResponse("not-found", 404, request, { path: url.pathname });
+}
+
+function indexRecord(
+  record: DescriptorRecord,
+  includePath: boolean,
+): Record<string, Json> {
+  return {
+    ...(includePath ? { path: record.path } : {}),
+    fqdn: record.descriptor.fqdn,
+    type: record.descriptor.type,
+    commitment: record.descriptor.commitment.value,
+    aliases: descriptorAddresses(record.descriptor),
+  };
 }
 
 function errorResponse(

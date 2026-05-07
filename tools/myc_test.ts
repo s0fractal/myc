@@ -154,6 +154,50 @@ Deno.test("read-only companion handler resolves and verifies descriptors", async
   assert(graph.ok === true, "verify-graph JSON should be ok");
 });
 
+Deno.test("health and index do not expose local paths by default", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  await captureText({
+    root,
+    text: "зроби local path boundary test",
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  const healthResponse = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/health"),
+  );
+  assert(healthResponse.status === 200, "health should return 200");
+  const health = await healthResponse.json();
+  assert(health.ok === true, "health should be ok");
+  assert(health.version === "0.1.0", "health should include version");
+  assert(!("root" in health), "health should not expose root path");
+  assert(
+    health.root_state === "local-private",
+    "health should describe root privacy state",
+  );
+
+  const indexResponse = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/index"),
+  );
+  assert(indexResponse.status === 200, "index should return 200");
+  const index = await indexResponse.json();
+  assert(index.records.length > 0, "index should include records");
+  assert(!("path" in index.records[0]), "index should omit paths by default");
+
+  const pathIndexResponse = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/index?paths=1"),
+  );
+  assert(pathIndexResponse.status === 200, "path index should return 200");
+  const pathIndex = await pathIndexResponse.json();
+  assert(
+    typeof pathIndex.records[0].path === "string",
+    "index paths should be explicit opt-in",
+  );
+});
+
 Deno.test("explain summarizes transformation context", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-test-" });
   const result = await captureText({

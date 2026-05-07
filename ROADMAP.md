@@ -479,11 +479,15 @@ Already implemented:
   and omits query strings
 - endpoint tests for resolver success, errors, CORS, descriptor source, search,
   and audit privacy
+- resolver health/index boundary: local filesystem paths are not exposed to PWA
+  endpoints unless explicitly requested
+- PWA graph report and resolver version display
+- PWA summary/source/search views backed by resolver endpoints
 
 Immediate next candidates:
 
-1. PWA source/summary/search views.
-2. Resolver health and graph health display polish.
+1. PWA lineage graph ergonomics and selected-node summaries.
+2. Offline shell state and resolver reconnection polish.
 3. Nutrition labels and stale verification.
 
 Preferred next step:

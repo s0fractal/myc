@@ -36,6 +36,10 @@ const HTML = `<!doctype html>
           <strong id="health-value">unknown</strong>
         </div>
         <div>
+          <span>version</span>
+          <strong id="version-value">unknown</strong>
+        </div>
+        <div>
           <span>graph</span>
           <strong id="graph-value">unverified</strong>
         </div>
@@ -90,6 +94,7 @@ const HTML = `<!doctype html>
             <span id="graph-title">waiting</span>
           </div>
           <canvas id="graph-canvas" width="720" height="420"></canvas>
+          <pre id="graph-report"></pre>
         </section>
       </div>
     </section>
@@ -256,7 +261,7 @@ h2 {
 
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -366,6 +371,12 @@ canvas {
   width: 100%;
   height: 420px;
   background: #fbfaf5;
+}
+
+#graph-report {
+  min-height: 120px;
+  max-height: 180px;
+  border-top: 1px solid var(--line);
 }
 
 .index-panel .panel-header {
@@ -496,10 +507,12 @@ async function connect() {
   try {
     const health = await api("/health");
     setText("health-value", health.service || "ok", "ok");
+    setText("version-value", health.version || "unknown");
     write(health);
     await verifyGraph();
   } catch (error) {
     setText("health-value", "offline", "bad");
+    setText("version-value", "unknown", "bad");
     setText("graph-value", "unavailable", "bad");
     write({
       ok: false,
@@ -512,7 +525,17 @@ async function connect() {
 async function verifyGraph() {
   const result = await api("/verify-graph");
   setText("graph-value", result.ok ? "ok" : "failed", result.ok ? "ok" : "bad");
+  setText("descriptor-value", String(result.descriptor_count ?? 0));
   setText("edge-value", String(result.edge_count ?? 0));
+  $("graph-title").textContent = result.ok ? "verified" : "needs attention";
+  $("graph-report").textContent = JSON.stringify({
+    ok: result.ok,
+    descriptors: result.descriptor_count,
+    transformations: result.transformation_count,
+    edges: result.edge_count,
+    errors: result.errors || [],
+    warnings: result.warnings || [],
+  }, null, 2);
   write(result);
   return result;
 }
