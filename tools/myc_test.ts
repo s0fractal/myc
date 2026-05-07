@@ -290,6 +290,10 @@ Deno.test("nutrition endpoint and graph warnings expose speculative state", asyn
     graph.warnings.some((warning) => warning.includes("speculative")),
     "graph verifier should warn about speculative descriptors",
   );
+  assert(
+    graph.nutrition_counts.speculative > 0,
+    "graph verifier should count speculative descriptors",
+  );
 });
 
 Deno.test("expired embedded nutrition is reported as stale", async () => {

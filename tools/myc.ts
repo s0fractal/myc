@@ -88,6 +88,7 @@ export interface GraphVerificationResult {
   checked_references: number;
   graph_path: string;
   graph_synced: boolean;
+  nutrition_counts: Record<string, number>;
   errors: string[];
   warnings: string[];
 }
@@ -1229,6 +1230,7 @@ export async function verifyGraph(
   const byFqdn = descriptorFqdnMap(records);
   const errors: string[] = [];
   const warnings: string[] = [];
+  const nutritionCounts = new Map<string, number>();
   let checkedReferences = 0;
 
   for (const duplicate of duplicateDescriptorFqdns(records)) {
@@ -1241,6 +1243,10 @@ export async function verifyGraph(
       errors.push(`${record.path}: ${error}`);
     }
     const nutrition = nutritionForDescriptor(record.descriptor);
+    nutritionCounts.set(
+      nutrition.status,
+      (nutritionCounts.get(nutrition.status) ?? 0) + 1,
+    );
     if (nutrition.status === "speculative") {
       warnings.push(`${record.path}: nutrition status is speculative`);
     }
@@ -1351,6 +1357,9 @@ export async function verifyGraph(
     checked_references: checkedReferences,
     graph_path: graphPath,
     graph_synced: graphSynced,
+    nutrition_counts: Object.fromEntries(
+      [...nutritionCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+    ),
     errors,
     warnings,
   };

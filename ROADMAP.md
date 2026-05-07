@@ -496,11 +496,12 @@ Already implemented:
 - `/nutrition?target=...` endpoint
 - summary/index/search include derived nutrition
 - graph verifier warns on speculative or stale nutrition states
+- graph verifier reports nutrition status counts
 - staleness recognition for explicit/expired embedded nutrition metadata
 
 Immediate next candidates:
 
-1. PWA nutrition display polish and graph warning surface.
+1. Phase 3 nutrition boundary audit.
 2. Recipe layer design checkpoint after Phase 3 stays stable.
 3. Adapter policy documents before any adapter implementation.
 

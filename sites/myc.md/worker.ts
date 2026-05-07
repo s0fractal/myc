@@ -660,6 +660,7 @@ async function verifyGraph() {
     descriptors: result.descriptor_count,
     transformations: result.transformation_count,
     edges: result.edge_count,
+    nutrition: result.nutrition_counts || {},
     errors: result.errors || [],
     warnings: result.warnings || [],
   }, null, 2);
