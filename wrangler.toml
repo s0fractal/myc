@@ -1,0 +1,9 @@
+name = "liquid-membrane"
+main = "sites/myc.md/worker.ts"
+compatibility_date = "2026-05-07"
+workers_dev = true
+
+routes = [
+  { pattern = "myc.md/*", zone_name = "myc.md" },
+  { pattern = "*.myc.md/*", zone_name = "myc.md" }
+]

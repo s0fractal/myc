@@ -1,9 +1,12 @@
 {
   "tasks": {
-    "myc": "deno run --allow-read --allow-write --allow-env tools/myc.ts",
+    "myc": "deno run --allow-read --allow-write --allow-env --allow-net tools/myc.ts",
     "test": "deno test --allow-read --allow-write --allow-env tools/myc_test.ts",
-    "check": "deno fmt --check && deno check tools/myc.ts tools/myc_test.ts && deno lint tools/myc.ts tools/myc_test.ts && deno test --allow-read --allow-write --allow-env tools/myc_test.ts && deno task myc verify-graph",
-    "precommit": "deno task check"
+    "check": "deno fmt --check && deno check tools/myc.ts tools/myc_test.ts sites/myc.md/worker.ts sites/myc.md/worker_test.ts && deno lint tools/myc.ts tools/myc_test.ts sites/myc.md/worker.ts sites/myc.md/worker_test.ts && deno test --allow-read --allow-write --allow-env tools/myc_test.ts sites/myc.md/worker_test.ts && deno task myc verify-graph",
+    "precommit": "deno task check",
+    "site:deploy": "npx wrangler deploy",
+    "site:dry-run": "npx wrangler deploy --dry-run",
+    "site:dev": "npx wrangler dev --local --port 8788"
   },
   "fmt": {
     "lineWidth": 80,

@@ -1500,49 +1500,74 @@ export async function handleRequest(
   request: Request,
 ): Promise<Response> {
   const url = new URL(request.url);
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(request) });
+  }
   if (request.method !== "GET") {
-    return jsonResponse({ ok: false, error: "method-not-allowed" }, 405);
+    return jsonResponse(
+      { ok: false, error: "method-not-allowed" },
+      405,
+      request,
+    );
   }
 
   if (url.pathname === "/health") {
-    return jsonResponse({ ok: true, root, service: "myc-resolver" });
+    return jsonResponse(
+      { ok: true, root, service: "myc-resolver" },
+      200,
+      request,
+    );
   }
 
   if (url.pathname === "/index") {
     const records = await scanDescriptors(root);
-    return jsonResponse({
-      ok: true,
-      count: records.length,
-      records: records.map((record) => ({
-        path: record.path,
-        fqdn: record.descriptor.fqdn,
-        type: record.descriptor.type,
-        commitment: record.descriptor.commitment.value,
-        aliases: descriptorAddresses(record.descriptor),
-      })),
-    });
+    return jsonResponse(
+      {
+        ok: true,
+        count: records.length,
+        records: records.map((record) => ({
+          path: record.path,
+          fqdn: record.descriptor.fqdn,
+          type: record.descriptor.type,
+          commitment: record.descriptor.commitment.value,
+          aliases: descriptorAddresses(record.descriptor),
+        })),
+      },
+      200,
+      request,
+    );
   }
 
   if (url.pathname === "/resolve") {
     const fqdn = url.searchParams.get("fqdn");
-    if (!fqdn) return jsonResponse({ ok: false, error: "missing-fqdn" }, 400);
+    if (!fqdn) {
+      return jsonResponse({ ok: false, error: "missing-fqdn" }, 400, request);
+    }
     const record = await resolveFqdn(root, fqdn);
     if (!record) {
-      return jsonResponse({ ok: false, error: "not-found", fqdn }, 404);
+      return jsonResponse(
+        { ok: false, error: "not-found", fqdn },
+        404,
+        request,
+      );
     }
-    return jsonResponse({ ok: true, ...record });
+    return jsonResponse({ ok: true, ...record }, 200, request);
   }
 
   if (url.pathname === "/verify") {
     const target = url.searchParams.get("target");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400);
+      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
     }
     const path = target.startsWith("/")
       ? target
       : (await resolveFqdn(root, target))?.path;
     if (!path) {
-      return jsonResponse({ ok: false, error: "not-found", target }, 404);
+      return jsonResponse(
+        { ok: false, error: "not-found", target },
+        404,
+        request,
+      );
     }
     const result = await verifyPath(path);
     const privateRequested = ["1", "true", "yes"].includes(
@@ -1552,50 +1577,81 @@ export async function handleRequest(
       ? await verifyRawPayload(root, result.descriptor)
       : { ok: true, errors: [] };
     const ok = result.ok && payload.ok;
-    return jsonResponse({
-      ok,
-      path,
-      fqdn: result.descriptor.fqdn,
-      errors: [...result.errors, ...payload.errors],
-    }, ok ? 200 : 422);
+    return jsonResponse(
+      {
+        ok,
+        path,
+        fqdn: result.descriptor.fqdn,
+        errors: [...result.errors, ...payload.errors],
+      },
+      ok ? 200 : 422,
+      request,
+    );
   }
 
   if (url.pathname === "/verify-graph") {
     const result = await verifyGraph(root);
-    return jsonResponse(result, result.ok ? 200 : 422);
+    return jsonResponse(result, result.ok ? 200 : 422, request);
   }
 
   if (url.pathname === "/lineage") {
     const target = url.searchParams.get("target") ??
       url.searchParams.get("fqdn");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400);
+      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
     }
     const lineage = await lineageFor(root, target);
-    return jsonResponse(lineage, lineage.ok ? 200 : 404);
+    return jsonResponse(lineage, lineage.ok ? 200 : 404, request);
   }
 
   if (url.pathname === "/explain") {
     const target = url.searchParams.get("target") ??
       url.searchParams.get("fqdn");
     if (!target) {
-      return jsonResponse({ ok: false, error: "missing-target" }, 400);
+      return jsonResponse({ ok: false, error: "missing-target" }, 400, request);
     }
     const explanation = await explainTarget(root, target);
-    return jsonResponse(explanation, explanation.ok === false ? 404 : 200);
+    return jsonResponse(
+      explanation,
+      explanation.ok === false ? 404 : 200,
+      request,
+    );
   }
 
-  return jsonResponse({ ok: false, error: "not-found" }, 404);
+  return jsonResponse({ ok: false, error: "not-found" }, 404, request);
 }
 
-function jsonResponse(value: unknown, status = 200): Response {
+function jsonResponse(
+  value: unknown,
+  status = 200,
+  request?: Request,
+): Response {
   return new Response(JSON.stringify(value, null, 2), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "http://localhost",
+      ...corsHeaders(request),
     },
   });
+}
+
+function corsHeaders(request?: Request): HeadersInit {
+  const origin = request?.headers.get("origin") ?? "";
+  const allowOrigin = allowedOrigin(origin) ? origin : "null";
+  return {
+    "access-control-allow-origin": allowOrigin,
+    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "vary": "origin",
+  };
+}
+
+function allowedOrigin(origin: string): boolean {
+  if (origin === "https://myc.md") return true;
+  if (/^http:\/\/localhost(?::\d+)?$/.test(origin)) return true;
+  if (/^http:\/\/127\.0\.0\.1(?::\d+)?$/.test(origin)) return true;
+  if (/^http:\/\/\[::1\](?::\d+)?$/.test(origin)) return true;
+  return origin === "";
 }
 
 function parseArgs(

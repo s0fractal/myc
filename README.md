@@ -148,6 +148,21 @@ sites/
   myc.md/            # Future public projection / website notes
 ```
 
+## myc.md PWA
+
+`myc.md` is a local-first PWA shell. The global Cloudflare Worker only serves
+the interface. It expects a local resolver:
+
+```bash
+deno task myc serve --port 8787
+```
+
+Deploy the shell with:
+
+```bash
+deno task site:deploy
+```
+
 ## Address Families
 
 ```text

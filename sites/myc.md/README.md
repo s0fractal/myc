@@ -169,3 +169,40 @@ full private cause.
 
 The prototype should avoid model execution and materialization at first. It
 should prove that local/global resolution and privacy boundaries are coherent.
+
+## Cloudflare Worker PWA
+
+The current deployed shape is intentionally small:
+
+```text
+https://myc.md
+  -> Cloudflare Worker
+  -> static PWA shell
+  -> browser fetches http://127.0.0.1:8787
+  -> local MYC resolver answers read-only graph queries
+```
+
+It only becomes useful on a machine where:
+
+```bash
+cd ~/myc
+deno task myc serve --port 8787
+```
+
+is running and `~/myc` contains a coherent descriptor graph.
+
+The Worker does not use D1, does not store payloads, and does not execute
+models. It serves the shell, manifest, service worker, icon, and client-side
+resolver UI.
+
+Deploy:
+
+```bash
+deno task site:deploy
+```
+
+Local Worker preview:
+
+```bash
+deno task site:dev
+```
