@@ -1,8 +1,9 @@
 {
   "tasks": {
     "myc": "deno run --allow-read --allow-write --allow-env --allow-net tools/myc.ts",
-    "test": "deno test --allow-read --allow-write --allow-env tools/myc_test.ts",
-    "check": "deno fmt --check && deno check tools/myc.ts tools/myc_test.ts sites/myc.md/worker.ts sites/myc.md/worker_test.ts && deno lint tools/myc.ts tools/myc_test.ts sites/myc.md/worker.ts sites/myc.md/worker_test.ts && deno test --allow-read --allow-write --allow-env tools/myc_test.ts sites/myc.md/worker_test.ts && deno task myc verify-graph",
+    "test": "deno test --allow-read --allow-write --allow-env tools/myc_test.ts tools/protocol_audit_test.ts",
+    "audit": "deno run --allow-read tools/protocol_audit.ts",
+    "check": "deno fmt --check && deno check tools/myc.ts tools/myc_test.ts tools/protocol_audit.ts tools/protocol_audit_test.ts sites/myc.md/worker.ts sites/myc.md/worker_test.ts && deno lint tools/myc.ts tools/myc_test.ts tools/protocol_audit.ts tools/protocol_audit_test.ts sites/myc.md/worker.ts sites/myc.md/worker_test.ts && deno test --allow-read --allow-write --allow-env tools/myc_test.ts tools/protocol_audit_test.ts sites/myc.md/worker_test.ts && deno task myc verify-graph && deno task audit",
     "precommit": "deno task check",
     "site:deploy": "npx wrangler deploy",
     "site:dry-run": "npx wrangler deploy --dry-run",

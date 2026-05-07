@@ -38,3 +38,6 @@ Audits:
 - `phase-2-pwa-lens.audit.myc.md` records the PWA lens boundary: resolver
   projections are observable, but local paths and private payload bytes are not
   exposed by default.
+- `protocol-guardrails.audit.myc.md` records the pre-commit protocol guardrails
+  that block premature descriptor families, function identity drift, public
+  payload leakage, and secret-like material in public files.

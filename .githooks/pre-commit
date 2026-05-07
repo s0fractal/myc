@@ -3,6 +3,5 @@ set -eu
 
 cd "$(git rev-parse --show-toplevel)"
 
-echo "myc pre-commit: running formatter, typecheck, lint, tests, graph verification"
+echo "myc pre-commit: running formatter, typecheck, lint, tests, graph verification, protocol audit"
 deno task precommit
-

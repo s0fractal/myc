@@ -498,12 +498,15 @@ Already implemented:
 - graph verifier warns on speculative or stale nutrition states
 - graph verifier reports nutrition status counts
 - staleness recognition for explicit/expired embedded nutrition metadata
+- pre-commit protocol audit blocks premature descriptor families, core function
+  identity drift, public payload leakage, and public secret-like material
+- protocol guardrails audit in `public/verification/`
 
 Immediate next candidates:
 
 1. Phase 3 nutrition boundary audit.
-2. Recipe layer design checkpoint after Phase 3 stays stable.
-3. Adapter policy documents before any adapter implementation.
+2. Adapter policy documents before any adapter implementation.
+3. Recipe layer design checkpoint after guardrails stay stable.
 
 Preferred next step:
 
