@@ -67,6 +67,25 @@ task.s0fractal.h.38bfd1d80cb9.myc.md
 Its raw payload is stored locally under the private layer and is verified by
 hash, but public descriptors do not embed the payload bytes.
 
+## Local Checks
+
+Run the full local verification loop:
+
+```bash
+deno task check
+```
+
+The repository includes a tracked Git hook in `.githooks/pre-commit`.
+
+Enable it in a checkout with:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook runs formatter check, TypeScript check, lint, tests, and graph
+verification before commit.
+
 ## Root Invariants
 
 - Names point.

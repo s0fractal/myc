@@ -30,6 +30,7 @@ deno task myc explain task.s0fractal.h.<hash>.myc.md
 deno task myc reproject h.<hash>.message.s0fractal.raw.myc.md
 deno task myc serve --port 8787
 deno task myc demo
+deno task check
 ```
 
 ## Generated Shape
@@ -71,3 +72,13 @@ internally connected:
 - input/output FQDNs resolve
 - referenced commitments belong to the resolved node
 - `public/graph.ndjson` matches the freshly computed graph
+
+## Git Hook
+
+Enable the tracked hook with:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The pre-commit hook runs `deno task check`.

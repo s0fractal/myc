@@ -1,7 +1,9 @@
 {
   "tasks": {
     "myc": "deno run --allow-read --allow-write --allow-env tools/myc.ts",
-    "test": "deno test --allow-read --allow-write --allow-env tools/myc_test.ts"
+    "test": "deno test --allow-read --allow-write --allow-env tools/myc_test.ts",
+    "check": "deno fmt --check && deno check tools/myc.ts tools/myc_test.ts && deno lint tools/myc.ts tools/myc_test.ts && deno test --allow-read --allow-write --allow-env tools/myc_test.ts && deno task myc verify-graph",
+    "precommit": "deno task check"
   },
   "fmt": {
     "lineWidth": 80,
