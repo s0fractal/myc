@@ -71,6 +71,7 @@ const HTML = `<!doctype html>
         <button id="verify-graph-btn" type="button">Verify Graph</button>
         <button id="load-graph-btn" type="button">Load Graph</button>
         <button id="load-index-btn" type="button">Load Index</button>
+        <button id="verification-btn" type="button">Receipts</button>
         <input id="adapter-input" spellcheck="false" autocomplete="off" placeholder="adapter: genesis">
         <button id="adapter-dry-run-btn" type="button">Dry Run</button>
         <button id="install-btn" type="button" hidden>Install</button>
@@ -298,7 +299,7 @@ h2 {
 }
 
 .action-row {
-  grid-template-columns: repeat(3, max-content) minmax(160px, 220px) max-content;
+  grid-template-columns: repeat(4, max-content) minmax(160px, 220px) max-content;
 }
 
 .status-grid {
@@ -718,6 +719,14 @@ async function loadIndex() {
   return result;
 }
 
+async function loadVerification() {
+  const result = await api("/verification");
+  $("descriptor-title").textContent = "verification receipts";
+  write(result);
+  switchTab("json");
+  return result;
+}
+
 function switchTab(tab) {
   $("tab-json").classList.toggle("active", tab === "json");
   $("tab-availability").classList.toggle("active", tab === "availability");
@@ -1046,6 +1055,7 @@ $("retry-btn").addEventListener("click", () => connect().catch((error) => write(
 $("verify-graph-btn").addEventListener("click", () => verifyGraph().catch((error) => write(error.body || error.message)));
 $("load-graph-btn").addEventListener("click", () => loadGraph().catch((error) => write(error.body || error.message)));
 $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) => write(error.body || error.message)));
+$("verification-btn").addEventListener("click", () => loadVerification().catch((error) => write(error.body || error.message)));
 $("adapter-dry-run-btn").addEventListener("click", () => adapterDryRunTarget().catch((error) => write(error.body || error.message)));
 $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) => write(error.body || error.message)));
 $("explain-btn").addEventListener("click", () => explainTarget().catch((error) => write(error.body || error.message)));

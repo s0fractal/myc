@@ -545,15 +545,16 @@ Already implemented:
   verification
 - `/verification` resolver endpoint lists public verification receipts without
   exposing local root paths
+- PWA receipt lens loads `/verification` into the read-only JSON panel
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Public verification index in PWA.
-3. Projection freshness status in PWA graph report.
+2. Projection freshness status in PWA graph report.
+3. Verification receipt source viewer.
 
 Preferred next step:
 
 ```text
-Public Verification Lens
+Projection Freshness Lens
 ```

@@ -30,6 +30,10 @@ Deno.test("myc.md worker serves the PWA shell", async () => {
   assert(body.includes("graph-report"), "shell should show graph report");
   assert(body.includes("load-graph-btn"), "shell should include graph loader");
   assert(
+    body.includes("verification-btn"),
+    "shell should include verification receipt button",
+  );
+  assert(
     body.includes("adapter-dry-run-btn"),
     "shell should include adapter dry-run button",
   );
@@ -51,6 +55,10 @@ Deno.test("myc.md worker serves the PWA shell", async () => {
   assert(
     appBody.includes("/adapter-dry-run?adapter="),
     "app should call adapter dry-run endpoint",
+  );
+  assert(
+    appBody.includes("/verification"),
+    "app should call verification endpoint",
   );
 });
 
