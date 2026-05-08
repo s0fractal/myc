@@ -728,6 +728,13 @@ async function loadVerification() {
   return result;
 }
 
+async function loadVerificationSource(name) {
+  const result = await api("/verification-source?name=" + encodeURIComponent(name));
+  $("descriptor-title").textContent = name;
+  write(result.source || result);
+  switchTab("json");
+}
+
 function switchTab(tab) {
   $("tab-json").classList.toggle("active", tab === "json");
   $("tab-availability").classList.toggle("active", tab === "availability");
@@ -857,6 +864,15 @@ async function adapterDryRunTarget() {
   $("descriptor-title").textContent = "adapter: " + adapter;
   write(result);
   switchTab("json");
+}
+
+function maybeLoadVerificationSource() {
+  const value = $("target-input").value.trim();
+  if (!value.startsWith("public/verification/")) return false;
+  const name = value.split("/").pop();
+  if (!name) return false;
+  loadVerificationSource(name).catch((error) => write(error.body || error.message));
+  return true;
 }
 
 function renderIndex() {
@@ -1059,7 +1075,10 @@ $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) =>
 $("verification-btn").addEventListener("click", () => loadVerification().catch((error) => write(error.body || error.message)));
 $("adapter-dry-run-btn").addEventListener("click", () => adapterDryRunTarget().catch((error) => write(error.body || error.message)));
 $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) => write(error.body || error.message)));
-$("explain-btn").addEventListener("click", () => explainTarget().catch((error) => write(error.body || error.message)));
+$("explain-btn").addEventListener("click", () => {
+  if (maybeLoadVerificationSource()) return;
+  explainTarget().catch((error) => write(error.body || error.message));
+});
 $("lineage-btn").addEventListener("click", () => lineageTarget().catch((error) => write(error.body || error.message)));
 $("search-input").addEventListener("input", scheduleSearch);
 $("tab-json").addEventListener("click", () => switchTab("json"));

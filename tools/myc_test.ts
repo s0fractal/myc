@@ -913,6 +913,25 @@ Deno.test("verification endpoint lists public receipts only", async () => {
     !JSON.stringify(body).includes(`${root}`),
     "verification endpoint must not leak local root",
   );
+
+  const sourceResponse = await handleRequest(
+    root,
+    new Request("http://local/verification-source?name=audit-one.md"),
+  );
+  const sourceBody = await sourceResponse.json();
+  assert(sourceResponse.status === 200, "receipt source should return 200");
+  assert(sourceBody.source === "# Audit One\n", "receipt source should match");
+
+  const traversalResponse = await handleRequest(
+    root,
+    new Request("http://local/verification-source?name=../README.md"),
+  );
+  const traversalBody = await traversalResponse.json();
+  assert(traversalResponse.status === 400, "path traversal should fail");
+  assert(
+    traversalBody.error === "invalid-name",
+    "path traversal should return invalid-name",
+  );
 });
 
 Deno.test("audit entries include path but not query payload", () => {

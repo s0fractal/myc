@@ -1836,6 +1836,22 @@ export async function handleRequest(
     );
   }
 
+  if (url.pathname === "/verification-source") {
+    const name = url.searchParams.get("name");
+    if (!name) {
+      return errorResponse("missing-name", 400, request);
+    }
+    if (!/^[A-Za-z0-9._-]+\.md$/.test(name)) {
+      return errorResponse("invalid-name", 400, request, { name });
+    }
+    const path = joinPath(root, "public", "verification", name);
+    if (!(await exists(path))) {
+      return errorResponse("not-found", 404, request, { name });
+    }
+    const source = await Deno.readTextFile(path);
+    return jsonResponse({ ok: true, name, source }, 200, request);
+  }
+
   if (url.pathname === "/graph") {
     const includePaths = ["1", "true", "yes"].includes(
       (url.searchParams.get("paths") ?? "").toLowerCase(),
@@ -2055,6 +2071,8 @@ function errorMessage(code: string): string {
     "missing-target": "Required query parameter 'target' or 'fqdn' is missing.",
     "missing-query": "Required query parameter 'q' is missing.",
     "missing-adapter": "Required query parameter 'adapter' is missing.",
+    "missing-name": "Required query parameter 'name' is missing.",
+    "invalid-name": "Receipt name must be a markdown file basename.",
     "not-found": "Requested MYC descriptor or route was not found.",
   };
   return messages[code] ?? code;

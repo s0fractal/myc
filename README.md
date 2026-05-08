@@ -189,6 +189,7 @@ GET /availability?target=<path-or-fqdn>
 GET /adapter-dry-run?adapter=<name>
 GET /verification
 GET /verify-projections
+GET /verification-source?name=<receipt.md>
 ```
 
 Deploy the shell with:

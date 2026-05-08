@@ -60,6 +60,7 @@ record query strings.
 - `/verify-graph`
 - `/verify-projections`
 - `/verification`
+- `/verification-source`
 - `/graph`
 - `/lineage`
 - `/explain`

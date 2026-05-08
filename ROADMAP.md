@@ -548,15 +548,19 @@ Already implemented:
 - PWA receipt lens loads `/verification` into the read-only JSON panel
 - `/verify-projections` resolver endpoint exposes generated projection freshness
 - PWA graph report displays `index_synced` and `graph_synced`
+- `/verification-source?name=...` exposes public receipt markdown by basename
+  only
+- PWA can load public verification receipt source from a
+  `public/verification/<name>.md` target
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Verification receipt source viewer.
-3. Resolver/PWA schema docs for projection verification response.
+2. Resolver/PWA schema docs for projection verification response.
+3. Verification receipt list buttons in PWA.
 
 Preferred next step:
 
 ```text
-Verification Receipt Source Viewer
+Projection Verification Response Schema
 ```
