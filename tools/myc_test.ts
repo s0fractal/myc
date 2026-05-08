@@ -22,6 +22,98 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+function assertStringField(
+  value: Record<string, unknown>,
+  key: string,
+): void {
+  assert(typeof value[key] === "string", `${key} should be a string`);
+}
+
+function assertBooleanField(
+  value: Record<string, unknown>,
+  key: string,
+): void {
+  assert(typeof value[key] === "boolean", `${key} should be a boolean`);
+}
+
+function assertStringArrayField(
+  value: Record<string, unknown>,
+  key: string,
+): void {
+  assert(Array.isArray(value[key]), `${key} should be an array`);
+  assert(
+    (value[key] as unknown[]).every((item) => typeof item === "string"),
+    `${key} should contain only strings`,
+  );
+}
+
+function assertOneOf(
+  actual: unknown,
+  allowed: string[],
+  key: string,
+): void {
+  assert(
+    typeof actual === "string" && allowed.includes(actual),
+    `${key} has unexpected value '${String(actual)}'`,
+  );
+}
+
+function assertAvailabilityResponseShape(value: Record<string, unknown>): void {
+  assertBooleanField(value, "ok");
+  assertStringField(value, "target");
+  assertStringField(value, "payload_state");
+  assertBooleanField(value, "payload_available_to_requester");
+  assertBooleanField(value, "private_payload_present");
+  assertStringField(value, "unavailable_reason");
+  assertStringField(value, "access_mode");
+  assertStringArrayField(value, "safe_next_steps");
+  assertStringArrayField(value, "errors");
+  assertOneOf(
+    value.access_mode,
+    [
+      "descriptor-only",
+      "local-private",
+      "commitment-only",
+      "capability-gated",
+      "sealed-or-witnessed",
+      "unknown",
+      "none",
+    ],
+    "access_mode",
+  );
+}
+
+function assertAdapterDryRunResponseShape(
+  value: Record<string, unknown>,
+): void {
+  assertBooleanField(value, "ok");
+  assertStringField(value, "adapter");
+  assertStringField(value, "path");
+  assertStringArrayField(value, "side_effects");
+  assertStringArrayField(value, "verification");
+  assertStringArrayField(value, "output_contract");
+  assertBooleanField(value, "execution_enabled");
+  assertStringArrayField(value, "errors");
+  assert(
+    value.execution_enabled === false,
+    "adapter dry-run response must keep execution disabled",
+  );
+  for (
+    const output of [
+      "descriptor",
+      "transform",
+      "receipt",
+      "proposal",
+      "warning",
+    ]
+  ) {
+    assert(
+      (value.output_contract as string[]).includes(output),
+      `output_contract should include ${output}`,
+    );
+  }
+}
+
 Deno.test("default root uses repository checkout when MYC_ROOT is unset", () => {
   const previous = Deno.env.get("MYC_ROOT");
   try {
@@ -139,6 +231,9 @@ Deno.test("adapter dry-run explains policy without enabling execution", async ()
   );
 
   const result = await adapterDryRun(root, "demo");
+  assertAdapterDryRunResponseShape(
+    result as unknown as Record<string, unknown>,
+  );
   assert(result.ok, result.errors.join("\n"));
   assert(
     result.execution_enabled === false,
@@ -165,6 +260,9 @@ Deno.test("availability explains private payload state without leaking path", as
   });
 
   const availability = await explainAvailability(root, result.rawFqdn);
+  assertAvailabilityResponseShape(
+    availability as unknown as Record<string, unknown>,
+  );
   assert(availability.ok, availability.errors.join("\n"));
   assert(
     availability.payload_available_to_requester === false,
@@ -701,6 +799,7 @@ Deno.test("availability endpoint explains capability boundary", async () => {
     new Request(`http://local/availability?target=${result.rawFqdn}`),
   );
   const body = await response.json();
+  assertAvailabilityResponseShape(body);
   assert(response.status === 200, `unexpected status ${response.status}`);
   assert(body.ok === true, "availability endpoint should resolve target");
   assert(
@@ -736,6 +835,7 @@ Deno.test("adapter dry-run endpoint is read-only and non-executing", async () =>
     new Request("http://local/adapter-dry-run?adapter=demo"),
   );
   const body = await response.json();
+  assertAdapterDryRunResponseShape(body);
   assert(response.status === 200, `unexpected status ${response.status}`);
   assert(body.ok === true, "adapter endpoint should parse policy");
   assert(body.execution_enabled === false, "adapter endpoint must not execute");

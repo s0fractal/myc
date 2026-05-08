@@ -535,16 +535,18 @@ Already implemented:
   and adapter dry-run schema notes
 - GitHub Actions uses `actions/checkout@v6` and opts JavaScript actions into
   Node 24 runtime to avoid the scheduled Node 20 runner deprecation
+- executable response-shape conformance tests cover availability and adapter
+  dry-run resolver contracts
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Generated response-schema conformance tests for resolver endpoints.
-3. Resolver endpoint coverage for adapter dry-run and availability in PWA smoke
+2. Resolver endpoint coverage for adapter dry-run and availability in PWA smoke
    tests.
+3. Publish a current roadmap receipt in `public/verification/`.
 
 Preferred next step:
 
 ```text
-Generated Response Schema Conformance
+PWA Resolver Surface Smoke Coverage
 ```
