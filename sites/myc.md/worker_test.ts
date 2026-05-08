@@ -65,6 +65,10 @@ Deno.test("myc.md worker serves the PWA shell", async () => {
     "app should call verification source endpoint",
   );
   assert(
+    appBody.includes("VerificationReceipt"),
+    "app should render verification receipts in index list",
+  );
+  assert(
     appBody.includes("/verify-projections"),
     "app should verify generated projections",
   );

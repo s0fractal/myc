@@ -555,15 +555,17 @@ Already implemented:
 - projection verification response schema in
   `protocols/resolver/schemas/verify-projections-response.schema.md`
 - executable response-shape conformance tests cover projection verification
+- PWA receipt lens renders public verification receipts into the index list with
+  `Open` buttons
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Verification receipt list buttons in PWA.
-3. Public receipt source schema note.
+2. Public receipt source schema note.
+3. Verification receipt source response conformance test.
 
 Preferred next step:
 
 ```text
-Verification Receipt List Buttons
+Verification Receipt Source Schema
 ```

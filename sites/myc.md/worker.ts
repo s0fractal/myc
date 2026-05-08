@@ -722,6 +722,15 @@ async function loadIndex() {
 
 async function loadVerification() {
   const result = await api("/verification");
+  state.records = (result.receipts || []).map((receipt) => ({
+    fqdn: receipt.path,
+    type: "VerificationReceipt",
+    commitment: receipt.name,
+    receipt_name: receipt.name,
+    receipt_path: receipt.path,
+  }));
+  setText("descriptor-value", String(result.count ?? state.records.length));
+  renderIndex();
   $("descriptor-title").textContent = "verification receipts";
   write(result);
   switchTab("json");
@@ -896,6 +905,10 @@ function renderIndex() {
     button.textContent = "Open";
     button.addEventListener("click", () => {
       setTarget(record.fqdn);
+      if (record.receipt_name) {
+        loadVerificationSource(record.receipt_name).catch((error) => write(error.body || error.message));
+        return;
+      }
       explainTarget();
     });
     text.append(title, meta);
