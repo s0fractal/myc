@@ -80,16 +80,19 @@ const HTML = `<!doctype html>
             <div class="descriptor-heading">
               <h2>descriptor</h2>
               <span id="privacy-badge" class="badge" hidden></span>
+              <span id="availability-badge" class="badge" hidden></span>
               <span id="nutrition-badge" class="badge" hidden></span>
             </div>
             <span id="descriptor-title">no target</span>
             <div class="tabs">
               <button id="tab-json" class="tab active" type="button">JSON</button>
+              <button id="tab-availability" class="tab" type="button">Access</button>
               <button id="tab-summary" class="tab" type="button">Summary</button>
               <button id="tab-source" class="tab" type="button">Source</button>
             </div>
           </div>
           <pre id="output"></pre>
+          <pre id="availability-output" hidden></pre>
           <pre id="summary-output" hidden></pre>
           <pre id="source-output" hidden></pre>
         </section>
@@ -386,6 +389,10 @@ h2 {
 .badge.private-local { background: var(--bad); color: white; }
 .badge.known-but-unavailable { background: var(--accent-2); color: white; }
 .badge.public { background: var(--good); color: white; }
+.badge.local-private { background: var(--bad); color: white; }
+.badge.commitment-only { background: var(--accent-2); color: white; }
+.badge.capability-gated { background: var(--accent-2); color: white; }
+.badge.descriptor-only { background: var(--good); color: white; }
 .badge.raw { background: var(--muted); color: white; }
 .badge.verified { background: var(--good); color: white; }
 .badge.speculative { background: var(--accent-2); color: white; }
@@ -710,9 +717,11 @@ async function loadIndex() {
 
 function switchTab(tab) {
   $("tab-json").classList.toggle("active", tab === "json");
+  $("tab-availability").classList.toggle("active", tab === "availability");
   $("tab-summary").classList.toggle("active", tab === "summary");
   $("tab-source").classList.toggle("active", tab === "source");
   $("output").hidden = tab !== "json";
+  $("availability-output").hidden = tab !== "availability";
   $("summary-output").hidden = tab !== "summary";
   $("source-output").hidden = tab !== "source";
 }
@@ -735,6 +744,17 @@ async function resolveTarget() {
     .then((nutrition) => renderNutritionBadge(nutrition.nutrition))
     .catch(() => renderNutritionBadge(null));
 
+  renderAvailabilityBadge(null);
+  api("/availability?target=" + encodeURIComponent(target))
+    .then((availability) => {
+      renderAvailabilityBadge(availability);
+      $("availability-output").textContent = JSON.stringify(availability, null, 2);
+    })
+    .catch((error) => {
+      renderAvailabilityBadge(null);
+      $("availability-output").textContent = "Access unavailable.\\n\\nReason: " + (error.body?.error || error.message);
+    });
+
   write(result.descriptor || result);
   switchTab("json");
 }
@@ -748,6 +768,31 @@ function renderNutritionBadge(nutrition) {
   nutritionBadge.textContent = nutrition.status;
   nutritionBadge.className = "badge " + nutrition.status;
   nutritionBadge.hidden = false;
+}
+
+function renderAvailabilityBadge(availability) {
+  const badge = $("availability-badge");
+  if (!availability?.access_mode) {
+    badge.hidden = true;
+    return;
+  }
+  badge.textContent = availability.access_mode;
+  badge.className = "badge " + availability.access_mode;
+  badge.hidden = false;
+}
+
+async function availabilityTarget() {
+  const target = $("target-input").value.trim();
+  if (!target) return;
+  $("availability-output").textContent = "Loading access...";
+  try {
+    const result = await api("/availability?target=" + encodeURIComponent(target));
+    renderAvailabilityBadge(result);
+    $("availability-output").textContent = JSON.stringify(result, null, 2);
+  } catch (error) {
+    renderAvailabilityBadge(null);
+    $("availability-output").textContent = "Access unavailable.\\n\\nReason: " + (error.body?.error || error.message);
+  }
 }
 
 async function sourceTarget() {
@@ -994,6 +1039,10 @@ $("explain-btn").addEventListener("click", () => explainTarget().catch((error) =
 $("lineage-btn").addEventListener("click", () => lineageTarget().catch((error) => write(error.body || error.message)));
 $("search-input").addEventListener("input", scheduleSearch);
 $("tab-json").addEventListener("click", () => switchTab("json"));
+$("tab-availability").addEventListener("click", () => {
+  switchTab("availability");
+  availabilityTarget();
+});
 $("tab-summary").addEventListener("click", () => {
   switchTab("summary");
   summaryTarget();

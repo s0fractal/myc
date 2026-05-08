@@ -18,6 +18,14 @@ Deno.test("myc.md worker serves the PWA shell", async () => {
   );
   assert(body.includes("/manifest.webmanifest"), "manifest should be linked");
   assert(body.includes("tab-summary"), "shell should include summary tab");
+  assert(
+    body.includes("tab-availability"),
+    "shell should include access tab",
+  );
+  assert(
+    body.includes("availability-badge"),
+    "shell should show availability badge",
+  );
   assert(body.includes("version-value"), "shell should show resolver version");
   assert(body.includes("graph-report"), "shell should show graph report");
   assert(body.includes("load-graph-btn"), "shell should include graph loader");
