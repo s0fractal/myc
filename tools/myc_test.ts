@@ -505,6 +505,31 @@ Deno.test("verifyProjections detects stale public index", async () => {
   );
 });
 
+Deno.test("verifyProjections is idempotent (running twice yields same index/graph)", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  await captureText({
+    root,
+    text: "first projection",
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  // First run creates the index and graph
+  const first = await verifyProjections(root);
+  assert(first.ok, "first projection should succeed");
+  const firstIndex = await Deno.readTextFile(`${root}/public/index.ndjson`);
+  const firstGraph = await Deno.readTextFile(`${root}/public/graph.ndjson`);
+
+  // Second run shouldn't change the outcome
+  const second = await verifyProjections(root);
+  assert(second.ok, "second projection should succeed");
+  const secondIndex = await Deno.readTextFile(`${root}/public/index.ndjson`);
+  const secondGraph = await Deno.readTextFile(`${root}/public/graph.ndjson`);
+
+  assert(firstIndex === secondIndex, "index.ndjson must be idempotent");
+  assert(firstGraph === secondGraph, "graph.ndjson must be idempotent");
+});
+
 Deno.test("derived nutrition does not change descriptor identity", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-test-" });
   const result = await captureText({

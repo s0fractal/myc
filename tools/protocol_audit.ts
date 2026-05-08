@@ -45,6 +45,9 @@ export async function auditRoot(root: string): Promise<ProtocolAuditResult> {
     if (/^substrates\/[^/]+\/MYC\.md$/.test(relative)) {
       await auditSubstratePolicy(file, relative, errors);
     }
+    if (/^substrates\/[^/]+\/receipts\/.*\.md$/.test(relative)) {
+      await auditImportedReceipt(file, relative, errors);
+    }
     if (relative.startsWith("protocols/recipes/")) {
       await auditRecipeDraftPolicy(file, relative, errors);
     }
@@ -127,6 +130,26 @@ async function auditSubstratePolicy(
   ) {
     if (!text.includes(key)) {
       errors.push(`${relative}: missing required adapter policy key '${key}'`);
+    }
+  }
+}
+
+async function auditImportedReceipt(
+  file: string,
+  relative: string,
+  errors: string[],
+): Promise<void> {
+  const text = await Deno.readTextFile(file);
+  if (!text.includes('type: "SealedReceiptDescriptor"')) {
+    errors.push(
+      `${relative}: imported receipt must be a SealedReceiptDescriptor`,
+    );
+  }
+  for (const key of ["intent_hash:", "status:", "signature:"]) {
+    if (!text.includes(key)) {
+      errors.push(
+        `${relative}: imported receipt missing required key '${key}'`,
+      );
     }
   }
 }

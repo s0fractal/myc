@@ -382,3 +382,30 @@ Deno.test("protocol audit rejects sealed drafts without receipt contract", async
     result.errors.join("\n"),
   );
 });
+
+Deno.test("protocol audit rejects invalid imported receipts", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/substrates/liquid/receipts/receipt.h.bad.myc.md`,
+    [
+      "---",
+      'type: "OtherDescriptor"',
+      "---",
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "invalid imported receipt should fail audit");
+  assert(
+    result.errors.some((error) =>
+      error.includes("must be a SealedReceiptDescriptor")
+    ),
+    result.errors.join("\n"),
+  );
+  assert(
+    result.errors.some((error) =>
+      error.includes("missing required key 'intent_hash:'")
+    ),
+    result.errors.join("\n"),
+  );
+});
