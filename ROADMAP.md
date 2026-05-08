@@ -533,15 +533,18 @@ Already implemented:
   resolver endpoint
 - resolver response contracts in `protocols/resolver/`, including availability
   and adapter dry-run schema notes
+- GitHub Actions opts JavaScript actions into Node 24 runtime to avoid the
+  scheduled Node 20 runner deprecation
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. GitHub Actions Node 24 migration to remove runner deprecation warning.
-3. Generated response-schema conformance tests for resolver endpoints.
+2. Generated response-schema conformance tests for resolver endpoints.
+3. Resolver endpoint coverage for adapter dry-run and availability in PWA smoke
+   tests.
 
 Preferred next step:
 
 ```text
-GitHub Actions Node 24 Migration
+Generated Response Schema Conformance
 ```
