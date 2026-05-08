@@ -531,15 +531,17 @@ Already implemented:
   resolver output with execution disabled
 - PWA adapter dry-run lens inspects adapter policy through the read-only
   resolver endpoint
+- resolver response contracts in `protocols/resolver/`, including availability
+  and adapter dry-run schema notes
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Descriptor schema docs for availability and adapter dry-run responses.
-3. GitHub Actions Node 24 migration to remove runner deprecation warning.
+2. GitHub Actions Node 24 migration to remove runner deprecation warning.
+3. Generated response-schema conformance tests for resolver endpoints.
 
 Preferred next step:
 
 ```text
-Resolver Response Schema Docs
+GitHub Actions Node 24 Migration
 ```

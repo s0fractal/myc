@@ -151,6 +151,7 @@ not to reveal the whole causal background.
 
 ```text
 protocols/
+  resolver/          # Read-only resolver response contracts
   jazz/              # Anti-orchestration protocol drafts
   recipes/           # Phase 4 recipe design checkpoint, execution disabled
   capabilities/      # Phase 5 authority drafts, descriptors disabled
