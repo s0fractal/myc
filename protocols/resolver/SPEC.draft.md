@@ -70,3 +70,9 @@ record query strings.
 
 Future resolver responses should add fields conservatively and keep existing
 field names stable.
+
+Schema notes:
+
+- `schemas/availability-response.schema.md`
+- `schemas/adapter-dry-run-response.schema.md`
+- `schemas/verify-projections-response.schema.md`

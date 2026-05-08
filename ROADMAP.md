@@ -552,15 +552,18 @@ Already implemented:
   only
 - PWA can load public verification receipt source from a
   `public/verification/<name>.md` target
+- projection verification response schema in
+  `protocols/resolver/schemas/verify-projections-response.schema.md`
+- executable response-shape conformance tests cover projection verification
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Resolver/PWA schema docs for projection verification response.
-3. Verification receipt list buttons in PWA.
+2. Verification receipt list buttons in PWA.
+3. Public receipt source schema note.
 
 Preferred next step:
 
 ```text
-Projection Verification Response Schema
+Verification Receipt List Buttons
 ```

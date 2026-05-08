@@ -116,6 +116,26 @@ function assertAdapterDryRunResponseShape(
   }
 }
 
+function assertProjectionVerificationResponseShape(
+  value: Record<string, unknown>,
+): void {
+  assertBooleanField(value, "ok");
+  assertStringField(value, "index_path");
+  assertStringField(value, "graph_path");
+  assertBooleanField(value, "index_synced");
+  assertBooleanField(value, "graph_synced");
+  assert(
+    typeof value.descriptor_count === "number",
+    "descriptor_count should be a number",
+  );
+  assert(
+    typeof value.index_record_count === "number",
+    "index_record_count should be a number",
+  );
+  assertStringArrayField(value, "errors");
+  assertStringArrayField(value, "warnings");
+}
+
 Deno.test("default root uses repository checkout when MYC_ROOT is unset", () => {
   const previous = Deno.env.get("MYC_ROOT");
   try {
@@ -409,6 +429,7 @@ Deno.test("graph endpoint returns sanitized edges by default", async () => {
     "verify-projections should return 200",
   );
   const projections = await verifyProjectionResponse.json();
+  assertProjectionVerificationResponseShape(projections);
   assert(projections.ok === true, "projection response should be ok");
   assert(projections.index_synced === true, "index should be synced");
   assert(projections.graph_synced === true, "graph should be synced");
@@ -440,12 +461,18 @@ Deno.test("verifyProjections detects stale public index", async () => {
   });
 
   const clean = await verifyProjections(root);
+  assertProjectionVerificationResponseShape(
+    clean as unknown as Record<string, unknown>,
+  );
   assert(clean.ok, clean.errors.join("\n"));
   assert(clean.index_synced, "index should start synced");
   assert(clean.graph_synced, "graph should start synced");
 
   await Deno.writeTextFile(`${root}/public/index.ndjson`, "{}\n");
   const stale = await verifyProjections(root);
+  assertProjectionVerificationResponseShape(
+    stale as unknown as Record<string, unknown>,
+  );
   assert(!stale.ok, "stale index should fail projection verification");
   assert(!stale.index_synced, "index_synced should be false");
   assert(
