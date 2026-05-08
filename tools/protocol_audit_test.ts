@@ -209,6 +209,49 @@ Deno.test("protocol audit rejects invalid SealedReceiptDescriptor", async () => 
   );
 });
 
+Deno.test("protocol audit rejects invalid IntentDescriptor", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/public/objects/h/bad/intent.myc.md`,
+    [
+      "```json myc",
+      JSON.stringify(
+        {
+          type: "IntentDescriptor",
+          schema_version: "myc.intent.v0.1",
+          fqdn: "h.bad.intent.myc.md",
+          commitment: {
+            algorithm: "sha256",
+            value: "0".repeat(64),
+            covers: "descriptor.body",
+          },
+          body: {
+            intent: {
+              id: "h.some.intent.myc.md",
+              // Missing raw, actor, kind, etc.
+            },
+            address: {
+              fqdn: "some.address",
+            },
+            context_chain: {},
+            materialization: {},
+          },
+        },
+        null,
+        2,
+      ),
+      "```",
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "invalid intent descriptor should fail audit");
+  assert(
+    result.errors.some((error) => error.includes("must declare 'raw'")),
+    result.errors.join("\n"),
+  );
+});
+
 Deno.test("protocol audit rejects substrate adapters without policy", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
   await write(

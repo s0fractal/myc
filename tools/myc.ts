@@ -626,19 +626,42 @@ export async function captureText(
     `intent.${classification.kind}.${actor}.h.${shortHash}.myc.md`;
   const intentDescriptor = await makeDescriptor(
     "IntentDescriptor",
-    "myc.intent.v0.1",
+    "myc.intent.v0.2",
     intentFqdn,
     {
-      raw: rawFqdn,
-      raw_hash: rawHash,
-      actor,
-      input_kind: rawKind,
-      intent_kind: classification.kind,
-      actionability: classification.actionability,
-      oct: classification.oct,
-      confidence: classification.confidence,
-      classifier: functions.classifier.descriptor.fqdn,
-      signals: classification.signals,
+      intent: {
+        id: intentFqdn,
+        raw: rawFqdn,
+        actor,
+        kind: classification.kind,
+        actionability: classification.actionability,
+        language: "unknown",
+      },
+      address: {
+        fqdn: intentFqdn,
+        oct: classification.oct,
+        local_path: null,
+        cid: null,
+      },
+      context_chain: {
+        session_id: "none",
+        thread_id: "none",
+        parent_ids: [],
+        target_ids: [],
+      },
+      materialization: {
+        requested: classification.actionability === "patch" ||
+          classification.actionability === "publish",
+        policy: "proposal",
+        allowed_paths: [],
+        forbidden_paths: [],
+      },
+      legacy_meta: {
+        raw_hash: rawHash,
+        confidence: classification.confidence,
+        classifier: functions.classifier.descriptor.fqdn,
+        signals: classification.signals,
+      },
     },
   );
 

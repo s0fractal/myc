@@ -39,9 +39,9 @@ GitHub Actions runs the same command. A change that cannot pass
 
 ## Current Phase
 
-Phase 6 is active: Adapters. All AI agents must declare their adapter policy.
+Phase 7 is active: JAZZ Integration. Intent-based anti-orchestration is enabled.
 
-Phase 7+ is design-only until guardrails and Phase 6 audits stay stable.
+Phase 8+ is design-only until guardrails and Phase 7 audits stay stable.
 
 ## Useful Commands
 

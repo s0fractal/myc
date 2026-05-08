@@ -278,6 +278,56 @@ async function auditDescriptorFile(
       }
     }
   }
+  if (descriptor.type === "IntentDescriptor") {
+    const body = descriptor.body;
+
+    if (!body.intent || typeof body.intent !== "object") {
+      errors.push(`${relative}: IntentDescriptor must have an 'intent' object`);
+    } else {
+      const intent = body.intent as Record<string, unknown>;
+      const requiredKeys = [
+        "id",
+        "raw",
+        "actor",
+        "kind",
+        "actionability",
+        "language",
+      ];
+      for (const key of requiredKeys) {
+        if (!intent[key] || typeof intent[key] !== "string") {
+          errors.push(
+            `${relative}: IntentDescriptor.intent must declare '${key}'`,
+          );
+        }
+      }
+    }
+
+    if (!body.address || typeof body.address !== "object") {
+      errors.push(
+        `${relative}: IntentDescriptor must have an 'address' object`,
+      );
+    } else {
+      const address = body.address as Record<string, unknown>;
+      if (!address.fqdn || typeof address.fqdn !== "string") {
+        errors.push(
+          `${relative}: IntentDescriptor.address must declare 'fqdn'`,
+        );
+      }
+    }
+
+    if (!body.context_chain || typeof body.context_chain !== "object") {
+      errors.push(
+        `${relative}: IntentDescriptor must have a 'context_chain' object`,
+      );
+    }
+
+    if (!body.materialization || typeof body.materialization !== "object") {
+      errors.push(
+        `${relative}: IntentDescriptor must have a 'materialization' object`,
+      );
+    }
+  }
+
   if (descriptor.type === "CapabilityDescriptor") {
     const body = descriptor.body;
     if (

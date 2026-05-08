@@ -564,24 +564,24 @@ Already implemented:
 
 Immediate next candidates:
 
-- `RecipeDescriptor` enablement in core
-- `myc dry-run <recipe>` command
-- Recipe rendering and dry-run lens in PWA
+- `RecipeDescriptor` enablement in core (Done)
+- `CapabilityDescriptor` enablement in core (Done)
+- `SealedReceiptDescriptor` enablement in core (Done)
+- AI Agent Adapter formalization (Done)
 
 Immediate next candidates:
 
-- `CapabilityDescriptor` enablement in core
-- `SealedReceiptDescriptor` enablement in core
-- PWA rendering for Capabilities and Sealed Receipts
+- `IntentDescriptor` and `JAZZ` Integration (Done)
+- PWA rendering for Phase 5 & 6 elements (Capabilities, Receipts, Adapters)
+- Integration of Genesis Recipe into PWA UI
 
 Immediate next candidates:
 
-1. `substrates/codex/MYC.md` adapter policy
-2. `substrates/gemini/MYC.md` adapter policy
-3. PWA testing of adapter capabilities
+1. `protocols/jazz/` formalization and rendering in PWA
+2. Moving towards Phase 8: Publishing And Consensus
 
 Preferred next step:
 
 ```text
-Enable Phase 6 Adapters and Formalize AI agents
+Activate Phase 8: Publishing And Consensus
 ```
