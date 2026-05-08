@@ -1161,3 +1161,87 @@ Deno.test("myc import merges valid external bundle into local graph", async () =
     "should be IntentDescriptor",
   );
 });
+
+Deno.test("myc witness and review generate valid consensus descriptors", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+
+  // 1. Capture text
+  const {
+    captureText,
+    publishTarget,
+    importGraph,
+    witnessTarget,
+    reviewTarget,
+    resolveFqdn,
+  } = await import("./myc.ts");
+  await captureText({
+    root,
+    text: "Consensus target payload",
+    actor: "s0fractal",
+    kind: "message",
+    storePayload: true,
+  });
+
+  // 2. Resolve intent
+  const indexStr = await Deno.readTextFile(root + "/public/index.ndjson");
+  const intents = indexStr.split("\n").filter((l: string) =>
+    l.includes("IntentDescriptor")
+  );
+  const intentFqdn = JSON.parse(intents[0]).fqdn;
+
+  // 3. Publish and Import (to persist PublishDescriptor locally)
+  const publishResult = await publishTarget(root, intentFqdn);
+  assert(publishResult.ok, "publish should succeed");
+  const publishFqdn = publishResult.fqdn;
+
+  const importResult = await importGraph(root, publishResult.path!);
+  assert(
+    importResult.ok,
+    "import should succeed: " + importResult.errors.join(", "),
+  );
+
+  // 4. Witness the PublishDescriptor
+  const witnessResult = await witnessTarget(root, publishFqdn, "s0fractal");
+  assert(
+    witnessResult.ok,
+    "witness should succeed: " + witnessResult.errors.join(", "),
+  );
+  assert(witnessResult.fqdn, "witness should return fqdn");
+
+  // 5. Review the IntentDescriptor
+  const reviewResult = await reviewTarget(
+    root,
+    intentFqdn,
+    "s0fractal",
+    "approve",
+    "Looks good",
+  );
+  assert(
+    reviewResult.ok,
+    "review should succeed: " + reviewResult.errors.join(", "),
+  );
+  assert(reviewResult.fqdn, "review should return fqdn");
+
+  // 6. Verify they are resolvable
+  const witnessRecord = await resolveFqdn(root, witnessResult.fqdn!);
+  assert(witnessRecord !== null, "Witness descriptor should resolve");
+  assert(
+    witnessRecord!.descriptor.type === "WitnessDescriptor",
+    "Type must be WitnessDescriptor",
+  );
+
+  const reviewRecord = await resolveFqdn(root, reviewResult.fqdn!);
+  assert(reviewRecord !== null, "Review descriptor should resolve");
+  assert(
+    reviewRecord!.descriptor.type === "ReviewDescriptor",
+    "Type must be ReviewDescriptor",
+  );
+
+  // 7. Verify witness rejects non-Publish targets
+  const badWitness = await witnessTarget(root, intentFqdn, "s0fractal");
+  assert(!badWitness.ok, "witness should reject IntentDescriptor");
+
+  // 8. Verify review rejects invalid ratings
+  const badReview = await reviewTarget(root, intentFqdn, "s0fractal", "maybe");
+  assert(!badReview.ok, "review should reject invalid rating");
+});

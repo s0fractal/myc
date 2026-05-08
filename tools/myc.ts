@@ -2454,6 +2454,13 @@ export async function importGraph(
 
     let targetDir = "objects";
     if (descriptor.type === "FunctionDescriptor") targetDir = "functions";
+    if (descriptor.type === "TransformationDescriptor") {
+      targetDir = "transforms";
+    }
+    if (descriptor.type === "WitnessDescriptor") {
+      targetDir = "consensus/witness";
+    }
+    if (descriptor.type === "ReviewDescriptor") targetDir = "consensus/review";
 
     // We infer the short hash from the fqdn: h.<hash>....
     const shortHashMatch = descriptor.fqdn.match(/(?:^|\.)h\.([0-9a-f]+)\./);
@@ -2463,14 +2470,19 @@ export async function importGraph(
     }
     const shortHash = shortHashMatch[1];
 
-    const writePath = joinPath(
-      root,
-      "public",
-      targetDir,
-      "h",
-      shortHash,
-      descriptor.fqdn,
-    );
+    let writePath: string;
+    if (descriptor.type === "FunctionDescriptor") {
+      writePath = joinPath(root, "public", targetDir, descriptor.fqdn);
+    } else {
+      writePath = joinPath(
+        root,
+        "public",
+        targetDir,
+        "h",
+        shortHash,
+        descriptor.fqdn,
+      );
+    }
 
     const exists = await Deno.stat(writePath).then(() => true).catch(() =>
       false
@@ -2502,6 +2514,162 @@ export async function importGraph(
   }
 
   return { ok: true, imported: importedCount, errors: [] };
+}
+
+export async function witnessTarget(
+  root: string,
+  target: string,
+  actor: string,
+): Promise<{ ok: boolean; fqdn?: string; path?: string; errors: string[] }> {
+  const record = await resolveFqdn(root, target);
+  if (!record) return { ok: false, errors: [`target not found: ${target}`] };
+  if (record.descriptor.type !== "PublishDescriptor") {
+    return {
+      ok: false,
+      errors: [
+        `WitnessDescriptor must target a PublishDescriptor, got ${record.descriptor.type}`,
+      ],
+    };
+  }
+
+  const verified = await verifyDescriptor(record.descriptor);
+  if (!verified.ok) {
+    return {
+      ok: false,
+      errors: [
+        "Target descriptor structural verification failed",
+        ...verified.errors,
+      ],
+    };
+  }
+
+  const witnessDescriptor: MycDescriptor = {
+    type: "WitnessDescriptor",
+    schema_version: "myc.witness.v0.1",
+    fqdn: "",
+    commitment: {
+      algorithm: "sha256",
+      value: "",
+      covers: "descriptor.body",
+    },
+    body: {
+      target_fqdn: record.descriptor.fqdn,
+      target_commitment: record.descriptor.commitment.value,
+      witness_actor: actor,
+      timestamp: new Date().toISOString(),
+      verification_status: "structurally_valid",
+    },
+  };
+
+  const bodyString = stableStringify(witnessDescriptor.body as unknown as Json);
+  witnessDescriptor.commitment.value = await sha256Hex(bodyString);
+
+  const shortHash = witnessDescriptor.commitment.value.slice(0, 12);
+  witnessDescriptor.fqdn = `h.${shortHash}.witness.myc.md`;
+
+  const writePath = joinPath(
+    root,
+    "public",
+    "consensus",
+    "witness",
+    "h",
+    shortHash,
+    witnessDescriptor.fqdn,
+  );
+  await ensureDir(dirname(writePath));
+  await writeDescriptorFile(
+    writePath,
+    witnessDescriptor,
+    "Witness Descriptor",
+    "Generated locally to prove receipt and structural validity.",
+  );
+
+  await rebuildIndex(root);
+  await rebuildGraph(root);
+
+  return {
+    ok: true,
+    fqdn: witnessDescriptor.fqdn,
+    path: writePath,
+    errors: [],
+  };
+}
+
+export async function reviewTarget(
+  root: string,
+  target: string,
+  reviewer: string,
+  rating: string,
+  comment?: string,
+): Promise<{ ok: boolean; fqdn?: string; path?: string; errors: string[] }> {
+  if (!["approve", "reject", "neutral"].includes(rating)) {
+    return {
+      ok: false,
+      errors: [`rating must be approve, reject, or neutral`],
+    };
+  }
+
+  const record = await resolveFqdn(root, target);
+  if (!record) return { ok: false, errors: [`target not found: ${target}`] };
+
+  if (
+    record.descriptor.type !== "IntentDescriptor" &&
+    record.descriptor.type !== "PublishDescriptor"
+  ) {
+    return {
+      ok: false,
+      errors: [
+        `ReviewDescriptor must target an IntentDescriptor or PublishDescriptor, got ${record.descriptor.type}`,
+      ],
+    };
+  }
+
+  const reviewDescriptor: MycDescriptor = {
+    type: "ReviewDescriptor",
+    schema_version: "myc.review.v0.1",
+    fqdn: "",
+    commitment: {
+      algorithm: "sha256",
+      value: "",
+      covers: "descriptor.body",
+    },
+    body: {
+      target_fqdn: record.descriptor.fqdn,
+      target_commitment: record.descriptor.commitment.value,
+      reviewer,
+      rating,
+      ...(comment ? { comment } : {}),
+      timestamp: new Date().toISOString(),
+    },
+  };
+
+  const bodyString = stableStringify(reviewDescriptor.body as unknown as Json);
+  reviewDescriptor.commitment.value = await sha256Hex(bodyString);
+
+  const shortHash = reviewDescriptor.commitment.value.slice(0, 12);
+  reviewDescriptor.fqdn = `h.${shortHash}.review.myc.md`;
+
+  const writePath = joinPath(
+    root,
+    "public",
+    "consensus",
+    "review",
+    "h",
+    shortHash,
+    reviewDescriptor.fqdn,
+  );
+  await ensureDir(dirname(writePath));
+  await writeDescriptorFile(
+    writePath,
+    reviewDescriptor,
+    "Review Descriptor",
+    `Semantic evaluation: ${rating}`,
+  );
+
+  await rebuildIndex(root);
+  await rebuildGraph(root);
+
+  return { ok: true, fqdn: reviewDescriptor.fqdn, path: writePath, errors: [] };
 }
 
 export async function explainAvailability(
@@ -2839,6 +3007,34 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  if (command === "witness") {
+    const target = rest[0];
+    if (!target) {
+      throw new Error("witness requires a target PublishDescriptor fqdn");
+    }
+    const actor = flagString(flags, "actor") ?? "s0fractal";
+    const result = await witnessTarget(root, target, actor);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) Deno.exitCode = 1;
+    return;
+  }
+
+  if (command === "review") {
+    const target = rest[0];
+    const rating = rest[1];
+    const comment = rest[2];
+    if (!target || !rating) {
+      throw new Error(
+        "review requires a target fqdn and a rating (approve|reject|neutral)",
+      );
+    }
+    const reviewer = flagString(flags, "reviewer") ?? "s0fractal";
+    const result = await reviewTarget(root, target, reviewer, rating, comment);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) Deno.exitCode = 1;
+    return;
+  }
+
   if (command === "availability") {
     const target = rest[0];
     if (!target) throw new Error("availability requires a path or FQDN");
@@ -2898,7 +3094,9 @@ function helpText(): string {
     "  adapter-dry-run <adapter-name>",
     "  dry-run <recipe-fqdn>",
     "  publish <fqdn>",
-    "  import <path-to-export.ndjson>",
+    "  import <path>",
+    "  witness <fqdn> [--actor s0fractal]",
+    "  review <fqdn> <rating> [comment] [--reviewer s0fractal]",
     "  serve [--host 127.0.0.1] [--port 8787]",
     "  demo",
     "",
