@@ -136,6 +136,14 @@ function assertProjectionVerificationResponseShape(
   assertStringArrayField(value, "warnings");
 }
 
+function assertVerificationSourceResponseShape(
+  value: Record<string, unknown>,
+): void {
+  assertBooleanField(value, "ok");
+  assertStringField(value, "name");
+  assertStringField(value, "source");
+}
+
 Deno.test("default root uses repository checkout when MYC_ROOT is unset", () => {
   const previous = Deno.env.get("MYC_ROOT");
   try {
@@ -946,6 +954,7 @@ Deno.test("verification endpoint lists public receipts only", async () => {
     new Request("http://local/verification-source?name=audit-one.md"),
   );
   const sourceBody = await sourceResponse.json();
+  assertVerificationSourceResponseShape(sourceBody);
   assert(sourceResponse.status === 200, "receipt source should return 200");
   assert(sourceBody.source === "# Audit One\n", "receipt source should match");
 
