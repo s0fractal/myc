@@ -573,6 +573,8 @@ Immediate next candidates:
 
 - `IntentDescriptor` and `JAZZ` Integration (Done)
 - PWA rendering for Phase 5 & 6 elements (Capabilities, Receipts, Adapters)
+  (Done)
+- PWA UI Modernization (Dark Mode & Aesthetics) (Done)
 - Integration of Genesis Recipe into PWA UI
 
 Immediate next candidates:

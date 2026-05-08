@@ -127,18 +127,22 @@ const HTML = `<!doctype html>
 
 const CSS = `
 :root {
-  color-scheme: light;
-  --paper: #f7f4ec;
-  --ink: #202520;
-  --muted: #687064;
-  --line: #c9c3b4;
-  --surface: #fffdf7;
-  --surface-2: #ece7dc;
-  --accent: #217c67;
-  --accent-2: #b4532a;
-  --bad: #9a2f2f;
-  --good: #24715b;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: dark;
+  --paper: #09090b;
+  --ink: #f8fafc;
+  --muted: #94a3b8;
+  --line: #334155;
+  --surface: #0f172a;
+  --surface-2: #1e293b;
+  --accent: #38bdf8;
+  --accent-2: #fbbf24;
+  --bad: #ef4444;
+  --good: #10b981;
+  --intent: #f43f5e;
+  --capability: #a855f7;
+  --glass: rgba(15, 23, 42, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -146,7 +150,11 @@ const CSS = `
 body {
   margin: 0;
   background: var(--paper);
+  background-image: radial-gradient(circle at top right, #1e293b, transparent 40%),
+                    radial-gradient(circle at bottom left, #0f172a, transparent 40%);
+  background-attachment: fixed;
   color: var(--ink);
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -155,18 +163,35 @@ input {
 }
 
 button {
-  border: 1px solid #1f5c4f;
-  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
   background: var(--accent);
-  color: white;
+  color: #020617;
   min-height: 38px;
-  padding: 0 14px;
+  padding: 0 16px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.2);
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.3);
+  background: #7dd3fc;
 }
 
 button.secondary {
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--ink);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--line);
+  color: #fff;
+  box-shadow: none;
 }
 
 button:disabled {
@@ -177,11 +202,19 @@ button:disabled {
 input {
   min-height: 38px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(8px);
   color: var(--ink);
-  padding: 0 11px;
+  padding: 0 12px;
   min-width: 0;
+  transition: all 0.2s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
 }
 
 .app-shell {
@@ -196,9 +229,11 @@ input {
 .workbench,
 .index-panel,
 .panel {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
 .topology {
@@ -219,8 +254,15 @@ input {
   border-radius: 50%;
   border: 2px solid var(--accent);
   background:
-    radial-gradient(circle at 50% 50%, var(--accent) 0 4px, transparent 5px),
-    conic-gradient(from 0deg, #217c67, #d08b43, #5d7569, #217c67);
+    radial-gradient(circle at 50% 50%, var(--surface-2) 0 4px, transparent 5px),
+    conic-gradient(from 0deg, var(--accent), var(--capability), var(--intent), var(--accent));
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+  animation: pulse 4s infinite linear;
+}
+
+@keyframes pulse {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 h1,
@@ -408,17 +450,22 @@ pre {
   min-height: 360px;
   max-height: 540px;
   overflow: auto;
-  padding: 12px;
-  font-size: 12px;
-  line-height: 1.45;
-  background: #fbfaf5;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.3);
+  color: #e2e8f0;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
 canvas {
   display: block;
   width: 100%;
   height: 420px;
-  background: #fbfaf5;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
 #graph-report {
@@ -429,21 +476,29 @@ canvas {
 
 .edge-list {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   max-height: 210px;
   overflow: auto;
-  border-top: 1px solid var(--line);
-  padding: 8px;
-  background: #fbfaf5;
+  border-top: 1px solid var(--glass-border);
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
 .edge-item {
   display: grid;
   gap: 6px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 8px;
-  background: var(--surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.5);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.edge-item:hover {
+  transform: translateX(4px);
+  background: rgba(30, 41, 59, 0.8);
 }
 
 .edge-item strong,
@@ -493,10 +548,17 @@ canvas {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fbfaf5;
-  padding: 9px 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+}
+
+.index-item:hover {
+  background: rgba(30, 41, 59, 0.7);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .index-item button {
@@ -908,8 +970,25 @@ function renderIndex() {
     const title = document.createElement("strong");
     title.textContent = record.fqdn;
     const meta = document.createElement("span");
+    const typeBadge = document.createElement("span");
+    typeBadge.textContent = record.type;
+    typeBadge.style.display = "inline-block";
+    typeBadge.style.padding = "2px 6px";
+    typeBadge.style.borderRadius = "4px";
+    typeBadge.style.fontSize = "10px";
+    typeBadge.style.fontWeight = "bold";
+    typeBadge.style.marginRight = "6px";
+    typeBadge.style.color = "#000";
+
+    if (record.type === "IntentDescriptor") typeBadge.style.background = "var(--intent)";
+    else if (record.type === "CapabilityDescriptor") typeBadge.style.background = "var(--capability)";
+    else if (record.type === "SealedReceiptDescriptor") typeBadge.style.background = "var(--accent-2)";
+    else if (record.type === "RecipeDescriptor") typeBadge.style.background = "var(--good)";
+    else typeBadge.style.background = "var(--muted)";
+
     const nutrition = record.nutrition?.status ? " | " + record.nutrition.status : "";
-    meta.textContent = record.type + nutrition + " | " + record.commitment;
+    meta.append(typeBadge, document.createTextNode(nutrition + " | " + record.commitment.substring(0, 16) + "..."));
+    
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = "Open";
