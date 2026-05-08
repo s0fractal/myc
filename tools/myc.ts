@@ -1822,6 +1822,11 @@ export async function handleRequest(
     return jsonResponse(result, result.ok ? 200 : 422, request);
   }
 
+  if (url.pathname === "/verify-projections") {
+    const result = await verifyProjections(root);
+    return jsonResponse(result, result.ok ? 200 : 422, request);
+  }
+
   if (url.pathname === "/verification") {
     const receipts = await verificationReceipts(root);
     return jsonResponse(

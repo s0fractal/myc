@@ -661,17 +661,17 @@ async function connect() {
 }
 
 async function verifyGraph() {
-  const result = await api("/verify-graph");
+  const result = await api("/verify-projections");
   setText("graph-value", result.ok ? "ok" : "failed", result.ok ? "ok" : "bad");
   setText("descriptor-value", String(result.descriptor_count ?? 0));
-  setText("edge-value", String(result.edge_count ?? 0));
+  setText("edge-value", result.graph_synced ? "synced" : "stale", result.graph_synced ? "" : "bad");
   $("graph-title").textContent = result.ok ? "verified" : "needs attention";
   $("graph-report").textContent = JSON.stringify({
     ok: result.ok,
+    index_synced: result.index_synced,
+    graph_synced: result.graph_synced,
     descriptors: result.descriptor_count,
-    transformations: result.transformation_count,
-    edges: result.edge_count,
-    nutrition: result.nutrition_counts || {},
+    index_records: result.index_record_count,
     errors: result.errors || [],
     warnings: result.warnings || [],
   }, null, 2);
@@ -680,8 +680,9 @@ async function verifyGraph() {
   writeJson("myc.lastGraph", {
     ok: result.ok,
     descriptor_count: result.descriptor_count,
-    transformation_count: result.transformation_count,
-    edge_count: result.edge_count,
+    index_record_count: result.index_record_count,
+    index_synced: result.index_synced,
+    graph_synced: result.graph_synced,
     errors: result.errors || [],
     warnings: result.warnings || [],
   });

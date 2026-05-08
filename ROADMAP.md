@@ -546,15 +546,17 @@ Already implemented:
 - `/verification` resolver endpoint lists public verification receipts without
   exposing local root paths
 - PWA receipt lens loads `/verification` into the read-only JSON panel
+- `/verify-projections` resolver endpoint exposes generated projection freshness
+- PWA graph report displays `index_synced` and `graph_synced`
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Projection freshness status in PWA graph report.
-3. Verification receipt source viewer.
+2. Verification receipt source viewer.
+3. Resolver/PWA schema docs for projection verification response.
 
 Preferred next step:
 
 ```text
-Projection Freshness Lens
+Verification Receipt Source Viewer
 ```

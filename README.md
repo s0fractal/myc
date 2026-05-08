@@ -188,6 +188,7 @@ Resolver endpoints include:
 GET /availability?target=<path-or-fqdn>
 GET /adapter-dry-run?adapter=<name>
 GET /verification
+GET /verify-projections
 ```
 
 Deploy the shell with:

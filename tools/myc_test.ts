@@ -399,6 +399,19 @@ Deno.test("graph endpoint returns sanitized edges by default", async () => {
   assert(graphResponse.status === 200, "graph should return 200");
   const graph = await graphResponse.json();
   assert(graph.ok === true, "graph response should be ok");
+
+  const verifyProjectionResponse = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/verify-projections"),
+  );
+  assert(
+    verifyProjectionResponse.status === 200,
+    "verify-projections should return 200",
+  );
+  const projections = await verifyProjectionResponse.json();
+  assert(projections.ok === true, "projection response should be ok");
+  assert(projections.index_synced === true, "index should be synced");
+  assert(projections.graph_synced === true, "graph should be synced");
   assert(graph.count > 0, "graph should include edges");
   assert(
     !("transform_path" in graph.edges[0]),

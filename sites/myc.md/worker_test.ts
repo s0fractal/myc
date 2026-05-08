@@ -60,6 +60,14 @@ Deno.test("myc.md worker serves the PWA shell", async () => {
     appBody.includes("/verification"),
     "app should call verification endpoint",
   );
+  assert(
+    appBody.includes("/verify-projections"),
+    "app should verify generated projections",
+  );
+  assert(
+    appBody.includes("index_synced"),
+    "app should show projection freshness fields",
+  );
 });
 
 Deno.test("myc.md worker serves manifest and service worker", async () => {

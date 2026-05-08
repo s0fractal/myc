@@ -58,6 +58,7 @@ record query strings.
 - `/availability`
 - `/verify`
 - `/verify-graph`
+- `/verify-projections`
 - `/verification`
 - `/graph`
 - `/lineage`
