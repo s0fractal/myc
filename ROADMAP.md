@@ -543,15 +543,17 @@ Already implemented:
   `public/graph.ndjson` freshness
 - `deno task check` now uses projection verification, not graph-only
   verification
+- `/verification` resolver endpoint lists public verification receipts without
+  exposing local root paths
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Public verification index in resolver or PWA.
+2. Public verification index in PWA.
 3. Projection freshness status in PWA graph report.
 
 Preferred next step:
 
 ```text
-Public Verification Index
+Public Verification Lens
 ```

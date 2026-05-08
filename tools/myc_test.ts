@@ -13,6 +13,7 @@ import {
   parseDescriptorFile,
   reprojectRaw,
   resolveFqdn,
+  verificationReceipts,
   verifyGraph,
   verifyPath,
   verifyProjections,
@@ -864,6 +865,41 @@ Deno.test("adapter dry-run endpoint is read-only and non-executing", async () =>
   assert(response.status === 200, `unexpected status ${response.status}`);
   assert(body.ok === true, "adapter endpoint should parse policy");
   assert(body.execution_enabled === false, "adapter endpoint must not execute");
+});
+
+Deno.test("verification endpoint lists public receipts only", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  await Deno.mkdir(`${root}/public/verification`, { recursive: true });
+  await Deno.writeTextFile(
+    `${root}/public/verification/audit-one.md`,
+    "# Audit One\n",
+  );
+  await Deno.writeTextFile(
+    `${root}/public/verification/audit-two.md`,
+    "# Audit Two\n",
+  );
+
+  const receipts = await verificationReceipts(root);
+  assert(receipts.length === 2, "two receipts should be listed");
+  assert(
+    receipts.every((receipt) =>
+      receipt.path.startsWith("public/verification/")
+    ),
+    "receipt paths should be public and relative",
+  );
+
+  const response = await handleRequest(
+    root,
+    new Request("http://local/verification"),
+  );
+  const body = await response.json();
+  assert(response.status === 200, `unexpected status ${response.status}`);
+  assert(body.ok === true, "verification endpoint should be ok");
+  assert(body.count === 2, "verification endpoint should return count");
+  assert(
+    !JSON.stringify(body).includes(`${root}`),
+    "verification endpoint must not leak local root",
+  );
 });
 
 Deno.test("audit entries include path but not query payload", () => {

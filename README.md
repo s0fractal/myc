@@ -187,6 +187,7 @@ Resolver endpoints include:
 ```text
 GET /availability?target=<path-or-fqdn>
 GET /adapter-dry-run?adapter=<name>
+GET /verification
 ```
 
 Deploy the shell with:

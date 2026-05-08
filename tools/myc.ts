@@ -143,6 +143,11 @@ export interface AvailabilityExplanation {
   errors: string[];
 }
 
+export interface VerificationReceiptRecord {
+  name: string;
+  path: string;
+}
+
 export interface NutritionLabel {
   status: string;
   labels: string[];
@@ -1817,6 +1822,15 @@ export async function handleRequest(
     return jsonResponse(result, result.ok ? 200 : 422, request);
   }
 
+  if (url.pathname === "/verification") {
+    const receipts = await verificationReceipts(root);
+    return jsonResponse(
+      { ok: true, count: receipts.length, receipts },
+      200,
+      request,
+    );
+  }
+
   if (url.pathname === "/graph") {
     const includePaths = ["1", "true", "yes"].includes(
       (url.searchParams.get("paths") ?? "").toLowerCase(),
@@ -2218,6 +2232,22 @@ export async function explainAvailability(
     safe_next_steps: mode.nextSteps,
     errors: [],
   };
+}
+
+export async function verificationReceipts(
+  root: string,
+): Promise<VerificationReceiptRecord[]> {
+  const dir = joinPath(root, "public", "verification");
+  if (!(await exists(dir))) return [];
+  const records: VerificationReceiptRecord[] = [];
+  for await (const entry of Deno.readDir(dir)) {
+    if (!entry.isFile || !entry.name.endsWith(".md")) continue;
+    records.push({
+      name: entry.name,
+      path: `public/verification/${entry.name}`,
+    });
+  }
+  return records.sort((a, b) => compareStable(a.name, b.name));
 }
 
 function accessModeForPayload(
