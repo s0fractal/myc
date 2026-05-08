@@ -579,11 +579,17 @@ Immediate next candidates:
 
 Immediate next candidates:
 
-1. `protocols/jazz/` formalization and rendering in PWA
-2. Moving towards Phase 8: Publishing And Consensus
+- `protocols/jazz/` formalization and rendering in PWA (Done)
+- Moving towards Phase 8: Publishing And Consensus (Done)
+
+Immediate next candidates:
+
+1. `protocols/publishing/SPEC.draft.md` implementation
+2. `PublishDescriptor` schema formalization
+3. PWA UI for publishing and consensus
 
 Preferred next step:
 
 ```text
-Activate Phase 8: Publishing And Consensus
+Draft Publishing Specifications (Phase 8)
 ```

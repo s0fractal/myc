@@ -17,6 +17,7 @@ const ALLOWED_DESCRIPTOR_TYPES = new Set([
   "RecipeDescriptor",
   "CapabilityDescriptor",
   "SealedReceiptDescriptor",
+  "PublishDescriptor",
 ]);
 
 const LOCKED_FUNCTION_FQDNS = new Set([

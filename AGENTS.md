@@ -39,9 +39,10 @@ GitHub Actions runs the same command. A change that cannot pass
 
 ## Current Phase
 
-Phase 7 is active: JAZZ Integration. Intent-based anti-orchestration is enabled.
+Phase 8 is active: Publishing And Consensus. Export and verification
+capabilities are enabled.
 
-Phase 8+ is design-only until guardrails and Phase 7 audits stay stable.
+Phase 9+ is design-only until guardrails and Phase 8 audits stay stable.
 
 ## Useful Commands
 
