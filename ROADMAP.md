@@ -584,9 +584,9 @@ Immediate next candidates:
 
 Immediate next candidates:
 
-1. `protocols/publishing/SPEC.draft.md` implementation
-2. `PublishDescriptor` schema formalization
-3. PWA UI for publishing and consensus
+1. `protocols/publishing/SPEC.draft.md` implementation (Done)
+2. `PublishDescriptor` schema formalization (Done)
+3. PWA UI for publishing and consensus (Done)
 
 Preferred next step:
 

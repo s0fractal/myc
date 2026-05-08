@@ -66,6 +66,7 @@ const HTML = `<!doctype html>
         <button id="explain-btn" type="button">Explain</button>
         <button id="lineage-btn" type="button">Lineage</button>
         <button id="recipe-dry-run-btn" type="button">Dry Run Recipe</button>
+        <button id="publish-btn" type="button" class="secondary" title="Simulate Publishing">Publish</button>
       </div>
 
       <div class="action-row">
@@ -929,6 +930,42 @@ async function lineageTarget() {
   write(result);
 }
 
+async function publishTarget() {
+  const target = $("target-input").value.trim();
+  if (!target) return;
+  $("descriptor-title").textContent = "publish simulation: " + target;
+  
+  // Create a simulated PublishDescriptor for the UI
+  const mockPublishDescriptor = {
+    type: "PublishDescriptor",
+    schema_version: "myc.publish.v0.1",
+    fqdn: \`h.mock-publish.\${target}\`,
+    commitment: {
+      algorithm: "sha256",
+      value: "pending-hash...",
+      covers: "descriptor.body"
+    },
+    body: {
+      publish_clearance: {
+        target_fqdn: target,
+        target_commitment: "mock-hash",
+        export_scope: "single"
+      },
+      publication_gates: {
+        naming_proof_verified: true,
+        graph_verified: true,
+        payload_scrubbed: true
+      },
+      destinations: [
+        { protocol: "ipfs", address: "ipfs://pending..." }
+      ]
+    }
+  };
+  
+  write(mockPublishDescriptor);
+  switchTab("json");
+}
+
 async function adapterDryRunTarget() {
   const adapter = $("adapter-input").value.trim();
   if (!adapter) return;
@@ -1177,6 +1214,7 @@ $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) =>
 $("verification-btn").addEventListener("click", () => loadVerification().catch((error) => write(error.body || error.message)));
 $("adapter-dry-run-btn").addEventListener("click", () => adapterDryRunTarget().catch((error) => write(error.body || error.message)));
 $("recipe-dry-run-btn").addEventListener("click", () => recipeDryRunTarget().catch((error) => write(error.body || error.message)));
+$("publish-btn").addEventListener("click", () => publishTarget().catch((error) => write(error.body || error.message)));
 $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) => write(error.body || error.message)));
 $("explain-btn").addEventListener("click", () => {
   if (maybeLoadVerificationSource()) return;

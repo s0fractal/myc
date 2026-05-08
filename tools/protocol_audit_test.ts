@@ -252,6 +252,57 @@ Deno.test("protocol audit rejects invalid IntentDescriptor", async () => {
   );
 });
 
+Deno.test("protocol audit rejects invalid PublishDescriptor", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/public/objects/h/bad/publish.myc.md`,
+    [
+      "```json myc",
+      JSON.stringify(
+        {
+          type: "PublishDescriptor",
+          schema_version: "myc.publish.v0.1",
+          fqdn: "h.bad.publish.myc.md",
+          commitment: {
+            algorithm: "sha256",
+            value: "0".repeat(64),
+            covers: "descriptor.body",
+          },
+          body: {
+            publish_clearance: {
+              target_fqdn: "h.some.artifact.myc.md",
+              target_commitment: "hash",
+              export_scope: "invalid_scope",
+            },
+            publication_gates: {
+              naming_proof_verified: true,
+            },
+            destinations: [],
+          },
+        },
+        null,
+        2,
+      ),
+      "```",
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "invalid publish descriptor should fail audit");
+  assert(
+    result.errors.some((error) =>
+      error.includes("must be 'single', 'closure', or 'subgraph'")
+    ),
+    result.errors.join("\n"),
+  );
+  assert(
+    result.errors.some((error) =>
+      error.includes("must declare 'graph_verified'")
+    ),
+    result.errors.join("\n"),
+  );
+});
+
 Deno.test("protocol audit rejects substrate adapters without policy", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
   await write(

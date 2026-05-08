@@ -396,6 +396,66 @@ async function auditDescriptorFile(
     }
   }
 
+  if (descriptor.type === "PublishDescriptor") {
+    const body = descriptor.body;
+    if (
+      !body.publish_clearance ||
+      typeof body.publish_clearance !== "object"
+    ) {
+      errors.push(
+        `${relative}: PublishDescriptor must have a 'publish_clearance' object`,
+      );
+    } else {
+      const pc = body.publish_clearance as Record<string, unknown>;
+      const requiredKeys = ["target_fqdn", "target_commitment", "export_scope"];
+      for (const key of requiredKeys) {
+        if (!pc[key] || typeof pc[key] !== "string") {
+          errors.push(
+            `${relative}: PublishDescriptor.publish_clearance must declare '${key}'`,
+          );
+        }
+      }
+      if (
+        !["single", "closure", "subgraph"].includes(
+          pc.export_scope as string,
+        )
+      ) {
+        errors.push(
+          `${relative}: PublishDescriptor.publish_clearance.export_scope must be 'single', 'closure', or 'subgraph'`,
+        );
+      }
+    }
+
+    if (
+      !body.publication_gates ||
+      typeof body.publication_gates !== "object"
+    ) {
+      errors.push(
+        `${relative}: PublishDescriptor must have a 'publication_gates' object`,
+      );
+    } else {
+      const pg = body.publication_gates as Record<string, unknown>;
+      const requiredKeys = [
+        "naming_proof_verified",
+        "graph_verified",
+        "payload_scrubbed",
+      ];
+      for (const key of requiredKeys) {
+        if (typeof pg[key] !== "boolean") {
+          errors.push(
+            `${relative}: PublishDescriptor.publication_gates must declare '${key}' as boolean`,
+          );
+        }
+      }
+    }
+
+    if (!Array.isArray(body.destinations)) {
+      errors.push(
+        `${relative}: PublishDescriptor must have a 'destinations' array`,
+      );
+    }
+  }
+
   if (
     descriptor.type === "ArtifactDescriptor" &&
     Object.hasOwn(descriptor.body, "nutrition")
