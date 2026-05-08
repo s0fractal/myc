@@ -18,6 +18,8 @@ const ALLOWED_DESCRIPTOR_TYPES = new Set([
   "CapabilityDescriptor",
   "SealedReceiptDescriptor",
   "PublishDescriptor",
+  "WitnessDescriptor",
+  "ReviewDescriptor",
 ]);
 
 const LOCKED_FUNCTION_FQDNS = new Set([
@@ -452,6 +454,54 @@ async function auditDescriptorFile(
     if (!Array.isArray(body.destinations)) {
       errors.push(
         `${relative}: PublishDescriptor must have a 'destinations' array`,
+      );
+    }
+  }
+
+  if (descriptor.type === "WitnessDescriptor") {
+    const body = descriptor.body as Record<string, unknown>;
+    if (typeof body.target_fqdn !== "string") {
+      errors.push(
+        `${relative}: WitnessDescriptor must have a 'target_fqdn' string`,
+      );
+    }
+    if (typeof body.target_commitment !== "string") {
+      errors.push(
+        `${relative}: WitnessDescriptor must have a 'target_commitment' string`,
+      );
+    }
+    if (typeof body.witness_actor !== "string") {
+      errors.push(
+        `${relative}: WitnessDescriptor must have a 'witness_actor' string`,
+      );
+    }
+    if (body.verification_status !== "structurally_valid") {
+      errors.push(
+        `${relative}: WitnessDescriptor.verification_status must be 'structurally_valid'`,
+      );
+    }
+  }
+
+  if (descriptor.type === "ReviewDescriptor") {
+    const body = descriptor.body as Record<string, unknown>;
+    if (typeof body.target_fqdn !== "string") {
+      errors.push(
+        `${relative}: ReviewDescriptor must have a 'target_fqdn' string`,
+      );
+    }
+    if (typeof body.target_commitment !== "string") {
+      errors.push(
+        `${relative}: ReviewDescriptor must have a 'target_commitment' string`,
+      );
+    }
+    if (typeof body.reviewer !== "string") {
+      errors.push(
+        `${relative}: ReviewDescriptor must have a 'reviewer' string`,
+      );
+    }
+    if (!["approve", "reject", "neutral"].includes(body.rating as string)) {
+      errors.push(
+        `${relative}: ReviewDescriptor.rating must be 'approve', 'reject', or 'neutral'`,
       );
     }
   }

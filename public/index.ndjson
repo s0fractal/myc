@@ -2,3 +2,5 @@
 {"fqdn":"h.4f76fd8466bc.myc-raw-bytes-sha256.function.myc.md","path":"public/functions/h.4f76fd8466bc.myc-raw-bytes-sha256.function.myc.md","type":"FunctionDescriptor","commitment":"4f76fd8466bc993d2bf033bebcc9cf9481e863a16f43f0a6c9db4862ac8aa8d1"}
 {"fqdn":"h.53396d6c498b.classify-intent.recipe.myc.md","path":"public/objects/h/53396d6c498b/h.53396d6c498b.classify-intent.recipe.myc.md","type":"RecipeDescriptor","commitment":"53396d6c498b7fb231c9e0c16ba18cb1f3694a2b3f44369fcfd74395163100da"}
 {"fqdn":"h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md","path":"public/functions/h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md","type":"FunctionDescriptor","commitment":"849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e"}
+{"fqdn":"h.abcdef123456.witness.myc.md","path":"protocols/consensus/schemas/witness-descriptor.schema.md","type":"WitnessDescriptor","commitment":"f846d9f5f7790641f1c06cef725ca5d6765afb9ca6d9eaa2c7eb7b5bfac4f873"}
+{"fqdn":"h.fedcba654321.review.myc.md","path":"protocols/consensus/schemas/review-descriptor.schema.md","type":"ReviewDescriptor","commitment":"8a38795c6ae257fa7493f26f39bad4af1742b98ce61e861f1ffdf9a2aa44d826"}

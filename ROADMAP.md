@@ -453,6 +453,35 @@ privacy boundary, stale generated files, and whether any feature bypasses
 verify-first / local-first / transformation-first.
 ```
 
+## Phase 9: Witness and Trust Topology
+
+Intent: Establish a subjective Web of Trust via topological resonance, allowing
+nodes to review and witness published graphs without central consensus.
+
+Capabilities:
+
+- `WitnessDescriptor`: Cryptographic proof of receipt and verification of a
+  `PublishDescriptor`.
+- `ReviewDescriptor`: Semantic rating, approval, or rejection of an imported
+  graph.
+- Resonance Ranking: Subjective trust score derived from the local witness
+  graph.
+
+Gates:
+
+- Reviews must target a locally verified `PublishDescriptor` or
+  `IntentDescriptor`.
+- Witnessing does not guarantee semantic validity, only structural integrity.
+
+Non-goals:
+
+- No global truth or objective reputation.
+- No forced synchronization of distrusted branches.
+
+Failure signals:
+
+- Sybil attacks distorting local resonance beyond the damping factor.
+
 ## Current State
 
 Phase status:
@@ -465,7 +494,9 @@ Phase status:
 - Phase 4: design checkpoint implemented; execution remains disabled.
 - Phase 5: design checkpoint implemented; descriptors and access remain
   disabled.
-- Phase 6+: design only until the earlier gates stay boring.
+- Phase 6, 7: Active PWA and JAZZ exploration.
+- Phase 8: Fully implemented (Export, Publish, Import).
+- Phase 9+: Design only until the earlier gates stay boring.
 
 Already implemented:
 
@@ -591,5 +622,5 @@ Immediate next candidates:
 Preferred next step:
 
 ```text
-Draft Publishing Specifications (Phase 8)
+Draft Consensus Specifications (Phase 9)
 ```

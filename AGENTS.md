@@ -39,10 +39,9 @@ GitHub Actions runs the same command. A change that cannot pass
 
 ## Current Phase
 
-Phase 8 is active: Publishing And Consensus. Export and verification
-capabilities are enabled.
-
-Phase 9+ is design-only until guardrails and Phase 8 audits stay stable.
+Phase 8 is fully implemented (Publishing & Consensus Loop). Phase 9 (Witness and
+Trust Topology) is design-only until guardrails and Phase 8 audits stay stable.
+Phase 10+ is suspended.
 
 ## Useful Commands
 
