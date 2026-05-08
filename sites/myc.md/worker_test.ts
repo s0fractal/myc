@@ -29,6 +29,11 @@ Deno.test("myc.md worker serves the PWA shell", async () => {
   assert(body.includes("version-value"), "shell should show resolver version");
   assert(body.includes("graph-report"), "shell should show graph report");
   assert(body.includes("load-graph-btn"), "shell should include graph loader");
+  assert(
+    body.includes("adapter-dry-run-btn"),
+    "shell should include adapter dry-run button",
+  );
+  assert(body.includes("adapter-input"), "shell should include adapter input");
   assert(body.includes("edge-list"), "shell should include edge list");
   assert(
     body.includes("connection-note"),

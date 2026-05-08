@@ -529,15 +529,17 @@ Already implemented:
   exposing local private payload paths
 - `/adapter-dry-run?adapter=...` exposes adapter policy inspection as read-only
   resolver output with execution disabled
+- PWA adapter dry-run lens inspects adapter policy through the read-only
+  resolver endpoint
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Adapter dry-run PWA lens.
-3. Descriptor schema docs for availability and adapter dry-run responses.
+2. Descriptor schema docs for availability and adapter dry-run responses.
+3. GitHub Actions Node 24 migration to remove runner deprecation warning.
 
 Preferred next step:
 
 ```text
-Adapter Dry-Run Lens
+Resolver Response Schema Docs
 ```

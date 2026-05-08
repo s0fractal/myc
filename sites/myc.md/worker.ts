@@ -71,6 +71,8 @@ const HTML = `<!doctype html>
         <button id="verify-graph-btn" type="button">Verify Graph</button>
         <button id="load-graph-btn" type="button">Load Graph</button>
         <button id="load-index-btn" type="button">Load Index</button>
+        <input id="adapter-input" spellcheck="false" autocomplete="off" placeholder="adapter: genesis">
+        <button id="adapter-dry-run-btn" type="button">Dry Run</button>
         <button id="install-btn" type="button" hidden>Install</button>
       </div>
 
@@ -296,7 +298,7 @@ h2 {
 }
 
 .action-row {
-  grid-template-columns: repeat(3, max-content);
+  grid-template-columns: repeat(3, max-content) minmax(160px, 220px) max-content;
 }
 
 .status-grid {
@@ -549,6 +551,7 @@ const state = {
 };
 
 $("resolver-url").value = state.resolver;
+$("adapter-input").value = "genesis";
 
 function setText(id, value, cls = "") {
   const el = $(id);
@@ -837,6 +840,15 @@ async function lineageTarget() {
   write(result);
 }
 
+async function adapterDryRunTarget() {
+  const adapter = $("adapter-input").value.trim();
+  if (!adapter) return;
+  const result = await api("/adapter-dry-run?adapter=" + encodeURIComponent(adapter));
+  $("descriptor-title").textContent = "adapter: " + adapter;
+  write(result);
+  switchTab("json");
+}
+
 function renderIndex() {
   const query = $("search-input").value.trim().toLowerCase();
   const list = $("index-list");
@@ -1034,6 +1046,7 @@ $("retry-btn").addEventListener("click", () => connect().catch((error) => write(
 $("verify-graph-btn").addEventListener("click", () => verifyGraph().catch((error) => write(error.body || error.message)));
 $("load-graph-btn").addEventListener("click", () => loadGraph().catch((error) => write(error.body || error.message)));
 $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) => write(error.body || error.message)));
+$("adapter-dry-run-btn").addEventListener("click", () => adapterDryRunTarget().catch((error) => write(error.body || error.message)));
 $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) => write(error.body || error.message)));
 $("explain-btn").addEventListener("click", () => explainTarget().catch((error) => write(error.body || error.message)));
 $("lineage-btn").addEventListener("click", () => lineageTarget().catch((error) => write(error.body || error.message)));
