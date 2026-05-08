@@ -1498,7 +1498,7 @@ export async function verifyProjections(
 
   if (await exists(indexPath)) {
     const actualIndex = await Deno.readTextFile(indexPath);
-    indexSynced = actualIndex === expectedIndex;
+    indexSynced = sameNdjsonLines(actualIndex, expectedIndex);
     if (!indexSynced) {
       errors.push(
         `${indexPath}: index.ndjson is stale; run 'deno task myc index'`,
@@ -1521,6 +1521,15 @@ export async function verifyProjections(
     errors,
     warnings: graph.warnings,
   };
+}
+
+function sameNdjsonLines(actual: string, expected: string): boolean {
+  const normalize = (value: string) =>
+    value.split("\n").filter((line) => line.length > 0).sort(compareStable);
+  const actualLines = normalize(actual);
+  const expectedLines = normalize(expected);
+  if (actualLines.length !== expectedLines.length) return false;
+  return actualLines.every((line, index) => line === expectedLines[index]);
 }
 
 async function resolveTargetRecord(
