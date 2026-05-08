@@ -113,6 +113,18 @@ export interface AuditEntry {
   duration_ms: number;
 }
 
+export interface RecipeDryRunResult {
+  ok: boolean;
+  target: string;
+  function_fqdn?: string;
+  context_policy?: string;
+  payload_policy?: string;
+  side_effects?: string[];
+  proof_mode?: string;
+  output_contract?: string;
+  errors: string[];
+}
+
 export interface AdapterDryRunResult {
   ok: boolean;
   adapter: string;
@@ -1982,6 +1994,15 @@ export async function handleRequest(
     return jsonResponse(result, result.ok ? 200 : 404, request);
   }
 
+  if (url.pathname === "/recipe-dry-run") {
+    const target = url.searchParams.get("target");
+    if (!target) {
+      return errorResponse("missing-target", 400, request);
+    }
+    const result = await recipeDryRun(root, target);
+    return jsonResponse(result, result.ok ? 200 : 404, request);
+  }
+
   if (url.pathname === "/search") {
     const q = url.searchParams.get("q")?.toLowerCase();
     if (!q) {
@@ -2129,6 +2150,51 @@ export function auditEntry(
 
 export function formatAuditEntry(entry: AuditEntry): string {
   return `[audit] ${entry.timestamp} | ${entry.method} ${entry.path} ${entry.status} ${entry.duration_ms}ms`;
+}
+
+export async function recipeDryRun(
+  root: string,
+  target: string,
+): Promise<RecipeDryRunResult> {
+  const result: RecipeDryRunResult = {
+    ok: false,
+    target,
+    errors: [],
+  };
+
+  try {
+    const artifact = await resolveFqdn(root, target);
+    if (!artifact) {
+      result.errors.push(`target '${target}' not found`);
+      return result;
+    }
+    if (artifact.descriptor.type !== "RecipeDescriptor") {
+      result.errors.push(
+        `target is not a RecipeDescriptor: ${artifact.descriptor.type}`,
+      );
+      return result;
+    }
+
+    const recipe = artifact.descriptor.body.recipe as Record<string, unknown>;
+    if (!recipe) {
+      result.errors.push("RecipeDescriptor missing 'recipe' body");
+      return result;
+    }
+
+    result.function_fqdn = String(recipe.function || "unknown");
+    result.context_policy = String(recipe.context_policy || "unknown");
+    result.payload_policy = String(recipe.payload_policy || "unknown");
+    result.side_effects = Array.isArray(recipe.side_effects)
+      ? recipe.side_effects.map(String)
+      : ["unknown"];
+    result.proof_mode = String(recipe.proof_mode || "unknown");
+    result.output_contract = String(recipe.output_contract || "unknown");
+    result.ok = true;
+    return result;
+  } catch (error) {
+    result.errors.push(error instanceof Error ? error.message : String(error));
+    return result;
+  }
 }
 
 export async function adapterDryRun(
@@ -2521,6 +2587,15 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  if (command === "dry-run") {
+    const target = rest[0];
+    if (!target) throw new Error("dry-run requires a recipe fqdn");
+    const result = await recipeDryRun(root, target);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) Deno.exitCode = 1;
+    return;
+  }
+
   if (command === "availability") {
     const target = rest[0];
     if (!target) throw new Error("availability requires a path or FQDN");
@@ -2578,6 +2653,7 @@ function helpText(): string {
     "  availability <path-or-fqdn>",
     "  reproject <raw-fqdn> [--actor s0fractal] [--kind message]",
     "  adapter-dry-run <adapter-name>",
+    "  dry-run <recipe-fqdn>",
     "  serve [--host 127.0.0.1] [--port 8787]",
     "  demo",
     "",

@@ -564,10 +564,12 @@ Already implemented:
 
 Immediate next candidates:
 
-1. Optional GitHub branch protection requiring the check workflow.
+1. `RecipeDescriptor` enablement in core
+2. `myc dry-run <recipe>` command
+3. Recipe rendering and dry-run lens in PWA
 
 Preferred next step:
 
 ```text
-GitHub Branch Protection
+Enable RecipeDescriptor and add CLI dry-run
 ```

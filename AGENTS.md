@@ -22,7 +22,6 @@ GitHub Actions runs the same command. A change that cannot pass
 - Do not embed private payload bytes in `public/`.
 - Do not expose local private payload storage paths in public files.
 - Do not add `CapabilityDescriptor` or `public/capabilities/` before Phase 5.
-- Do not add `RecipeDescriptor` or `public/recipes/` before Phase 4.
 - Do not add recipe drafts without dry-run, payload, path, side-effect, proof,
   and output contracts.
 - Do not add capability/sealed drafts without authority, retention, disclosure,
@@ -40,9 +39,9 @@ GitHub Actions runs the same command. A change that cannot pass
 
 ## Current Phase
 
-Phase 3 is active: semantic nutrition labels and stale verification.
+Phase 4 is active: Recipe Layer and dry-run validation.
 
-Phase 4+ is design-only until guardrails and Phase 3 audit stay stable.
+Phase 5+ is design-only until guardrails and Phase 4 audits stay stable.
 
 ## Useful Commands
 

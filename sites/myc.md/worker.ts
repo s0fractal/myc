@@ -65,6 +65,7 @@ const HTML = `<!doctype html>
         <button id="resolve-btn" type="button">Resolve</button>
         <button id="explain-btn" type="button">Explain</button>
         <button id="lineage-btn" type="button">Lineage</button>
+        <button id="recipe-dry-run-btn" type="button">Dry Run Recipe</button>
       </div>
 
       <div class="action-row">
@@ -875,6 +876,15 @@ async function adapterDryRunTarget() {
   switchTab("json");
 }
 
+async function recipeDryRunTarget() {
+  const target = $("target-input").value.trim();
+  if (!target) return;
+  const result = await api("/recipe-dry-run?target=" + encodeURIComponent(target));
+  $("descriptor-title").textContent = "recipe dry-run: " + target;
+  write(result);
+  switchTab("json");
+}
+
 function maybeLoadVerificationSource() {
   const value = $("target-input").value.trim();
   if (!value.startsWith("public/verification/")) return false;
@@ -1087,6 +1097,7 @@ $("load-graph-btn").addEventListener("click", () => loadGraph().catch((error) =>
 $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) => write(error.body || error.message)));
 $("verification-btn").addEventListener("click", () => loadVerification().catch((error) => write(error.body || error.message)));
 $("adapter-dry-run-btn").addEventListener("click", () => adapterDryRunTarget().catch((error) => write(error.body || error.message)));
+$("recipe-dry-run-btn").addEventListener("click", () => recipeDryRunTarget().catch((error) => write(error.body || error.message)));
 $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) => write(error.body || error.message)));
 $("explain-btn").addEventListener("click", () => {
   if (maybeLoadVerificationSource()) return;

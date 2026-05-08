@@ -93,6 +93,46 @@ Deno.test("protocol audit rejects nutrition inside function identity body", asyn
   );
 });
 
+Deno.test("protocol audit rejects invalid RecipeDescriptor", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/public/objects/h/bad/recipe.myc.md`,
+    [
+      "```json myc",
+      JSON.stringify(
+        {
+          type: "RecipeDescriptor",
+          schema_version: "myc.recipe.v0.1",
+          fqdn: "h.bad.recipe.myc.md",
+          commitment: {
+            algorithm: "sha256",
+            value: "0".repeat(64),
+            covers: "descriptor.body",
+          },
+          body: {
+            recipe: {
+              function: "h.somefunc.function.myc.md",
+              // Missing context_policy, payload_policy, etc.
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      "```",
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "invalid recipe descriptor should fail audit");
+  assert(
+    result.errors.some((error) =>
+      error.includes("must declare 'context_policy'")
+    ),
+    result.errors.join("\n"),
+  );
+});
+
 Deno.test("protocol audit rejects substrate adapters without policy", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
   await write(

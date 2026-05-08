@@ -237,7 +237,43 @@ async function auditDescriptorFile(
   }
 
   if (descriptor.type === "RecipeDescriptor") {
-    errors.push(`${relative}: RecipeDescriptor is Phase 4 and not enabled`);
+    const body = descriptor.body;
+    if (!body.recipe || typeof body.recipe !== "object") {
+      errors.push(`${relative}: RecipeDescriptor must have a 'recipe' object`);
+    } else {
+      const r = body.recipe as Record<string, unknown>;
+      if (!r.function || typeof r.function !== "string") {
+        errors.push(`${relative}: RecipeDescriptor must declare 'function'`);
+      }
+      if (!r.context_policy || typeof r.context_policy !== "string") {
+        errors.push(
+          `${relative}: RecipeDescriptor must declare 'context_policy'`,
+        );
+      }
+      if (!r.payload_policy || typeof r.payload_policy !== "string") {
+        errors.push(
+          `${relative}: RecipeDescriptor must declare 'payload_policy'`,
+        );
+      }
+      if (!Array.isArray(r.side_effects)) {
+        errors.push(
+          `${relative}: RecipeDescriptor must declare 'side_effects' array`,
+        );
+      }
+      if (!r.proof_mode || typeof r.proof_mode !== "string") {
+        errors.push(`${relative}: RecipeDescriptor must declare 'proof_mode'`);
+      }
+      if (!r.output_contract || typeof r.output_contract !== "string") {
+        errors.push(
+          `${relative}: RecipeDescriptor must declare 'output_contract'`,
+        );
+      }
+      if (r.dry_run !== true) {
+        errors.push(
+          `${relative}: RecipeDescriptor must have 'dry_run: true' for safe inspection`,
+        );
+      }
+    }
   }
   if (descriptor.type === "CapabilityDescriptor") {
     errors.push(`${relative}: CapabilityDescriptor is Phase 5 and not enabled`);

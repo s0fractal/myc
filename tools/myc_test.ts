@@ -116,6 +116,22 @@ function assertAdapterDryRunResponseShape(
   }
 }
 
+function assertRecipeDryRunResponseShape(
+  value: Record<string, unknown>,
+): void {
+  assertBooleanField(value, "ok");
+  assertStringField(value, "target");
+  assertStringArrayField(value, "errors");
+  if (value.ok) {
+    assertStringField(value, "function_fqdn");
+    assertStringField(value, "context_policy");
+    assertStringField(value, "payload_policy");
+    assertStringArrayField(value, "side_effects");
+    assertStringField(value, "proof_mode");
+    assertStringField(value, "output_contract");
+  }
+}
+
 function assertProjectionVerificationResponseShape(
   value: Record<string, unknown>,
 ): void {
@@ -967,6 +983,63 @@ Deno.test("verification endpoint lists public receipts only", async () => {
   assert(
     traversalBody.error === "invalid-name",
     "path traversal should return invalid-name",
+  );
+});
+
+Deno.test("recipe dry-run endpoint inspects RecipeDescriptor policy", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  await Deno.mkdir(`${root}/public/functions`, { recursive: true });
+  await Deno.mkdir(`${root}/public/objects/h/test`, { recursive: true });
+
+  await makeDescriptor(
+    "FunctionDescriptor",
+    "myc.function.v0.1",
+    "h.testfunc.function.myc.md",
+    { name: "testfunc" },
+  );
+
+  const recipeDescriptor = await makeDescriptor(
+    "RecipeDescriptor",
+    "myc.recipe.v0.1",
+    "h.testrecipe.recipe.myc.md",
+    {
+      recipe: {
+        function: "h.testfunc.function.myc.md",
+        context_policy: "public",
+        payload_policy: "none",
+        side_effects: ["none"],
+        proof_mode: "deterministic",
+        output_contract: "descriptor",
+        dry_run: true,
+      },
+    },
+  );
+
+  await Deno.writeTextFile(
+    `${root}/public/objects/h/test/recipe.myc.md`,
+    `---\nchord:\n  primary: "oct:7.2"\n---\n\`\`\`json myc\n${
+      JSON.stringify(recipeDescriptor, null, 2)
+    }\n\`\`\`\n`,
+  );
+
+  const response = await handleRequest(
+    root,
+    new Request(
+      "http://local/recipe-dry-run?target=h.testrecipe.recipe.myc.md",
+    ),
+  );
+  const body = await response.json();
+
+  assert(response.status === 200, `expected 200, got ${response.status}`);
+  assertRecipeDryRunResponseShape(body);
+  assert(body.ok === true, "recipe dry-run should be ok");
+  assert(
+    body.function_fqdn === "h.testfunc.function.myc.md",
+    "should report correct function",
+  );
+  assert(
+    body.payload_policy === "none",
+    "should report correct payload policy",
   );
 });
 
