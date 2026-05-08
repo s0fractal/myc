@@ -31,7 +31,7 @@ deno task check
 - No `CapabilityDescriptor` in public surfaces before Phase 5.
 - No `RecipeDescriptor` in public surfaces before Phase 4.
 - No `public/capabilities/` or `public/recipes/` materialization yet.
-- No extra core function descriptors beyond the three locked functions.
+- No extra core function descriptors beyond the four locked functions.
 - No `nutrition` metadata inside `FunctionDescriptor.body`.
 - No public file may embed private payload bytes.
 - No public file may reference local private payload storage paths.

@@ -26,6 +26,7 @@ const LOCKED_FUNCTION_FQDNS = new Set([
   "h.4f76fd8466bc.myc-raw-bytes-sha256.function.myc.md",
   "h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md",
   "h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md",
+  "h.7efa1b6e7564.myc-quarantine-policy.function.myc.md",
 ]);
 
 export async function auditRoot(root: string): Promise<ProtocolAuditResult> {
