@@ -39,9 +39,9 @@ GitHub Actions runs the same command. A change that cannot pass
 
 ## Current Phase
 
-Phase 5 is active: Capabilities and Sealed Receipts.
+Phase 6 is active: Adapters. All AI agents must declare their adapter policy.
 
-Phase 6+ is design-only until guardrails and Phase 5 audits stay stable.
+Phase 7+ is design-only until guardrails and Phase 6 audits stay stable.
 
 ## Useful Commands
 

@@ -570,12 +570,18 @@ Immediate next candidates:
 
 Immediate next candidates:
 
-1. `CapabilityDescriptor` enablement in core
-2. `SealedReceiptDescriptor` enablement in core
-3. PWA rendering for Capabilities and Sealed Receipts
+- `CapabilityDescriptor` enablement in core
+- `SealedReceiptDescriptor` enablement in core
+- PWA rendering for Capabilities and Sealed Receipts
+
+Immediate next candidates:
+
+1. `substrates/codex/MYC.md` adapter policy
+2. `substrates/gemini/MYC.md` adapter policy
+3. PWA testing of adapter capabilities
 
 Preferred next step:
 
 ```text
-Enable Phase 5 Descriptors
+Enable Phase 6 Adapters and Formalize AI agents
 ```
