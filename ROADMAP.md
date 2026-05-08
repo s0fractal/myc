@@ -527,13 +527,14 @@ Already implemented:
   without exposing local private payload paths
 - PWA access tab and availability badge display resolver availability without
   exposing local private payload paths
+- `/adapter-dry-run?adapter=...` exposes adapter policy inspection as read-only
+  resolver output with execution disabled
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Public resolver endpoint for adapter dry-runs, read-only and disabled by
-   default.
-3. Adapter dry-run PWA lens.
+2. Adapter dry-run PWA lens.
+3. Descriptor schema docs for availability and adapter dry-run responses.
 
 Preferred next step:
 

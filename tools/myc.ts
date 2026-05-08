@@ -1872,6 +1872,15 @@ export async function handleRequest(
     return jsonResponse(availability, availability.ok ? 200 : 404, request);
   }
 
+  if (url.pathname === "/adapter-dry-run") {
+    const adapter = url.searchParams.get("adapter");
+    if (!adapter) {
+      return errorResponse("missing-adapter", 400, request);
+    }
+    const result = await adapterDryRun(root, adapter);
+    return jsonResponse(result, result.ok ? 200 : 404, request);
+  }
+
   if (url.pathname === "/search") {
     const q = url.searchParams.get("q")?.toLowerCase();
     if (!q) {
@@ -1960,6 +1969,7 @@ function errorMessage(code: string): string {
     "missing-fqdn": "Required query parameter 'fqdn' is missing.",
     "missing-target": "Required query parameter 'target' or 'fqdn' is missing.",
     "missing-query": "Required query parameter 'q' is missing.",
+    "missing-adapter": "Required query parameter 'adapter' is missing.",
     "not-found": "Requested MYC descriptor or route was not found.",
   };
   return messages[code] ?? code;

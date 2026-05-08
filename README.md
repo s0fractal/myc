@@ -180,6 +180,13 @@ deno task myc adapter-dry-run genesis
 deno task myc availability <fqdn>
 ```
 
+Resolver endpoints include:
+
+```text
+GET /availability?target=<path-or-fqdn>
+GET /adapter-dry-run?adapter=<name>
+```
+
 Deploy the shell with:
 
 ```bash

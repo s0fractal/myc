@@ -709,6 +709,38 @@ Deno.test("availability endpoint explains capability boundary", async () => {
   );
 });
 
+Deno.test("adapter dry-run endpoint is read-only and non-executing", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  const path = `${root}/substrates/demo/MYC.md`;
+  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await Deno.writeTextFile(
+    path,
+    [
+      "# Demo Adapter",
+      "",
+      "```yaml",
+      "adapter_policy:",
+      '  status: "draft"',
+      '  read_policy: "explicit-roots"',
+      '  write_policy: "proposal-only"',
+      '  payload_policy: "descriptor-only"',
+      '  side_effects: ["file-read"]',
+      '  verification: ["deno-task-check"]',
+      '  failure_mode: "warn-only"',
+      "```",
+    ].join("\n"),
+  );
+
+  const response = await handleRequest(
+    root,
+    new Request("http://local/adapter-dry-run?adapter=demo"),
+  );
+  const body = await response.json();
+  assert(response.status === 200, `unexpected status ${response.status}`);
+  assert(body.ok === true, "adapter endpoint should parse policy");
+  assert(body.execution_enabled === false, "adapter endpoint must not execute");
+});
+
 Deno.test("audit entries include path but not query payload", () => {
   const request = new Request(
     "http://127.0.0.1:8787/descriptor?target=secret.raw.myc.md",
