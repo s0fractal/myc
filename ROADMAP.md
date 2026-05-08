@@ -515,15 +515,17 @@ Already implemented:
 - protocol audit rejects recipe drafts without dry-run, path, payload,
   side-effect, proof, and output contracts
 - recipe draft audit in `public/verification/`
+- `adapter-dry-run` CLI explains adapter policy without enabling execution
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Adapter dry-run shape, still without enabling adapter execution.
-3. Capability/sealed design checkpoint, without enabling public capabilities.
+2. Capability/sealed design checkpoint, without enabling public capabilities.
+3. Public resolver endpoint for adapter dry-runs, read-only and disabled by
+   default.
 
 Preferred next step:
 
 ```text
-Phase 6 design checkpoint: Adapter Dry-Run Shape
+Phase 5 design checkpoint: Capability And Sealed Contracts
 ```

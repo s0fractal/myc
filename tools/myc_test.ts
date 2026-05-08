@@ -1,4 +1,5 @@
 import {
+  adapterDryRun,
   auditEntry,
   captureText,
   defaultRoot,
@@ -111,6 +112,44 @@ Deno.test("question input is classified separately from task input", async () =>
   assert(
     result.artifactFqdn.startsWith("question.s0fractal.h."),
     `unexpected artifact FQDN: ${result.artifactFqdn}`,
+  );
+});
+
+Deno.test("adapter dry-run explains policy without enabling execution", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  const path = `${root}/substrates/demo/MYC.md`;
+  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await Deno.writeTextFile(
+    path,
+    [
+      "# Demo Adapter",
+      "",
+      "```yaml",
+      "adapter_policy:",
+      '  status: "draft"',
+      '  read_policy: "explicit-roots"',
+      '  write_policy: "proposal-only"',
+      '  payload_policy: "descriptor-only"',
+      '  side_effects: ["file-read"]',
+      '  verification: ["deno-task-check"]',
+      '  failure_mode: "warn-only"',
+      "```",
+    ].join("\n"),
+  );
+
+  const result = await adapterDryRun(root, "demo");
+  assert(result.ok, result.errors.join("\n"));
+  assert(
+    result.execution_enabled === false,
+    "dry-run must not enable execution",
+  );
+  assert(
+    result.output_contract.includes("proposal"),
+    "dry-run should expose allowed output contract",
+  );
+  assert(
+    result.write_policy === "proposal-only",
+    "dry-run should parse write policy",
   );
 });
 

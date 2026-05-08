@@ -174,6 +174,7 @@ the interface. It expects a local resolver:
 
 ```bash
 deno task myc serve --port 8787
+deno task myc adapter-dry-run genesis
 ```
 
 Deploy the shell with:

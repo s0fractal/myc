@@ -101,6 +101,22 @@ export interface AuditEntry {
   duration_ms: number;
 }
 
+export interface AdapterDryRunResult {
+  ok: boolean;
+  adapter: string;
+  path: string;
+  status?: string;
+  read_policy?: string;
+  write_policy?: string;
+  payload_policy?: string;
+  side_effects?: string[];
+  verification?: string[];
+  failure_mode?: string;
+  output_contract: string[];
+  execution_enabled: false;
+  errors: string[];
+}
+
 export interface NutritionLabel {
   status: string;
   labels: string[];
@@ -1978,6 +1994,88 @@ export function formatAuditEntry(entry: AuditEntry): string {
   return `[audit] ${entry.timestamp} | ${entry.method} ${entry.path} ${entry.status} ${entry.duration_ms}ms`;
 }
 
+export async function adapterDryRun(
+  root: string,
+  adapter: string,
+): Promise<AdapterDryRunResult> {
+  const path = joinPath(root, "substrates", adapter, "MYC.md");
+  const errors: string[] = [];
+  let text = "";
+  try {
+    text = await Deno.readTextFile(path);
+  } catch {
+    return {
+      ok: false,
+      adapter,
+      path,
+      output_contract: [],
+      execution_enabled: false,
+      errors: [`adapter '${adapter}' not found`],
+    };
+  }
+
+  if (!text.includes("adapter_policy:")) {
+    errors.push("missing adapter_policy");
+  }
+
+  const result: AdapterDryRunResult = {
+    ok: false,
+    adapter,
+    path,
+    status: policyScalar(text, "status"),
+    read_policy: policyScalar(text, "read_policy"),
+    write_policy: policyScalar(text, "write_policy"),
+    payload_policy: policyScalar(text, "payload_policy"),
+    side_effects: policyList(text, "side_effects"),
+    verification: policyList(text, "verification"),
+    failure_mode: policyScalar(text, "failure_mode"),
+    output_contract: [
+      "descriptor",
+      "transform",
+      "receipt",
+      "proposal",
+      "warning",
+    ],
+    execution_enabled: false,
+    errors,
+  };
+
+  for (
+    const key of [
+      "status",
+      "read_policy",
+      "write_policy",
+      "payload_policy",
+      "failure_mode",
+    ] as const
+  ) {
+    if (!result[key]) errors.push(`missing ${key}`);
+  }
+  for (const key of ["side_effects", "verification"] as const) {
+    if (!result[key] || result[key]?.length === 0) {
+      errors.push(`missing ${key}`);
+    }
+  }
+
+  result.ok = errors.length === 0;
+  return result;
+}
+
+function policyScalar(text: string, key: string): string | undefined {
+  const match = text.match(
+    new RegExp(`\\b${key}:\\s*(?:"([^"]+)"|([^\\n#]+))`),
+  );
+  const value = match?.[1] ?? match?.[2];
+  return value?.trim();
+}
+
+function policyList(text: string, key: string): string[] {
+  const match = text.match(new RegExp(`\\b${key}:\\s*\\[([^\\]]*)\\]`));
+  if (!match) return [];
+  return match[1].split(",").map((item) => item.trim().replace(/^"|"$/g, ""))
+    .filter(Boolean);
+}
+
 function parseArgs(
   args: string[],
 ): {
@@ -2146,6 +2244,15 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  if (command === "adapter-dry-run") {
+    const adapter = rest[0];
+    if (!adapter) throw new Error("adapter-dry-run requires an adapter name");
+    const result = await adapterDryRun(root, adapter);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) Deno.exitCode = 1;
+    return;
+  }
+
   if (command === "serve") {
     const port = Number(flagString(flags, "port") ?? "8787");
     const hostname = flagString(flags, "host") ?? "127.0.0.1";
@@ -2191,6 +2298,7 @@ function helpText(): string {
     "  lineage <path-or-fqdn>",
     "  explain <path-or-fqdn>",
     "  reproject <raw-fqdn> [--actor s0fractal] [--kind message]",
+    "  adapter-dry-run <adapter-name>",
     "  serve [--host 127.0.0.1] [--port 8787]",
     "  demo",
     "",
