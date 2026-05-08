@@ -1063,3 +1063,57 @@ Deno.test("audit entries include path but not query payload", () => {
     `unexpected audit line: ${line}`,
   );
 });
+
+Deno.test("myc publish creates an export bundle without local paths", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+
+  // 1. Capture text to generate a full graph
+  const { captureText } = await import("./myc.ts");
+  await captureText({
+    root,
+    text: "Test publish payload",
+    actor: "s0fractal",
+    kind: "message",
+    storePayload: true,
+  });
+
+  // 2. Resolve the generated intent
+  const indexStr = await Deno.readTextFile(root + "/public/index.ndjson");
+  const intents = indexStr.split("\n").filter((l: string) =>
+    l.includes("IntentDescriptor")
+  );
+  assert(intents.length > 0, "should have generated an intent");
+  const intentFqdn = JSON.parse(intents[0]).fqdn;
+
+  // 3. Publish
+  const { publishTarget } = await import("./myc.ts");
+  const result = await publishTarget(root, intentFqdn);
+
+  assert(result.ok, "publish should succeed: " + result.errors.join(", "));
+  assert(result.path, "should return export path");
+
+  // 4. Verify export bundle
+  const bundleStr = await Deno.readTextFile(result.path!);
+  const descriptors = bundleStr.split("\n").filter(Boolean).map((l: string) =>
+    JSON.parse(l)
+  );
+
+  // Ensure PublishDescriptor is included
+  const hasPublish = descriptors.some((d: Record<string, unknown>) =>
+    d.type === "PublishDescriptor"
+  );
+  assert(hasPublish, "bundle should contain PublishDescriptor");
+
+  // Ensure no local paths
+  for (const d of descriptors) {
+    if (d.type === "IntentDescriptor") {
+      assert(
+        d.body.address.local_path === null,
+        "local_path must be scrubbed in exports",
+      );
+    }
+    if (d.body.payload_policy === "private") {
+      assert(!d.body.payload, "private payload must be scrubbed");
+    }
+  }
+});
