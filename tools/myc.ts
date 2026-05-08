@@ -1250,12 +1250,10 @@ function graphLines(edges: GraphEdge[]): string[] {
   return edges
     .map((edge) => graphEdgeRecord(edge, false))
     .sort((a, b) =>
-      `${a.transform}:${JSON.stringify(a.input)}:${JSON.stringify(a.output)}`
-        .localeCompare(
-          `${b.transform}:${JSON.stringify(b.input)}:${
-            JSON.stringify(b.output)
-          }`,
-        )
+      compareStable(
+        `${a.transform}:${JSON.stringify(a.input)}:${JSON.stringify(a.output)}`,
+        `${b.transform}:${JSON.stringify(b.input)}:${JSON.stringify(b.output)}`,
+      )
     )
     .map((edge) => JSON.stringify(edge));
 }
@@ -1409,7 +1407,7 @@ export async function verifyGraph(
     graph_path: graphPath,
     graph_synced: graphSynced,
     nutrition_counts: Object.fromEntries(
-      [...nutritionCounts.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+      [...nutritionCounts.entries()].sort((a, b) => compareStable(a[0], b[0])),
     ),
     errors,
     warnings,
@@ -1478,8 +1476,14 @@ function indexLines(root: string, records: DescriptorRecord[]): string[] {
         commitment: record.descriptor.commitment.value,
       }))
     )
-    .sort((a, b) => a.fqdn.localeCompare(b.fqdn))
+    .sort((a, b) => compareStable(a.fqdn, b.fqdn))
     .map((entry) => JSON.stringify(entry));
+}
+
+function compareStable(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
 }
 
 export async function verifyProjections(
