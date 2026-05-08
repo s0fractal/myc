@@ -533,8 +533,8 @@ Already implemented:
   resolver endpoint
 - resolver response contracts in `protocols/resolver/`, including availability
   and adapter dry-run schema notes
-- GitHub Actions opts JavaScript actions into Node 24 runtime to avoid the
-  scheduled Node 20 runner deprecation
+- GitHub Actions uses `actions/checkout@v6` and opts JavaScript actions into
+  Node 24 runtime to avoid the scheduled Node 20 runner deprecation
 
 Immediate next candidates:
 
