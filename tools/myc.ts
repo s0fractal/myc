@@ -93,6 +93,18 @@ export interface GraphVerificationResult {
   warnings: string[];
 }
 
+export interface ProjectionVerificationResult {
+  ok: boolean;
+  index_path: string;
+  graph_path: string;
+  index_synced: boolean;
+  graph_synced: boolean;
+  descriptor_count: number;
+  index_record_count: number;
+  errors: string[];
+  warnings: string[];
+}
+
 export interface AuditEntry {
   timestamp: string;
   method: string;
@@ -1448,7 +1460,16 @@ function verifyGraphReference(
 
 export async function rebuildIndex(root: string): Promise<string> {
   const records = await scanDescriptors(root);
-  const lines = records
+  const lines = indexLines(root, records);
+  const indexPath = joinPath(root, "public", "index.ndjson");
+  await ensureDir(dirname(indexPath));
+  await Deno.writeTextFile(indexPath, `${lines.join("\n")}\n`);
+  await rebuildGraph(root);
+  return indexPath;
+}
+
+function indexLines(root: string, records: DescriptorRecord[]): string[] {
+  return records
     .flatMap((record) =>
       descriptorAddresses(record.descriptor).map((fqdn) => ({
         fqdn,
@@ -1459,11 +1480,43 @@ export async function rebuildIndex(root: string): Promise<string> {
     )
     .sort((a, b) => a.fqdn.localeCompare(b.fqdn))
     .map((entry) => JSON.stringify(entry));
+}
+
+export async function verifyProjections(
+  root: string,
+): Promise<ProjectionVerificationResult> {
+  const records = await scanDescriptors(root);
+  const graph = await verifyGraph(root);
   const indexPath = joinPath(root, "public", "index.ndjson");
-  await ensureDir(dirname(indexPath));
-  await Deno.writeTextFile(indexPath, `${lines.join("\n")}\n`);
-  await rebuildGraph(root);
-  return indexPath;
+  const expectedIndex = `${indexLines(root, records).join("\n")}\n`;
+  const errors = [...graph.errors];
+  let indexSynced = false;
+
+  if (await exists(indexPath)) {
+    const actualIndex = await Deno.readTextFile(indexPath);
+    indexSynced = actualIndex === expectedIndex;
+    if (!indexSynced) {
+      errors.push(
+        `${indexPath}: index.ndjson is stale; run 'deno task myc index'`,
+      );
+    }
+  } else {
+    errors.push(
+      `${indexPath}: index.ndjson is missing; run 'deno task myc index'`,
+    );
+  }
+
+  return {
+    ok: errors.length === 0,
+    index_path: indexPath,
+    graph_path: graph.graph_path,
+    index_synced: indexSynced,
+    graph_synced: graph.graph_synced,
+    descriptor_count: records.length,
+    index_record_count: indexLines(root, records).length,
+    errors,
+    warnings: graph.warnings,
+  };
 }
 
 async function resolveTargetRecord(
@@ -2345,6 +2398,13 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  if (command === "verify-projections") {
+    const result = await verifyProjections(root);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) Deno.exitCode = 1;
+    return;
+  }
+
   if (command === "index") {
     const path = await rebuildIndex(root);
     console.log(JSON.stringify({ ok: true, path }, null, 2));
@@ -2444,6 +2504,7 @@ function helpText(): string {
     "  resolve <fqdn>",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
+    "  verify-projections",
     "  index",
     "  graph",
     "  lineage <path-or-fqdn>",

@@ -15,6 +15,7 @@ import {
   resolveFqdn,
   verifyGraph,
   verifyPath,
+  verifyProjections,
   verifyRawPayload,
 } from "./myc.ts";
 
@@ -412,6 +413,30 @@ Deno.test("graph endpoint returns sanitized edges by default", async () => {
   assert(
     typeof pathGraph.edges[0].transform_path === "string",
     "graph paths should be explicit opt-in",
+  );
+});
+
+Deno.test("verifyProjections detects stale public index", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  await captureText({
+    root,
+    text: "зроби freshness check для index",
+    actor: "s0fractal",
+    kind: "message",
+  });
+
+  const clean = await verifyProjections(root);
+  assert(clean.ok, clean.errors.join("\n"));
+  assert(clean.index_synced, "index should start synced");
+  assert(clean.graph_synced, "graph should start synced");
+
+  await Deno.writeTextFile(`${root}/public/index.ndjson`, "{}\n");
+  const stale = await verifyProjections(root);
+  assert(!stale.ok, "stale index should fail projection verification");
+  assert(!stale.index_synced, "index_synced should be false");
+  assert(
+    stale.errors.some((error) => error.includes("index.ndjson is stale")),
+    stale.errors.join("\n"),
   );
 });
 

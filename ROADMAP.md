@@ -539,15 +539,19 @@ Already implemented:
   dry-run resolver contracts
 - PWA smoke tests cover availability and adapter dry-run resolver surfaces
 - roadmap implementation receipt in `public/verification/`
+- `verify-projections` command checks generated `public/index.ndjson` and
+  `public/graph.ndjson` freshness
+- `deno task check` now uses projection verification, not graph-only
+  verification
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Generated graph/index freshness check as a standalone command.
-3. Public verification index in resolver or PWA.
+2. Public verification index in resolver or PWA.
+3. Projection freshness status in PWA graph report.
 
 Preferred next step:
 
 ```text
-Generated Projection Freshness Command
+Public Verification Index
 ```
