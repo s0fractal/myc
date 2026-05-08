@@ -14,6 +14,9 @@ const ALLOWED_DESCRIPTOR_TYPES = new Set([
   "IntentDescriptor",
   "NamingProofDescriptor",
   "ArtifactDescriptor",
+  "RecipeDescriptor",
+  "CapabilityDescriptor",
+  "SealedReceiptDescriptor",
 ]);
 
 const LOCKED_FUNCTION_FQDNS = new Set([
