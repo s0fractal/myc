@@ -537,16 +537,17 @@ Already implemented:
   Node 24 runtime to avoid the scheduled Node 20 runner deprecation
 - executable response-shape conformance tests cover availability and adapter
   dry-run resolver contracts
+- PWA smoke tests cover availability and adapter dry-run resolver surfaces
+- roadmap implementation receipt in `public/verification/`
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Resolver endpoint coverage for adapter dry-run and availability in PWA smoke
-   tests.
-3. Publish a current roadmap receipt in `public/verification/`.
+2. Generated graph/index freshness check as a standalone command.
+3. Public verification index in resolver or PWA.
 
 Preferred next step:
 
 ```text
-PWA Resolver Surface Smoke Coverage
+Generated Projection Freshness Command
 ```

@@ -40,6 +40,18 @@ Deno.test("myc.md worker serves the PWA shell", async () => {
     "shell should include connection note",
   );
   assert(body.includes("retry-btn"), "shell should include retry button");
+
+  const app = await worker.fetch(new Request("https://myc.md/app.js"));
+  assert(app.status === 200, "app script should return 200");
+  const appBody = await app.text();
+  assert(
+    appBody.includes("/availability?target="),
+    "app should call availability endpoint",
+  );
+  assert(
+    appBody.includes("/adapter-dry-run?adapter="),
+    "app should call adapter dry-run endpoint",
+  );
 });
 
 Deno.test("myc.md worker serves manifest and service worker", async () => {

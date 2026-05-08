@@ -53,3 +53,5 @@ Audits:
 - `capability-sealed-draft.audit.myc.md` records the Phase 5 design checkpoint:
   capability and sealed receipt drafts must declare authority, retention,
   disclosure, proof, unavailability, and replay boundaries.
+- `roadmap-implementation.audit.myc.md` records the current roadmap hardening
+  receipt: resolver, PWA, protocol audit, CI, and closed gates.
