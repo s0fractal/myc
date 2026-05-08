@@ -50,6 +50,7 @@ Phase 4+ is design-only until guardrails and Phase 3 audit stay stable.
 deno task myc verify-graph
 deno task audit
 deno task myc adapter-dry-run genesis
+deno task myc availability <fqdn>
 deno task myc serve --port 8787
 ```
 

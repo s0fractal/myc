@@ -523,16 +523,18 @@ Already implemented:
 - protocol audit rejects capability/sealed drafts without authority, retention,
   disclosure, proof, unavailability, and replay boundaries
 - capability/sealed draft audit in `public/verification/`
+- `availability` CLI and resolver endpoint explain payload access boundaries
+  without exposing local private payload paths
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
 2. Public resolver endpoint for adapter dry-runs, read-only and disabled by
    default.
-3. Local unavailable-reason explanation command for capability-gated payloads.
+3. PWA display for availability/unavailable reasons.
 
 Preferred next step:
 
 ```text
-Phase 5 support: Unavailable Reason Explanation
+PWA Availability Lens
 ```

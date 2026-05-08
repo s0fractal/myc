@@ -3,6 +3,7 @@ import {
   auditEntry,
   captureText,
   defaultRoot,
+  explainAvailability,
   explainTarget,
   formatAuditEntry,
   handleRequest,
@@ -150,6 +151,32 @@ Deno.test("adapter dry-run explains policy without enabling execution", async ()
   assert(
     result.write_policy === "proposal-only",
     "dry-run should parse write policy",
+  );
+});
+
+Deno.test("availability explains private payload state without leaking path", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  const result = await captureText({
+    root,
+    text: "локальний payload має лишитись приватним",
+    actor: "s0fractal",
+    kind: "message",
+    storePayload: false,
+  });
+
+  const availability = await explainAvailability(root, result.rawFqdn);
+  assert(availability.ok, availability.errors.join("\n"));
+  assert(
+    availability.payload_available_to_requester === false,
+    "missing private payload should not be available",
+  );
+  assert(
+    availability.unavailable_reason === "known-but-unavailable",
+    `unexpected reason: ${availability.unavailable_reason}`,
+  );
+  assert(
+    !JSON.stringify(availability).includes("/private/payloads/"),
+    "availability response must not leak private payload path",
   );
 });
 
@@ -656,6 +683,29 @@ Deno.test("source endpoint serves descriptor source, not private payload", async
   assert(
     !body.source.includes(secretText),
     "source must not include private payload bytes",
+  );
+});
+
+Deno.test("availability endpoint explains capability boundary", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+  const result = await captureText({
+    root,
+    text: "payload буде тільки по capability",
+    actor: "s0fractal",
+    kind: "message",
+    storePayload: false,
+  });
+
+  const response = await handleRequest(
+    root,
+    new Request(`http://local/availability?target=${result.rawFqdn}`),
+  );
+  const body = await response.json();
+  assert(response.status === 200, `unexpected status ${response.status}`);
+  assert(body.ok === true, "availability endpoint should resolve target");
+  assert(
+    body.access_mode === "commitment-only",
+    `unexpected access mode ${body.access_mode}`,
   );
 });
 

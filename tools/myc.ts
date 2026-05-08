@@ -117,6 +117,20 @@ export interface AdapterDryRunResult {
   errors: string[];
 }
 
+export interface AvailabilityExplanation {
+  ok: boolean;
+  target: string;
+  fqdn?: string;
+  descriptor_type?: string;
+  payload_state: string;
+  payload_available_to_requester: boolean;
+  private_payload_present: boolean;
+  unavailable_reason: string;
+  access_mode: string;
+  safe_next_steps: string[];
+  errors: string[];
+}
+
 export interface NutritionLabel {
   status: string;
   labels: string[];
@@ -1848,6 +1862,16 @@ export async function handleRequest(
     );
   }
 
+  if (url.pathname === "/availability") {
+    const target = url.searchParams.get("target") ??
+      url.searchParams.get("fqdn");
+    if (!target) {
+      return errorResponse("missing-target", 400, request);
+    }
+    const availability = await explainAvailability(root, target);
+    return jsonResponse(availability, availability.ok ? 200 : 404, request);
+  }
+
   if (url.pathname === "/search") {
     const q = url.searchParams.get("q")?.toLowerCase();
     if (!q) {
@@ -2076,6 +2100,114 @@ function policyList(text: string, key: string): string[] {
     .filter(Boolean);
 }
 
+export async function explainAvailability(
+  root: string,
+  target: string,
+): Promise<AvailabilityExplanation> {
+  const record = await resolveFqdn(root, target);
+  if (!record) {
+    return {
+      ok: false,
+      target,
+      payload_state: "unknown",
+      payload_available_to_requester: false,
+      private_payload_present: false,
+      unavailable_reason: "descriptor-not-found",
+      access_mode: "none",
+      safe_next_steps: ["resolve a known descriptor FQDN"],
+      errors: [`descriptor not found: ${target}`],
+    };
+  }
+
+  const descriptor = record.descriptor;
+  const payloadState = payloadStateForDescriptor(descriptor);
+  const rawHash = typeof descriptor.body.hash === "string"
+    ? descriptor.body.hash
+    : undefined;
+  const privatePayloadPresent = rawHash
+    ? await exists(joinPath(root, "private", "payloads", `${rawHash}.txt`))
+    : false;
+  const mode = accessModeForPayload(payloadState, privatePayloadPresent);
+
+  return {
+    ok: true,
+    target,
+    fqdn: descriptor.fqdn,
+    descriptor_type: descriptor.type,
+    payload_state: payloadState,
+    payload_available_to_requester: mode.available,
+    private_payload_present: privatePayloadPresent,
+    unavailable_reason: mode.reason,
+    access_mode: mode.accessMode,
+    safe_next_steps: mode.nextSteps,
+    errors: [],
+  };
+}
+
+function accessModeForPayload(
+  payloadState: string,
+  privatePayloadPresent: boolean,
+): {
+  available: boolean;
+  reason: string;
+  accessMode: string;
+  nextSteps: string[];
+} {
+  if (payloadState === "none") {
+    return {
+      available: true,
+      reason: "no-payload-required",
+      accessMode: "descriptor-only",
+      nextSteps: ["verify descriptor commitment"],
+    };
+  }
+  if (payloadState === "private-local") {
+    return privatePayloadPresent
+      ? {
+        available: true,
+        reason: "available-to-local-owner",
+        accessMode: "local-private",
+        nextSteps: ["verify with --with-private when explicitly needed"],
+      }
+      : {
+        available: false,
+        reason: "private-payload-missing",
+        accessMode: "commitment-only",
+        nextSteps: ["use descriptor commitment", "request owner capability"],
+      };
+  }
+  if (payloadState === "remote-capability") {
+    return {
+      available: false,
+      reason: "requires-owner-capability",
+      accessMode: "capability-gated",
+      nextSteps: ["request capability", "accept sealed receipt"],
+    };
+  }
+  if (payloadState === "known-but-unavailable") {
+    return {
+      available: false,
+      reason: "known-but-unavailable",
+      accessMode: "commitment-only",
+      nextSteps: ["use descriptor commitment", "wait for receipt"],
+    };
+  }
+  if (payloadState === "witness-only") {
+    return {
+      available: false,
+      reason: "witness-only",
+      accessMode: "sealed-or-witnessed",
+      nextSteps: ["request witness receipt", "verify sealed claim"],
+    };
+  }
+  return {
+    available: false,
+    reason: `unsupported-payload-state:${payloadState}`,
+    accessMode: "unknown",
+    nextSteps: ["treat as commitment-only"],
+  };
+}
+
 function parseArgs(
   args: string[],
 ): {
@@ -2253,6 +2385,15 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  if (command === "availability") {
+    const target = rest[0];
+    if (!target) throw new Error("availability requires a path or FQDN");
+    const result = await explainAvailability(root, target);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) Deno.exitCode = 1;
+    return;
+  }
+
   if (command === "serve") {
     const port = Number(flagString(flags, "port") ?? "8787");
     const hostname = flagString(flags, "host") ?? "127.0.0.1";
@@ -2297,6 +2438,7 @@ function helpText(): string {
     "  graph",
     "  lineage <path-or-fqdn>",
     "  explain <path-or-fqdn>",
+    "  availability <path-or-fqdn>",
     "  reproject <raw-fqdn> [--actor s0fractal] [--kind message]",
     "  adapter-dry-run <adapter-name>",
     "  serve [--host 127.0.0.1] [--port 8787]",
