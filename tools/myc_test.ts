@@ -1117,3 +1117,47 @@ Deno.test("myc publish creates an export bundle without local paths", async () =
     }
   }
 });
+
+Deno.test("myc import merges valid external bundle into local graph", async () => {
+  const rootA = await Deno.makeTempDir({ prefix: "myc-test-a-" });
+  const rootB = await Deno.makeTempDir({ prefix: "myc-test-b-" });
+
+  // 1. Capture text in A
+  const { captureText, publishTarget, importGraph, resolveTargetRecord } =
+    await import("./myc.ts");
+  await captureText({
+    root: rootA,
+    text: "Import payload",
+    actor: "s0fractal",
+    kind: "message",
+    storePayload: true,
+  });
+
+  // 2. Resolve intent in A
+  const indexStr = await Deno.readTextFile(rootA + "/public/index.ndjson");
+  const intents = indexStr.split("\n").filter((l: string) =>
+    l.includes("IntentDescriptor")
+  );
+  const intentFqdn = JSON.parse(intents[0]).fqdn;
+
+  // 3. Publish in A
+  const publishResult = await publishTarget(rootA, intentFqdn);
+  assert(publishResult.ok, "publish should succeed");
+  const exportPath = publishResult.path!;
+
+  // 4. Import into B
+  const importResult = await importGraph(rootB, exportPath);
+  assert(
+    importResult.ok,
+    "import should succeed: " + importResult.errors.join(", "),
+  );
+  assert(importResult.imported > 0, "should have imported descriptors");
+
+  // 5. Verify B can resolve the intent FQDN
+  const record = await resolveTargetRecord(rootB, intentFqdn);
+  assert(record !== null, "B should be able to resolve imported FQDN");
+  assert(
+    record.descriptor.type === "IntentDescriptor",
+    "should be IntentDescriptor",
+  );
+});

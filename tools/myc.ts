@@ -1572,7 +1572,7 @@ function sameNdjsonLines(actual: string, expected: string): boolean {
   return actualLines.every((line, index) => line === expectedLines[index]);
 }
 
-async function resolveTargetRecord(
+export async function resolveTargetRecord(
   root: string,
   target: string,
 ): Promise<{ path: string; descriptor: MycDescriptor } | null> {
@@ -2357,9 +2357,11 @@ export async function publishTarget(
     }
   }
 
-  const publishFqdn = `h.${
-    record.descriptor.fqdn.split(".")[1]
-  }.publish.myc.md`;
+  const targetHashMatch = record.descriptor.fqdn.match(
+    /(?:^|\.)h\.([0-9a-f]+)\./,
+  );
+  const targetHash = targetHashMatch ? targetHashMatch[1] : "unknown";
+  const publishFqdn = `h.${targetHash}.publish.myc.md`;
   const publishDescriptor: MycDescriptor = {
     type: "PublishDescriptor",
     schema_version: "myc.publish.v0.1",
@@ -2406,6 +2408,100 @@ export async function publishTarget(
   await Deno.writeTextFile(exportPath, exportLines.join("\n") + "\n");
 
   return { ok: true, fqdn: publishFqdn, path: exportPath, errors: [] };
+}
+
+export async function importGraph(
+  root: string,
+  path: string,
+): Promise<{
+  ok: boolean;
+  imported: number;
+  errors: string[];
+}> {
+  let content: string;
+  try {
+    content = await Deno.readTextFile(path);
+  } catch (e) {
+    return { ok: false, imported: 0, errors: [`failed to read file: ${e}`] };
+  }
+
+  const lines = content.split("\n").filter(Boolean);
+  const descriptors: MycDescriptor[] = [];
+
+  for (const line of lines) {
+    try {
+      descriptors.push(JSON.parse(line));
+    } catch (e) {
+      return {
+        ok: false,
+        imported: 0,
+        errors: [`failed to parse json line: ${e}`],
+      };
+    }
+  }
+
+  const errors: string[] = [];
+  let importedCount = 0;
+
+  for (const descriptor of descriptors) {
+    const expected = await sha256Hex(stableStringify(descriptor.body));
+    if (descriptor.commitment.value !== expected) {
+      errors.push(
+        `invalid commitment for ${descriptor.fqdn}: expected ${expected}, got ${descriptor.commitment.value}`,
+      );
+      continue;
+    }
+
+    let targetDir = "objects";
+    if (descriptor.type === "FunctionDescriptor") targetDir = "functions";
+
+    // We infer the short hash from the fqdn: h.<hash>....
+    const shortHashMatch = descriptor.fqdn.match(/(?:^|\.)h\.([0-9a-f]+)\./);
+    if (!shortHashMatch) {
+      errors.push(`invalid fqdn format: ${descriptor.fqdn}`);
+      continue;
+    }
+    const shortHash = shortHashMatch[1];
+
+    const writePath = joinPath(
+      root,
+      "public",
+      targetDir,
+      "h",
+      shortHash,
+      descriptor.fqdn,
+    );
+
+    const exists = await Deno.stat(writePath).then(() => true).catch(() =>
+      false
+    );
+    if (!exists) {
+      await writeDescriptorFile(
+        writePath,
+        descriptor,
+        `Imported ${descriptor.type}`,
+        "Imported from external graph bundle.",
+      );
+      importedCount++;
+    }
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, imported: importedCount, errors };
+  }
+
+  await rebuildIndex(root);
+  await rebuildGraph(root);
+  const syncResult = await verifyProjections(root);
+  if (!syncResult.ok) {
+    return {
+      ok: false,
+      imported: importedCount,
+      errors: ["projections sync failed", ...syncResult.errors],
+    };
+  }
+
+  return { ok: true, imported: importedCount, errors: [] };
 }
 
 export async function explainAvailability(
@@ -2734,6 +2830,15 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  if (command === "import") {
+    const path = rest[0];
+    if (!path) throw new Error("import requires a file path");
+    const result = await importGraph(root, path);
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.ok) Deno.exitCode = 1;
+    return;
+  }
+
   if (command === "availability") {
     const target = rest[0];
     if (!target) throw new Error("availability requires a path or FQDN");
@@ -2793,6 +2898,7 @@ function helpText(): string {
     "  adapter-dry-run <adapter-name>",
     "  dry-run <recipe-fqdn>",
     "  publish <fqdn>",
+    "  import <path-to-export.ndjson>",
     "  serve [--host 127.0.0.1] [--port 8787]",
     "  demo",
     "",
