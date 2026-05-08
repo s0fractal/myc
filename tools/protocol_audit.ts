@@ -276,7 +276,70 @@ async function auditDescriptorFile(
     }
   }
   if (descriptor.type === "CapabilityDescriptor") {
-    errors.push(`${relative}: CapabilityDescriptor is Phase 5 and not enabled`);
+    const body = descriptor.body;
+    if (
+      !body.capability_contract || typeof body.capability_contract !== "object"
+    ) {
+      errors.push(
+        `${relative}: CapabilityDescriptor must have a 'capability_contract' object`,
+      );
+    } else {
+      const c = body.capability_contract as Record<string, unknown>;
+      const requiredKeys = [
+        "subject",
+        "requester",
+        "operation",
+        "payload_policy",
+        "retention_policy",
+        "disclosure_policy",
+        "expiry",
+        "revocation",
+        "proof_mode",
+        "secret_material",
+      ];
+      for (const key of requiredKeys) {
+        if (!c[key] || typeof c[key] !== "string") {
+          errors.push(
+            `${relative}: CapabilityDescriptor must declare '${key}'`,
+          );
+        }
+      }
+    }
+  }
+
+  if (descriptor.type === "SealedReceiptDescriptor") {
+    const body = descriptor.body;
+    if (
+      !body.sealed_receipt_contract ||
+      typeof body.sealed_receipt_contract !== "object"
+    ) {
+      errors.push(
+        `${relative}: SealedReceiptDescriptor must have a 'sealed_receipt_contract' object`,
+      );
+    } else {
+      const s = body.sealed_receipt_contract as Record<string, unknown>;
+      const requiredKeys = [
+        "subject",
+        "claim",
+        "proof_reference",
+        "verifier",
+        "disclosure_policy",
+        "unavailable_reason",
+        "replay_policy",
+      ];
+      for (const key of requiredKeys) {
+        if (!s[key] || typeof s[key] !== "string") {
+          errors.push(
+            `${relative}: SealedReceiptDescriptor must declare '${key}'`,
+          );
+        }
+      }
+      if (typeof s.payload_retained !== "boolean") {
+        errors.push(
+          `${relative}: SealedReceiptDescriptor must declare 'payload_retained' as boolean`,
+        );
+      }
+    }
   }
 
   if (

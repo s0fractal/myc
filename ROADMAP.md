@@ -564,12 +564,18 @@ Already implemented:
 
 Immediate next candidates:
 
-1. `RecipeDescriptor` enablement in core
-2. `myc dry-run <recipe>` command
-3. Recipe rendering and dry-run lens in PWA
+- `RecipeDescriptor` enablement in core
+- `myc dry-run <recipe>` command
+- Recipe rendering and dry-run lens in PWA
+
+Immediate next candidates:
+
+1. `CapabilityDescriptor` enablement in core
+2. `SealedReceiptDescriptor` enablement in core
+3. PWA rendering for Capabilities and Sealed Receipts
 
 Preferred next step:
 
 ```text
-Enable RecipeDescriptor and add CLI dry-run
+Enable Phase 5 Descriptors
 ```

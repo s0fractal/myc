@@ -133,6 +133,82 @@ Deno.test("protocol audit rejects invalid RecipeDescriptor", async () => {
   );
 });
 
+Deno.test("protocol audit rejects invalid CapabilityDescriptor", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/public/objects/h/bad/capability.myc.md`,
+    [
+      "```json myc",
+      JSON.stringify(
+        {
+          type: "CapabilityDescriptor",
+          schema_version: "myc.capability.v0.1",
+          fqdn: "h.bad.capability.myc.md",
+          commitment: {
+            algorithm: "sha256",
+            value: "0".repeat(64),
+            covers: "descriptor.body",
+          },
+          body: {
+            capability_contract: {
+              subject: "h.some",
+              // Missing requester, operation, etc.
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      "```",
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "invalid capability descriptor should fail audit");
+  assert(
+    result.errors.some((error) => error.includes("must declare 'requester'")),
+    result.errors.join("\n"),
+  );
+});
+
+Deno.test("protocol audit rejects invalid SealedReceiptDescriptor", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/public/objects/h/bad/sealed.myc.md`,
+    [
+      "```json myc",
+      JSON.stringify(
+        {
+          type: "SealedReceiptDescriptor",
+          schema_version: "myc.sealed.v0.1",
+          fqdn: "h.bad.sealed.myc.md",
+          commitment: {
+            algorithm: "sha256",
+            value: "0".repeat(64),
+            covers: "descriptor.body",
+          },
+          body: {
+            sealed_receipt_contract: {
+              subject: "h.some",
+              // Missing claim, verifier, etc.
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      "```",
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "invalid sealed receipt descriptor should fail audit");
+  assert(
+    result.errors.some((error) => error.includes("must declare 'claim'")),
+    result.errors.join("\n"),
+  );
+});
+
 Deno.test("protocol audit rejects substrate adapters without policy", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
   await write(
