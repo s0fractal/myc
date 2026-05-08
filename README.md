@@ -153,6 +153,8 @@ not to reveal the whole causal background.
 protocols/
   jazz/              # Anti-orchestration protocol drafts
   recipes/           # Phase 4 recipe design checkpoint, execution disabled
+  capabilities/      # Phase 5 authority drafts, descriptors disabled
+  sealed/            # Phase 5 receipt drafts, descriptors disabled
 public/              # Publishable descriptors and projections
   transforms/        # First-class transformation edges
   verification/      # Graph-level verification notes

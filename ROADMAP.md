@@ -463,7 +463,9 @@ Phase status:
 - Phase 3: active as derived nutrition/staleness layer.
 - Adapter policy: implemented as a pre-adapter checkpoint.
 - Phase 4: design checkpoint implemented; execution remains disabled.
-- Phase 5+: design only until the earlier gates stay boring.
+- Phase 5: design checkpoint implemented; descriptors and access remain
+  disabled.
+- Phase 6+: design only until the earlier gates stay boring.
 
 Already implemented:
 
@@ -516,16 +518,21 @@ Already implemented:
   side-effect, proof, and output contracts
 - recipe draft audit in `public/verification/`
 - `adapter-dry-run` CLI explains adapter policy without enabling execution
+- capability draft spec in `protocols/capabilities/SPEC.draft.md`
+- sealed receipt draft spec in `protocols/sealed/SPEC.draft.md`
+- protocol audit rejects capability/sealed drafts without authority, retention,
+  disclosure, proof, unavailability, and replay boundaries
+- capability/sealed draft audit in `public/verification/`
 
 Immediate next candidates:
 
 1. Optional GitHub branch protection requiring the check workflow.
-2. Capability/sealed design checkpoint, without enabling public capabilities.
-3. Public resolver endpoint for adapter dry-runs, read-only and disabled by
+2. Public resolver endpoint for adapter dry-runs, read-only and disabled by
    default.
+3. Local unavailable-reason explanation command for capability-gated payloads.
 
 Preferred next step:
 
 ```text
-Phase 5 design checkpoint: Capability And Sealed Contracts
+Phase 5 support: Unavailable Reason Explanation
 ```

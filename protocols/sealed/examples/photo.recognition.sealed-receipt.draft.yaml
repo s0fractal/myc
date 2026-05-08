@@ -1,0 +1,14 @@
+sealed_receipt_contract:
+  status: "draft"
+  subject: "h.12f026ff.photo.raw.myc.md"
+  claim: "recognized"
+  proof_reference: "h.example-sealed-proof"
+  verifier: "named-agent"
+  disclosure_policy: "redacted-summary"
+  unavailable_reason: "requires-owner-capability"
+  payload_retained: false
+  replay_policy: "reusable"
+
+notes:
+  enabled: false
+  reason: "SealedReceiptDescriptor remains disabled; this is a policy draft only."

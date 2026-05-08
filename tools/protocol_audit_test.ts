@@ -134,3 +134,41 @@ Deno.test("protocol audit rejects recipe drafts without dry-run contract", async
     result.errors.join("\n"),
   );
 });
+
+Deno.test("protocol audit rejects capability drafts without authority contract", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/protocols/capabilities/examples/bad.capability.yaml`,
+    [
+      "capability_contract:",
+      '  subject: "h.bad"',
+      '  operation: "read"',
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "capability without authority contract should fail audit");
+  assert(
+    result.errors.some((error) => error.includes("capability draft")),
+    result.errors.join("\n"),
+  );
+});
+
+Deno.test("protocol audit rejects sealed drafts without receipt contract", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-audit-test-" });
+  await write(
+    `${root}/protocols/sealed/examples/bad.sealed.yaml`,
+    [
+      "sealed_receipt_contract:",
+      '  subject: "h.bad"',
+      '  claim: "verified"',
+    ].join("\n"),
+  );
+
+  const result = await auditRoot(root);
+  assert(!result.ok, "sealed receipt without contract should fail audit");
+  assert(
+    result.errors.some((error) => error.includes("sealed draft")),
+    result.errors.join("\n"),
+  );
+});

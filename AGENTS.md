@@ -25,6 +25,8 @@ GitHub Actions runs the same command. A change that cannot pass
 - Do not add `RecipeDescriptor` or `public/recipes/` before Phase 4.
 - Do not add recipe drafts without dry-run, payload, path, side-effect, proof,
   and output contracts.
+- Do not add capability/sealed drafts without authority, retention, disclosure,
+  proof, unavailability, and replay boundaries.
 - Do not add new core function descriptors without updating the locked function
   policy and tests.
 - Do not put `nutrition` inside `FunctionDescriptor.body`; nutrition is derived

@@ -1,0 +1,16 @@
+capability_contract:
+  status: "draft"
+  subject: "h.12f026ff.photo.raw.myc.md"
+  requester: "named-agent"
+  operation: "recognize"
+  payload_policy: "capability-required"
+  retention_policy: "none"
+  disclosure_policy: "sealed-receipt"
+  expiry: "none"
+  revocation: "owner-local"
+  proof_mode: "sealed"
+  secret_material: "never-public"
+
+notes:
+  enabled: false
+  reason: "CapabilityDescriptor remains disabled; this is a policy draft only."

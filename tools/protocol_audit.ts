@@ -41,6 +41,12 @@ export async function auditRoot(root: string): Promise<ProtocolAuditResult> {
     if (relative.startsWith("protocols/recipes/")) {
       await auditRecipeDraftPolicy(file, relative, errors);
     }
+    if (relative.startsWith("protocols/capabilities/")) {
+      await auditCapabilityDraftPolicy(file, relative, errors);
+    }
+    if (relative.startsWith("protocols/sealed/")) {
+      await auditSealedDraftPolicy(file, relative, errors);
+    }
     if (file.endsWith(".md")) {
       await auditDescriptorFile(file, relative, errors, warnings);
     }
@@ -142,6 +148,62 @@ async function auditRecipeDraftPolicy(
   ) {
     if (!text.includes(key)) {
       errors.push(`${relative}: missing required recipe draft key '${key}'`);
+    }
+  }
+}
+
+async function auditCapabilityDraftPolicy(
+  file: string,
+  relative: string,
+  errors: string[],
+): Promise<void> {
+  const text = await Deno.readTextFile(file);
+  if (!text.includes("capability_contract:")) return;
+
+  for (
+    const key of [
+      "subject:",
+      "requester:",
+      "operation:",
+      "payload_policy:",
+      "retention_policy:",
+      "disclosure_policy:",
+      "expiry:",
+      "revocation:",
+      "proof_mode:",
+      "secret_material:",
+    ]
+  ) {
+    if (!text.includes(key)) {
+      errors.push(
+        `${relative}: missing required capability draft key '${key}'`,
+      );
+    }
+  }
+}
+
+async function auditSealedDraftPolicy(
+  file: string,
+  relative: string,
+  errors: string[],
+): Promise<void> {
+  const text = await Deno.readTextFile(file);
+  if (!text.includes("sealed_receipt_contract:")) return;
+
+  for (
+    const key of [
+      "subject:",
+      "claim:",
+      "proof_reference:",
+      "verifier:",
+      "disclosure_policy:",
+      "unavailable_reason:",
+      "payload_retained:",
+      "replay_policy:",
+    ]
+  ) {
+    if (!text.includes(key)) {
+      errors.push(`${relative}: missing required sealed draft key '${key}'`);
     }
   }
 }

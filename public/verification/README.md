@@ -50,3 +50,6 @@ Audits:
 - `recipe-draft.audit.myc.md` records the Phase 4 design checkpoint: recipe
   drafts must declare function, payload, path, side-effect, proof, output, and
   dry-run contracts before any execution exists.
+- `capability-sealed-draft.audit.myc.md` records the Phase 5 design checkpoint:
+  capability and sealed receipt drafts must declare authority, retention,
+  disclosure, proof, unavailability, and replay boundaries.
