@@ -4,7 +4,11 @@
 // hex_dipole: "00 00 6C 40 33 26 4C 33"
 // placement_policy: axis
 
-import { dirname, fromFileUrl, join } from "https://deno.land/std@0.224.0/path/mod.ts";
+import {
+  dirname,
+  fromFileUrl,
+  join,
+} from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const MYC_ROOT = dirname(HERE);
@@ -23,14 +27,14 @@ if (import.meta.main) {
   const components = [
     "tools/myc.ts",
     "tools/import_spore_receipt.ts",
-    "ROADMAP.md"
+    "ROADMAP.md",
   ];
-  
+
   let ok = 0;
   for (const c of components) {
     if (await checkFile(c)) ok++;
   }
-  
+
   const overall = ok === components.length ? "healthy" : "degraded";
 
   const receipt = {
@@ -46,8 +50,8 @@ if (import.meta.main) {
         ok,
         fail: components.length - ok,
         total: components.length,
-      }
-    }
+      },
+    },
   };
 
   console.log(JSON.stringify(receipt, null, 2));

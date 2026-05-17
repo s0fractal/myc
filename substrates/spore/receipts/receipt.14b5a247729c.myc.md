@@ -3,7 +3,10 @@ schema_version: "myc.spore.receipt.v0.1"
 chord: ["oct:2.receipt", "oct:6.ledger", "oct:1.physics"]
 energy: 1.0
 tension: "Spore Apply Publication Receipt"
-type: "SporeReceiptDescriptor"
+type: "SealedReceiptDescriptor"
+intent_hash: "none"
+status: "APPLIED"
+signature: "unsigned"
 fuel_model: "spore.fuel.v1"
 record_verified: true
 spore_id: "14b5a247729c690e1d5a373bdfa30b6bf70ca4fa1d740470037db1d4ac8ec688"
