@@ -1,8 +1,9 @@
 #!/usr/bin/env -S deno run --allow-read
-// myc/0x2/E.ts — myc native status / self-reflection
+// myc/src/x2E00_status.ts — myc native status / self-reflection
 // position: 2/E → mirror(2) × harmony-pair(E) = state-aware self-reflection
 // hex_dipole: "00 00 6C 40 33 26 4C 33"
 // placement_policy: axis
+// migrated 2026-05-22 from myc/0x2/E.ts as part of partial flat-src migration
 
 import {
   dirname,
@@ -11,6 +12,7 @@ import {
 } from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
+// HERE is myc/src/ after migration; MYC_ROOT is the substrate root.
 const MYC_ROOT = dirname(HERE);
 
 async function checkFile(path: string): Promise<boolean> {
@@ -23,10 +25,10 @@ async function checkFile(path: string): Promise<boolean> {
 }
 
 if (import.meta.main) {
-  // Check myc core components
+  // Check myc core components (paths updated post-flat-src migration)
   const components = [
-    "tools/myc.ts",
-    "tools/import_spore_receipt.ts",
+    "src/x0100_myc.ts",
+    "src/x5F00_import_spore_receipt.ts",
     "ROADMAP.md",
   ];
 
