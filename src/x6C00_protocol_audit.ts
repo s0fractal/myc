@@ -1,4 +1,4 @@
-import { joinPath, parseDescriptorFile } from "./myc.ts";
+import { joinPath, parseDescriptorFile } from "./x0100_myc.ts";
 
 export interface ProtocolAuditResult {
   ok: boolean;

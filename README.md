@@ -161,7 +161,7 @@ public/              # Publishable descriptors and projections
   verification/      # Graph-level verification notes
 private/             # Local-only links, capabilities, private context
 sealed/              # Commitments/proofs without public payload
-tools/               # First executable local resolver/capture CLI
+src/                 # Local resolver/capture CLI + audit (flat-src coord-bearing organs)
 substrates/
   ADAPTER_POLICY.md   # Required adapter authority contract
   genesis/           # Genesis adapter notes

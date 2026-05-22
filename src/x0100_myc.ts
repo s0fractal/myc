@@ -206,8 +206,9 @@ export function defaultRoot(): string {
   const cwd = Deno.cwd();
   try {
     const config = Deno.statSync(joinPath(cwd, "deno.jsonc"));
-    const tools = Deno.statSync(joinPath(cwd, "tools", "myc.ts"));
-    if (config.isFile && tools.isFile) return cwd;
+    // After flat-src migration (2026-05-22): myc.ts lives at src/x0100_myc.ts.
+    const entry = Deno.statSync(joinPath(cwd, "src", "x0100_myc.ts"));
+    if (config.isFile && entry.isFile) return cwd;
   } catch {
     // Fall back to the local operator convention below.
   }

@@ -1,4 +1,4 @@
-import { auditRoot } from "./protocol_audit.ts";
+import { auditRoot } from "./x6C00_protocol_audit.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

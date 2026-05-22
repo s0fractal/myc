@@ -1,7 +1,7 @@
 import { assertRejects } from "jsr:@std/assert";
 
 const IMPORTER_PATH =
-  new URL("./import_spore_receipt.ts", import.meta.url).pathname;
+  new URL("./x5F00_import_spore_receipt.ts", import.meta.url).pathname;
 
 // A valid receipt taken directly from the bridge's correct output
 const VALID_RECEIPT = {

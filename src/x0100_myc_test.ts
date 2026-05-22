@@ -18,7 +18,7 @@ import {
   verifyPath,
   verifyProjections,
   verifyRawPayload,
-} from "./myc.ts";
+} from "./x0100_myc.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -1093,7 +1093,7 @@ Deno.test("myc publish creates an export bundle without local paths", async () =
   const root = await Deno.makeTempDir({ prefix: "myc-test-" });
 
   // 1. Capture text to generate a full graph
-  const { captureText } = await import("./myc.ts");
+  const { captureText } = await import("./x0100_myc.ts");
   await captureText({
     root,
     text: "Test publish payload",
@@ -1111,7 +1111,7 @@ Deno.test("myc publish creates an export bundle without local paths", async () =
   const intentFqdn = JSON.parse(intents[0]).fqdn;
 
   // 3. Publish
-  const { publishTarget } = await import("./myc.ts");
+  const { publishTarget } = await import("./x0100_myc.ts");
   const result = await publishTarget(root, intentFqdn);
 
   assert(result.ok, "publish should succeed: " + result.errors.join(", "));
@@ -1149,7 +1149,7 @@ Deno.test("myc import merges valid external bundle into local graph", async () =
 
   // 1. Capture text in A
   const { captureText, publishTarget, importGraph, resolveTargetRecord } =
-    await import("./myc.ts");
+    await import("./x0100_myc.ts");
   await captureText({
     root: rootA,
     text: "Import payload",
@@ -1198,7 +1198,7 @@ Deno.test("myc witness and review generate valid consensus descriptors", async (
     witnessTarget,
     reviewTarget,
     resolveFqdn,
-  } = await import("./myc.ts");
+  } = await import("./x0100_myc.ts");
   await captureText({
     root,
     text: "Consensus target payload",
