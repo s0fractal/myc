@@ -220,6 +220,27 @@ async function cryptoProof(
   };
 }
 
+async function proveFile(
+  root: string,
+  path: string,
+  meta: { coord: string; handle: string },
+): Promise<Match> {
+  const { fm, body } = splitFrontmatter(await Deno.readTextFile(path));
+  const fqdn = `x${meta.coord}_${meta.handle}.myc.md`;
+  const [git, crypto] = await Promise.all([
+    gitProof(path),
+    cryptoProof(fqdn, fm, body),
+  ]);
+  return {
+    fqdn,
+    path: relative(root, path),
+    coordinate: `x${meta.coord}`,
+    proven: git.tracked || crypto.ok,
+    git,
+    crypto,
+  };
+}
+
 async function resolve(query: string): Promise<Match[]> {
   const q = parseQuery(query);
   if (!q) return [];
@@ -232,21 +253,7 @@ async function resolve(query: string): Promise<Match[]> {
     // (so "x7500_952374" resolves "x7500_952374_claude_...slug"). Exactness is
     // used only for ranking below.
     if (q.handle && !meta.handle.includes(q.handle)) continue;
-    const text = await Deno.readTextFile(path);
-    const { fm, body } = splitFrontmatter(text);
-    const fqdn = `x${meta.coord}_${meta.handle}.myc.md`;
-    const [git, crypto] = await Promise.all([
-      gitProof(path),
-      cryptoProof(fqdn, fm, body),
-    ]);
-    matches.push({
-      fqdn,
-      path: relative(root, path),
-      coordinate: `x${meta.coord}`,
-      proven: git.tracked || crypto.ok,
-      git,
-      crypto,
-    });
+    matches.push(await proveFile(root, path, meta));
   }
   // Exact fqdn/handle match first, then by path.
   matches.sort((a, b) => {
@@ -347,6 +354,38 @@ function upsertProvenance(
   return `${stripped}\nprovenance:\n  signer: ${signer}\n  commitment: "${commitment}"`;
 }
 
+/** Does a hears/references entry cite the target node? */
+function citesNode(
+  entry: string,
+  target: { coord: string; handle: string },
+): boolean {
+  if (!looksLikeCoordinate(entry)) return false;
+  const stem = entry.trim().replace(/^["']|["']$/g, "").split(/[\s(]/)[0];
+  const q = parseQuery(stem);
+  if (!q || q.coord !== target.coord) return false;
+  if (!q.handle) return true;
+  return target.handle.includes(q.handle);
+}
+
+/** Forward edges: the nodes that cite this one (its effects in the lattice). */
+async function effectsOf(node: Match): Promise<Match[]> {
+  const root = await graphRoot();
+  const target = fileMeta(node.path);
+  if (!target) return [];
+  const out: Match[] = [];
+  for await (const path of walk(root)) {
+    if (relative(root, path) === node.path) continue;
+    const meta = fileMeta(path);
+    if (!meta) continue;
+    const { fm } = splitFrontmatter(await Deno.readTextFile(path));
+    const edges = [...fmList(fm, "hears"), ...fmList(fm, "references")];
+    if (edges.some((e) => citesNode(e, target))) {
+      out.push(await proveFile(root, path, meta));
+    }
+  }
+  return out;
+}
+
 async function main() {
   const args = Deno.args;
   const json = args.includes("--json");
@@ -396,6 +435,50 @@ async function main() {
         : `🔐 stamped ${
           matches[0].fqdn
         }\n   signer:     ${stampSigner}\n   commitment: ${commitment}`,
+    );
+    return;
+  }
+
+  // --graph: the node's local TOPOLOGY — causes (backward) and effects
+  // (forward), each itself a proven node. The lattice, navigable from any point.
+  if (args.includes("--graph")) {
+    const m = await resolve(query);
+    if (m.length === 0) {
+      console.log(`# graph "${query}" → not found`);
+      Deno.exit(1);
+    }
+    const node = m[0];
+    const w = await whyOf(query);
+    const effects = await effectsOf(node);
+    if (json) {
+      console.log(
+        JSON.stringify(
+          { type: "graph", node, causes: w?.causes ?? [], effects },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
+    console.log(`🗺  ${seal(node)} ${node.fqdn}`);
+    console.log(`   intent: ${node.git.head?.intent ?? "(none)"}`);
+    const causeNodes = (w?.causes ?? []).filter((c) =>
+      c.kind === "node" && c.resolved
+    );
+    console.log(`   ↑ caused by (${causeNodes.length}):`);
+    for (const c of causeNodes) {
+      console.log(
+        `     ${seal(c.resolved!)} ${c.resolved!.fqdn}  "${
+          c.resolved!.git.head?.intent ?? c.resolved!.crypto.detail
+        }"`,
+      );
+    }
+    console.log(`   ↓ feeds into (${effects.length}):`);
+    for (const e of effects) {
+      console.log(`     ${seal(e)} ${e.fqdn}  "${e.git.head?.intent ?? ""}"`);
+    }
+    console.log(
+      `   (walk it: resolve --graph <any-coord-above>)`,
     );
     return;
   }
