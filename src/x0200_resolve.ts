@@ -257,17 +257,186 @@ async function resolve(query: string): Promise<Match[]> {
   return matches;
 }
 
+// ── the deepening: resolve causality, not just nodes ─────────────────────────
+//
+// A node answers WHAT it is. Its causal edges answer WHY it is in this state:
+// `hears:` (the inputs that produced it), `references:`/`closes:` (what it
+// affects), and the git INTENT (the stated why). Each causal step is itself a
+// resolvable, provable node — so the why-chain is navigable and trustworthy from
+// any point. ЧОМУ becomes as resolvable and provable as ЩО.
+
+function fmList(fm: string, key: string): string[] {
+  const lines = fm.split("\n");
+  const out: string[] = [];
+  let inList = false;
+  for (const line of lines) {
+    if (new RegExp(`^${key}\\s*:\\s*$`).test(line)) {
+      inList = true;
+      continue;
+    }
+    if (!inList) continue;
+    const m = line.match(/^\s+-\s*(.+?)\s*$/);
+    if (m) {
+      out.push(m[1].replace(/^["']|["']$/g, ""));
+      continue;
+    }
+    if (line.trim() === "") continue;
+    if (/^\S/.test(line)) break; // next top-level key ends the list
+  }
+  return out;
+}
+
+function looksLikeCoordinate(s: string): boolean {
+  return /^x[0-9A-Fa-f]{4}[_.]/.test(s.trim().replace(/^["']|["']$/g, ""));
+}
+
+interface Cause {
+  kind: "node" | "external";
+  ref: string;
+  resolved: Match | null;
+}
+interface Why {
+  node: Match;
+  intent: string | null;
+  causes: Cause[];
+  closes: string | null;
+}
+
+async function whyOf(query: string): Promise<Why | null> {
+  const matches = await resolve(query);
+  if (matches.length === 0) return null;
+  const node = matches[0];
+  const text = await Deno.readTextFile(join(await graphRoot(), node.path));
+  const { fm } = splitFrontmatter(text);
+  const edges = [...fmList(fm, "hears"), ...fmList(fm, "references")];
+  const closes = fm.match(/path_hint\s*:\s*["']?([^"'\n]+)/)?.[1]?.trim() ??
+    null;
+  const causes: Cause[] = [];
+  for (const e of edges) {
+    if (looksLikeCoordinate(e)) {
+      const coord = e.trim().replace(/^["']|["']$/g, "").split(/[\s(]/)[0];
+      const r = await resolve(coord);
+      causes.push({ kind: "node", ref: coord, resolved: r[0] ?? null });
+    } else {
+      causes.push({ kind: "external", ref: e, resolved: null });
+    }
+  }
+  return {
+    node,
+    intent: node.git.head?.intent ??
+      (node.crypto.ok ? node.crypto.detail : null),
+    causes,
+    closes,
+  };
+}
+
+function seal(m: Match): string {
+  return m.crypto.ok ? "🔐" : (m.git.tracked ? "📜" : "⚠️");
+}
+
+/** Add/refresh a `provenance` block with the canonical {fqdn,body} commitment,
+ * so a file is tamper-evident and coordinate-bound even outside any repo. The
+ * body is untouched (frontmatter-only), so the commitment stays valid. */
+function upsertProvenance(
+  fm: string,
+  signer: string,
+  commitment: string,
+): string {
+  const stripped = fm.replace(/^provenance:\s*\n(?:[ \t]+.*\n?)*/m, "")
+    .trimEnd();
+  return `${stripped}\nprovenance:\n  signer: ${signer}\n  commitment: "${commitment}"`;
+}
+
 async function main() {
   const args = Deno.args;
   const json = args.includes("--json");
   const cat = args.includes("--cat");
-  const query = args.find((a) => !a.startsWith("--"));
+  const why = args.includes("--why");
+  const stampIdx = args.indexOf("--stamp");
+  const stampSigner = stampIdx >= 0 ? args[stampIdx + 1] : undefined;
+  const stampValueIdx = stampIdx >= 0 ? stampIdx + 1 : -1;
+  const query = args.find((a, i) => !a.startsWith("--") && i !== stampValueIdx);
   if (!query) {
     console.error(
-      "usage: resolve <coordinate> [--cat] [--json]  (e.g. x0000_spec_provenance)",
+      "usage: resolve <coordinate> [--why] [--cat] [--json]  (e.g. x0000_spec_provenance)",
     );
     Deno.exit(1);
   }
+
+  // --stamp <signer>: write a canonical {fqdn,body} commitment into the file's
+  // provenance block, making it crypto-provable anywhere.
+  if (stampSigner) {
+    const matches = await resolve(query);
+    if (matches.length === 0) {
+      console.log(`# stamp "${query}" → not found`);
+      Deno.exit(1);
+    }
+    const path = join(await graphRoot(), matches[0].path);
+    const text = await Deno.readTextFile(path);
+    const { fm, body } = splitFrontmatter(text);
+    if (!fm) {
+      console.log(`# stamp "${query}" → no frontmatter to stamp`);
+      Deno.exit(1);
+    }
+    const commitment = await canonicalCommitment(matches[0].fqdn, body);
+    const newFm = upsertProvenance(fm, stampSigner, commitment);
+    await Deno.writeTextFile(path, `---\n${newFm}\n---\n${body}`);
+    console.log(
+      json
+        ? JSON.stringify(
+          {
+            type: "stamp",
+            fqdn: matches[0].fqdn,
+            signer: stampSigner,
+            commitment,
+          },
+          null,
+          2,
+        )
+        : `🔐 stamped ${
+          matches[0].fqdn
+        }\n   signer:     ${stampSigner}\n   commitment: ${commitment}`,
+    );
+    return;
+  }
+
+  // --why: resolve the causal chain, each step itself proven.
+  if (why) {
+    const w = await whyOf(query);
+    if (!w) {
+      console.log(`# why "${query}" → not found`);
+      Deno.exit(1);
+    }
+    if (json) {
+      console.log(JSON.stringify({ type: "why", query, ...w }, null, 2));
+      return;
+    }
+    console.log(`🔭 why  ${seal(w.node)} ${w.node.fqdn}`);
+    console.log(`   intent: ${w.intent ? `"${w.intent}"` : "(none)"}`);
+    if (w.closes) console.log(`   ⇒ closes/affects: ${w.closes}`);
+    if (w.causes.length === 0) {
+      console.log(`   ↑ because: (no declared causes — a root)`);
+    } else {
+      console.log(`   ↑ because it heard / references:`);
+      for (const c of w.causes) {
+        if (c.kind === "node" && c.resolved) {
+          const i = c.resolved.git.head?.intent ?? c.resolved.crypto.detail;
+          console.log(
+            `     ${seal(c.resolved)} ${c.resolved.fqdn}  "${i}"`,
+          );
+        } else if (c.kind === "node") {
+          console.log(`     ⚠️ ${c.ref}  (referenced but unresolved)`);
+        } else {
+          console.log(`     · ${c.ref}`);
+        }
+      }
+      console.log(
+        `   (each node above is itself resolvable: resolve --why <coord>)`,
+      );
+    }
+    return;
+  }
+
   const matches = await resolve(query);
   if (json) {
     console.log(JSON.stringify({ type: "resolve", query, matches }, null, 2));
@@ -278,8 +447,7 @@ async function main() {
     Deno.exit(1);
   }
   for (const m of matches) {
-    const seal = m.crypto.ok ? "🔐" : (m.git.tracked ? "📜" : "⚠️");
-    console.log(`${seal} ${m.fqdn}`);
+    console.log(`${seal(m)} ${m.fqdn}`);
     console.log(`   path:   ${m.path}`);
     if (m.git.tracked && m.git.head) {
       console.log(
@@ -293,6 +461,7 @@ async function main() {
       `   proven: ${m.proven ? "yes" : "NO — untracked and unsigned"}`,
     );
   }
+  console.log(`   (why is it here? → resolve --why ${query})`);
   if (cat && matches[0]) {
     console.log("\n" + "─".repeat(60) + "\n");
     console.log(
