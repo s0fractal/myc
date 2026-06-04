@@ -69,6 +69,40 @@ task.s0fractal.h.38bfd1d80cb9.myc.md
 Its raw payload is stored locally under the private layer and is verified by
 hash, but public descriptors do not embed the payload bytes.
 
+## Coordinate Resolver (`deno task resolve`)
+
+Alongside the content-addressed `h.<hash>` family, the substrate graph is a flat
+coordinate space: every node is `xNNNN_name.myc.md`. A name is a **resolvable,
+provable link** — give the resolver a coordinate and it finds the file ANYWHERE
+in the local graph (rooted at the git superproject, so one address space spans
+this repo and every sibling substrate) and tells you how trustworthy it is by
+either of two independent proof modes:
+
+```bash
+deno task resolve x0000_spec_provenance          # find + prove a node
+deno task resolve x0000.HOW-TO.myc.md --cat      # also print its content
+deno task resolve --why x0000_spec_provenance    # the node's provable CAUSAL chain
+deno task resolve --stamp s0fractal x0000_...     # write a crypto provenance block
+deno task resolve x0000_... --json               # machine-readable (LLM-friendly)
+```
+
+- **📜 git** — the commit trail IS the witness: author, date, and the INTENT (the
+  commit message). Runs in the file's own repo, so submodule history is correct.
+- **🔐 crypto** — a `provenance` block whose commitment canonically binds
+  `{fqdn, body}` (sha256) — so a signed body cannot be replayed under a different
+  coordinate; tamper-evident. `--stamp` creates it; resolve verifies it. Works
+  for files anywhere (Drive, Desktop, future p2p), outside any repo.
+
+A node is **proven** if EITHER mode validates. `--why` resolves not just the node
+but its causes (`hears:`/`references:`/`closes:` + the git intent), and **each
+causal step is itself a resolved, proven node** — so the graph can show not only
+what it holds but the verifiable path that produced it, walkable from any node.
+
+> Canonicalization note: the commitment covers `{fqdn, body}`, binding the name
+> to the content. The PWA worker's content-only commitment
+> (`covers: descriptor.body`) is being aligned to this so the CLI and the browser
+> agree on one provenance schema.
+
 ## Local Checks
 
 Run the full local verification loop:
