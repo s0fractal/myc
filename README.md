@@ -83,6 +83,7 @@ deno task resolve x0000_spec_provenance          # find + prove a node
 deno task resolve x0000.HOW-TO.myc.md --cat      # also print its content
 deno task resolve --why x0000_spec_provenance    # the node's provable CAUSAL chain
 deno task resolve --graph x0000_spec_provenance  # local topology: causes ↑ effects ↓
+deno task resolve --lattice                       # WHOLE graph: proven/unproven + dangling links
 deno task resolve --stamp s0fractal x0000_...     # write a crypto provenance block
 deno task resolve x0000_... --json               # machine-readable (LLM-friendly)
 ```
@@ -101,7 +102,11 @@ what it holds but the verifiable path that produced it, walkable from any node.
 `--graph` shows a node's local topology in BOTH directions — backward causes
 (`↑`) and forward effects (`↓`, the nodes that cite it) — each neighbour itself
 resolved and proven, so you can walk the lattice from any point and verify every
-step.
+step. `--graph` walks from a node; `--lattice` takes in the WHOLE graph at once —
+node count, proven vs unproven (📜 git / 🔐 crypto), total causal edges, orphans
+(no edges either way), the hub (most-cited node), and the DANGLING citations: a
+`hears:`/`references:` that resolves to no node — the wiki's broken links. The
+topology does not hide where trust is missing.
 
 > Canonicalization note: the commitment covers `{fqdn, body}`, binding the name
 > to the content. The PWA worker's content-only commitment
