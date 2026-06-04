@@ -82,6 +82,7 @@ either of two independent proof modes:
 deno task resolve x0000_spec_provenance          # find + prove a node
 deno task resolve x0000.HOW-TO.myc.md --cat      # also print its content
 deno task resolve --why x0000_spec_provenance    # the node's provable CAUSAL chain
+deno task resolve --graph x0000_spec_provenance  # local topology: causes ↑ effects ↓
 deno task resolve --stamp s0fractal x0000_...     # write a crypto provenance block
 deno task resolve x0000_... --json               # machine-readable (LLM-friendly)
 ```
@@ -97,6 +98,10 @@ A node is **proven** if EITHER mode validates. `--why` resolves not just the nod
 but its causes (`hears:`/`references:`/`closes:` + the git intent), and **each
 causal step is itself a resolved, proven node** — so the graph can show not only
 what it holds but the verifiable path that produced it, walkable from any node.
+`--graph` shows a node's local topology in BOTH directions — backward causes
+(`↑`) and forward effects (`↓`, the nodes that cite it) — each neighbour itself
+resolved and proven, so you can walk the lattice from any point and verify every
+step.
 
 > Canonicalization note: the commitment covers `{fqdn, body}`, binding the name
 > to the content. The PWA worker's content-only commitment
