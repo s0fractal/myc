@@ -386,6 +386,121 @@ async function effectsOf(node: Match): Promise<Match[]> {
   return out;
 }
 
+// ── the whole graph: trust topology integrity ───────────────────────────────
+//
+// `--graph` walks from one node; `--lattice` takes in the WHOLE shape at once and
+// reports where trust holds and where it is missing: how many nodes are proven
+// (git intent or crypto commitment), how many causal edges bind them, and —
+// crucially — which citations are DANGLING (a `hears:`/`references:` that resolves
+// to no node: the wiki's broken links). The topology should not hide its gaps.
+
+interface LatticeNode {
+  fqdn: string;
+  path: string;
+  coord: string;
+  handle: string;
+  proven: boolean;
+  crypto: boolean;
+  git: boolean;
+  outRefs: string[];
+}
+
+/** All git-tracked paths across the superproject AND its submodules, in one call
+ * — so a node counts as git-proven without a per-file `git log`. */
+async function trackedSet(root: string): Promise<Set<string>> {
+  const r = await sh("git", ["ls-files", "--recurse-submodules"], root);
+  if (r.code !== 0) return new Set();
+  return new Set(r.out.split("\n").filter(Boolean));
+}
+
+async function buildLattice(): Promise<LatticeNode[]> {
+  const root = await graphRoot();
+  const tracked = await trackedSet(root);
+  const nodes: LatticeNode[] = [];
+  for await (const path of walk(root)) {
+    const meta = fileMeta(path);
+    if (!meta) continue;
+    const rel = relative(root, path);
+    const { fm, body } = splitFrontmatter(await Deno.readTextFile(path));
+    const fqdn = `x${meta.coord}_${meta.handle}.myc.md`;
+    const c = await cryptoProof(fqdn, fm, body);
+    const isGit = tracked.has(rel);
+    const outRefs = [...fmList(fm, "hears"), ...fmList(fm, "references")]
+      .filter(looksLikeCoordinate)
+      .map((e) => e.trim().replace(/^["']|["']$/g, "").split(/[\s(]/)[0]);
+    nodes.push({
+      fqdn,
+      path: rel,
+      coord: meta.coord,
+      handle: meta.handle,
+      proven: isGit || c.ok,
+      crypto: c.ok,
+      git: isGit,
+      outRefs,
+    });
+  }
+  return nodes;
+}
+
+interface Lattice {
+  nodes: number;
+  proven: number;
+  git: number;
+  crypto: number;
+  edges: number;
+  dangling: { from: string; ref: string }[];
+  unproven: string[];
+  orphans: string[];
+  hub: { fqdn: string; inDegree: number } | null;
+}
+
+function analyzeLattice(nodes: LatticeNode[]): Lattice {
+  const byCoord = new Map<string, LatticeNode[]>();
+  for (const n of nodes) {
+    const a = byCoord.get(n.coord) ?? [];
+    a.push(n);
+    byCoord.set(n.coord, a);
+  }
+  const inDeg = new Map<string, number>();
+  const dangling: { from: string; ref: string }[] = [];
+  let edges = 0;
+  for (const n of nodes) {
+    for (const ref of n.outRefs) {
+      edges++;
+      const q = parseQuery(ref);
+      const hits = q
+        ? (byCoord.get(q.coord) ?? []).filter((t) =>
+          !q.handle || t.handle.includes(q.handle)
+        )
+        : [];
+      if (hits.length === 0) {
+        dangling.push({ from: n.fqdn, ref });
+      } else {
+        for (const t of hits) {
+          inDeg.set(t.fqdn, (inDeg.get(t.fqdn) ?? 0) + 1);
+        }
+      }
+    }
+  }
+  let hub: { fqdn: string; inDegree: number } | null = null;
+  for (const [fqdn, d] of inDeg) {
+    if (!hub || d > hub.inDegree) hub = { fqdn, inDegree: d };
+  }
+  return {
+    nodes: nodes.length,
+    proven: nodes.filter((n) => n.proven).length,
+    git: nodes.filter((n) => n.git).length,
+    crypto: nodes.filter((n) => n.crypto).length,
+    edges,
+    dangling,
+    unproven: nodes.filter((n) => !n.proven).map((n) => n.fqdn),
+    orphans: nodes.filter((n) =>
+      n.outRefs.length === 0 && (inDeg.get(n.fqdn) ?? 0) === 0
+    ).map((n) => n.fqdn),
+    hub,
+  };
+}
+
 async function main() {
   const args = Deno.args;
   const json = args.includes("--json");
@@ -394,6 +509,49 @@ async function main() {
   const stampIdx = args.indexOf("--stamp");
   const stampSigner = stampIdx >= 0 ? args[stampIdx + 1] : undefined;
   const stampValueIdx = stampIdx >= 0 ? stampIdx + 1 : -1;
+
+  // --lattice: the whole graph at once — trust topology integrity. No query.
+  if (args.includes("--lattice")) {
+    const l = analyzeLattice(await buildLattice());
+    if (json) {
+      console.log(JSON.stringify({ type: "lattice", ...l }, null, 2));
+      return;
+    }
+    const pct = l.nodes ? Math.round((l.proven / l.nodes) * 100) : 0;
+    console.log(`🕸  trust topology — ${l.nodes} nodes in the lattice`);
+    console.log(
+      `   proven:    ${l.proven}/${l.nodes} (${pct}%)  📜 git ${l.git} · 🔐 crypto ${l.crypto}`,
+    );
+    console.log(
+      `   unproven:  ${l.unproven.length}  ⚠️  (untracked & unsigned)`,
+    );
+    console.log(`   edges:     ${l.edges} causal links`);
+    console.log(`   orphans:   ${l.orphans.length}  (no edges in or out)`);
+    if (l.hub) {
+      console.log(`   hub:       ${l.hub.fqdn} (${l.hub.inDegree} cite it)`);
+    }
+    console.log(
+      `   dangling:  ${l.dangling.length}  (citations that resolve to no node)`,
+    );
+    const SHOW = 12;
+    for (const d of l.dangling.slice(0, SHOW)) {
+      console.log(
+        `     ⚠️ ${d.from}\n        → ${d.ref}  (cited but unresolved)`,
+      );
+    }
+    if (l.dangling.length > SHOW) {
+      console.log(
+        `     …and ${l.dangling.length - SHOW} more (--json for all)`,
+      );
+    }
+    console.log(
+      l.dangling.length === 0
+        ? `   ✓ no broken links — every citation resolves to a node`
+        : `   (fix: stamp/commit the target, or correct the citing coordinate)`,
+    );
+    return;
+  }
+
   const query = args.find((a, i) => !a.startsWith("--") && i !== stampValueIdx);
   if (!query) {
     console.error(
