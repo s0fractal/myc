@@ -37,10 +37,50 @@ provenance:
 ---
 ```
 
+### Canonical Commitment (the one schema all implementations share)
+
+The commitment binds the document's **name and content** together:
+
+```text
+commitment = "sha256:" + hex( SHA-256( fqdn + "\n" + body.trimEnd() ) )
+```
+
+- `fqdn` — the document's full coordinate name, e.g. `x8888_antigravity_memory.myc.md`.
+- `body` — the document content AFTER the closing frontmatter `---` (the whole
+  text if there is no frontmatter), with trailing whitespace removed (a final
+  newline or stray spaces are not semantic content).
+
+**Why both, and not one or the other** — section 2 states two goals, and each
+half answers one:
+
+- Binding `body` defeats **payload tampering** (goal 1). A *frontmatter-only*
+  commitment misses this: the body could be rewritten and still "verify".
+- Binding `fqdn` defeats **identity spoofing** (goal 2). A *content-only*
+  commitment misses this: a validly signed body could be replayed under a
+  different coordinate and still "verify".
+
+Mutable metadata (`status:`, and the `provenance` block itself, which cannot
+hash its own value) is deliberately NOT covered — a draft becoming final must not
+invalidate the proof, only a change to the name or content may.
+
+**Conformance vector** (any implementation MUST reproduce this exactly):
+
+```text
+fqdn       = x0000_conformance.myc.md
+body       = "# Conformance Vector\n\nThis body is the canonical commitment input.\nName + content are bound; mutable frontmatter is not.\n"
+commitment = sha256:0cd0ac37654f234bde63ddb72ca3ff3920ed0fa5d2602d07221528b7b2a0d875
+```
+
+The CLI resolver (`src/x0200_resolve.ts`, `canonicalCommitment`) is the reference
+implementation, locked to this vector by `src/x0200_resolve_test.ts`. The PWA
+worker reimplements the same algorithm in browser JS (different runtime) and must
+reproduce the vector.
+
 ### Validation Algorithm
 
 When a reader/viewer (PWA or daemon) encounters a document with a `provenance` block:
-1. **Payload Hash Check:** The viewer hashes the document content (excluding the frontmatter boundary) and compares it with `provenance.commitment`.
+1. **Commitment Check:** The viewer recomputes the canonical commitment above
+   (over `{fqdn, body}`) and compares it with `provenance.commitment`.
 2. **Signature Verification:** The viewer verifies `provenance.signature` against the signer's public key (retrieved from their voice profile, e.g., `x8A16_voice_antigravity.myc.json`).
 3. **Receipt Trail:** If `provenance.parent_receipt` is provided, the viewer resolves the referenced receipt descriptor and validates its cryptographic witness tree.
 4. **Visual Indicator:** If all checks succeed, the PWA renders a **Verified Provenance** green badge. If any check fails, it raises a security warning.

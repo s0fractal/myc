@@ -862,15 +862,24 @@ async function fileToDescriptorRecord(fileEntry) {
     const type = fm.type || "VectorDocumentDescriptor";
     const fqdn = fm.fqdn || filename;
 
-    const body = {
+    const descriptorBody = {
       coordinate,
       type,
       status: fm.status || "draft",
       ...fm,
     };
 
+    // Canonical commitment — protocols/x0000_spec_provenance.myc.md §2. Bind the
+    // NAME (fqdn) AND the CONTENT (body after frontmatter, trailing ws stripped),
+    // so neither payload tampering nor coordinate-spoofing can pass. This must
+    // match the CLI resolver (src/x0200_resolve.ts canonicalCommitment); the
+    // conformance vector x0000_conformance.myc.md hashes to
+    // 0cd0ac37654f234bde63ddb72ca3ff3920ed0fa5d2602d07221528b7b2a0d875.
+    const fmMatch = text.match(/^---\\r?\\n[\\s\\S]*?\\r?\\n---\\r?\\n?([\\s\\S]*)$/);
+    const contentBody = fmMatch ? fmMatch[1] : text;
+
     const encoder = new TextEncoder();
-    const data = encoder.encode(JSON.stringify(body));
+    const data = encoder.encode(fqdn + "\\n" + contentBody.trimEnd());
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
@@ -882,9 +891,9 @@ async function fileToDescriptorRecord(fileEntry) {
       commitment: {
         algorithm: "sha256",
         value: hashHex,
-        covers: "descriptor.body",
+        covers: "fqdn + body",
       },
-      body,
+      body: descriptorBody,
     };
 
     return {
