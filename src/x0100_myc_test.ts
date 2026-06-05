@@ -1270,3 +1270,44 @@ Deno.test("myc witness and review generate valid consensus descriptors", async (
   const badReview = await reviewTarget(root, intentFqdn, "s0fractal", "maybe");
   assert(!badReview.ok, "review should reject invalid rating");
 });
+
+Deno.test("parseDescriptorFile resolves dynamic YAML frontmatter for coordinate files", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-yaml-" });
+
+  // Create a mock coordinate file in the public folder
+  const testFilePath = `${root}/public/x1234_test_doc.myc.md`;
+  await Deno.mkdir(`${root}/public`, { recursive: true });
+  await Deno.writeTextFile(
+    testFilePath,
+    [
+      "---",
+      "type: VectorDocumentDescriptor",
+      "coordinate: x1234",
+      "status: draft",
+      "some_key: some_value",
+      "list_key:",
+      "  - item1",
+      "  - item2",
+      "---",
+      "",
+      "# Test Title",
+      "Some markdown content.",
+    ].join("\n"),
+  );
+
+  const descriptor = await parseDescriptorFile(testFilePath);
+  assert(descriptor !== null, "Should parse frontmatter descriptor");
+  assert(descriptor.type === "VectorDocumentDescriptor", "Type match");
+  assert(descriptor.body.coordinate === "x1234", "Coordinate match");
+  assert(descriptor.body.some_key === "some_value", "Key-value match");
+  assert(Array.isArray(descriptor.body.list_key), "List key should be array");
+  assert(
+    (descriptor.body.list_key as string[]).includes("item1"),
+    "List values match",
+  );
+
+  // Verify resolution
+  const resolved = await resolveFqdn(root, "x1234_test_doc.myc.md");
+  assert(resolved !== null, "Should resolve by FQDN");
+  assert(resolved!.descriptor.fqdn === "x1234_test_doc.myc.md", "FQDN matches");
+});

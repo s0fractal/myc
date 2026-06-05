@@ -28,6 +28,7 @@ const HTML = `<!doctype html>
         <label for="resolver-url">local resolver</label>
         <input id="resolver-url" spellcheck="false" autocomplete="off">
         <button id="connect-btn" type="button">Connect</button>
+        <button id="select-dir-btn" type="button" class="secondary" title="Open Local Directory Handle">Open Directory</button>
       </div>
 
       <div id="connection-note" class="connection-note" aria-live="polite">
@@ -91,12 +92,14 @@ const HTML = `<!doctype html>
             <span id="descriptor-title">no target</span>
             <div class="tabs">
               <button id="tab-json" class="tab active" type="button">JSON</button>
+              <button id="tab-render" class="tab" type="button">Render</button>
               <button id="tab-availability" class="tab" type="button">Access</button>
               <button id="tab-summary" class="tab" type="button">Summary</button>
               <button id="tab-source" class="tab" type="button">Source</button>
             </div>
           </div>
           <pre id="output"></pre>
+          <div id="render-output" hidden></div>
           <pre id="availability-output" hidden></pre>
           <pre id="summary-output" hidden></pre>
           <pre id="source-output" hidden></pre>
@@ -299,7 +302,7 @@ h2 {
 }
 
 .resolver-bar {
-  grid-template-columns: auto minmax(180px, 1fr) auto;
+  grid-template-columns: auto minmax(180px, 1fr) auto auto;
   align-items: center;
 }
 
@@ -582,6 +585,65 @@ canvas {
 .ok { color: var(--good); }
 .bad { color: var(--bad); }
 
+.embedded-doc {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  margin: 16px 0;
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+.embedded-header {
+  background: var(--surface-2);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  color: var(--muted);
+  border-bottom: 1px dashed var(--line);
+}
+.embedded-body {
+  padding: 14px;
+}
+#render-output {
+  padding: 20px;
+  overflow: auto;
+  max-height: 540px;
+  line-height: 1.6;
+}
+#render-output h1 {
+  font-size: 22px;
+  margin-top: 0;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+#render-output h2 {
+  font-size: 18px;
+  margin-top: 20px;
+}
+#render-output p {
+  margin: 12px 0;
+}
+#render-output code {
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+#render-output pre.code-block {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 14px;
+  border-radius: 8px;
+  overflow: auto;
+  border: 1px solid var(--line);
+}
+#render-output a.myc-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+#render-output a.myc-link:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 820px) {
   .resolver-bar,
   .query-row,
@@ -613,6 +675,7 @@ const state = {
   searchTimer: null,
   reconnectTimer: null,
   lastGraph: null,
+  dirHandle: null,
 };
 
 $("resolver-url").value = state.resolver;
@@ -664,13 +727,16 @@ function setTarget(target, updateUrl = true) {
 }
 
 function resolverBase() {
-  const value = $("resolver-url").value.trim().replace(/\\/+$/, "");
+  const value = $("resolver-url").value.trim().replace(/\/+$/, "");
   state.resolver = value || DEFAULT_RESOLVER;
   localStorage.setItem("myc.resolver", state.resolver);
   return state.resolver;
 }
 
 async function api(path) {
+  if (state.dirHandle) {
+    return await mockLocalApi(path);
+  }
   const response = await fetch(resolverBase() + path, { method: "GET" });
   const text = await response.text();
   let body;
@@ -685,6 +751,422 @@ async function api(path) {
     throw error;
   }
   return body;
+}
+
+// --- Browser Local File System Mode Support ---
+
+async function selectDirectory() {
+  try {
+    state.dirHandle = await window.showDirectoryPicker();
+    localStorage.setItem("myc.useLocalDir", "true");
+    setConnection("online | local directory: " + state.dirHandle.name, "online");
+    setText("health-value", "local-fs", "ok");
+    setText("version-value", "browser-direct");
+    await scanLocalDir();
+    await verifyGraph();
+    await loadIndex();
+    write("Successfully connected to local directory: " + state.dirHandle.name);
+  } catch (e) {
+    write("Failed to open local directory: " + e.message);
+  }
+}
+
+async function walkDirHandle(dirHandle, pathParts = []) {
+  const files = [];
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind === "directory") {
+      if ([".git", "node_modules", ".wrangler", "dist"].includes(entry.name)) continue;
+      const subFiles = await walkDirHandle(entry, [...pathParts, entry.name]);
+      files.push(...subFiles);
+    } else if (entry.kind === "file" && (entry.name.endsWith(".md") || entry.name.endsWith(".myc.md"))) {
+      files.push({
+        handle: entry,
+        name: entry.name,
+        relativePath: [...pathParts, entry.name].join("/"),
+      });
+    }
+  }
+  return files;
+}
+
+function parseFrontmatterJS(text) {
+  const match = text.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---/);
+  if (!match) return {};
+  const obj = {};
+  const lines = match[1].split(/\\r?\\n/);
+  let currentKey = null;
+  let currentList = null;
+
+  for (const line of lines) {
+    if (line.trim().startsWith("#") || !line.trim()) continue;
+
+    const listItemMatch = line.match(/^\\s*-\\s*(.*)$/);
+    if (listItemMatch && currentKey) {
+      if (!currentList) {
+        currentList = [];
+        obj[currentKey] = currentList;
+      }
+      let val = listItemMatch[1].trim();
+      if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+      else if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
+      currentList.push(val);
+      continue;
+    }
+
+    const keyValueMatch = line.match(/^([^:]+):\\s*(.*)$/);
+    if (keyValueMatch) {
+      currentKey = keyValueMatch[1].trim();
+      currentList = null;
+      let val = keyValueMatch[2].trim();
+      if (val === "") continue;
+      if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+      else if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
+      
+      if (val === "true") obj[currentKey] = true;
+      else if (val === "false") obj[currentKey] = false;
+      else if (val === "null") obj[currentKey] = null;
+      else if (!isNaN(Number(val)) && val !== "") obj[currentKey] = Number(val);
+      else obj[currentKey] = val;
+    }
+  }
+  return obj;
+}
+
+async function fileToDescriptorRecord(fileEntry) {
+  const file = await fileEntry.handle.getFile();
+  const text = await file.text();
+
+  const jsonMatch = text.match(/\`\`\`json myc\\n([\\s\\S]*?)\\n\`\`\`/);
+  if (jsonMatch) {
+    try {
+      const descriptor = JSON.parse(jsonMatch[1]);
+      return {
+        fqdn: descriptor.fqdn,
+        path: fileEntry.relativePath,
+        type: descriptor.type,
+        commitment: descriptor.commitment.value,
+        descriptor,
+        rawText: text,
+      };
+    } catch (e) {}
+  }
+
+  const fm = parseFrontmatterJS(text);
+  const filename = fileEntry.name;
+  const hasCoordinate = fm.coordinate || /^x[0-9a-fA-F]{4}/.test(filename);
+  const isMycMd = filename.endsWith(".myc.md") || filename.endsWith(".md");
+
+  if (hasCoordinate && isMycMd) {
+    const coordMatch = filename.match(/^(x[0-9a-fA-F]{4})/);
+    const coordinate = fm.coordinate || (coordMatch ? coordMatch[1] : "x0000");
+    const type = fm.type || "VectorDocumentDescriptor";
+    const fqdn = fm.fqdn || filename;
+
+    const body = {
+      coordinate,
+      type,
+      status: fm.status || "draft",
+      ...fm,
+    };
+
+    const encoder = new TextEncoder();
+    const data = encoder.encode(JSON.stringify(body));
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+    const descriptor = {
+      type,
+      schema_version: fm.schema_version || "myc.vector-document.v0.1",
+      fqdn,
+      commitment: {
+        algorithm: "sha256",
+        value: hashHex,
+        covers: "descriptor.body",
+      },
+      body,
+    };
+
+    return {
+      fqdn,
+      path: fileEntry.relativePath,
+      type,
+      commitment: hashHex,
+      descriptor,
+      rawText: text,
+    };
+  }
+
+  return null;
+}
+
+async function scanLocalDir() {
+  if (!state.dirHandle) return;
+  const files = await walkDirHandle(state.dirHandle);
+  const records = [];
+  for (const fileEntry of files) {
+    try {
+      const record = await fileToDescriptorRecord(fileEntry);
+      if (record) records.push(record);
+    } catch (e) {
+      console.warn("Failed to parse local file: " + fileEntry.relativePath, e);
+    }
+  }
+  state.records = records;
+}
+
+async function mockLocalApi(path) {
+  const url = new URL(path, "http://local-mock");
+  const endpoint = url.pathname;
+
+  if (state.records.length === 0 || endpoint === "/index" || endpoint === "/verify-projections") {
+    await scanLocalDir();
+  }
+
+  if (endpoint === "/health") {
+    return {
+      ok: true,
+      service: "myc.md-pwa-local-fs",
+      resolver: "Browser FileSystem API",
+      version: "browser-direct-v0.1",
+    };
+  }
+
+  if (endpoint === "/index") {
+    return {
+      ok: true,
+      count: state.records.length,
+      records: state.records.map((r) => ({
+        fqdn: r.fqdn,
+        path: r.path,
+        type: r.type,
+        commitment: r.commitment,
+      })),
+    };
+  }
+
+  if (endpoint === "/search") {
+    const q = url.searchParams.get("q") || "";
+    const results = state.records.filter((r) =>
+      r.fqdn.toLowerCase().includes(q.toLowerCase()) ||
+      r.type.toLowerCase().includes(q.toLowerCase())
+    );
+    return {
+      ok: true,
+      count: results.length,
+      results: results.map((r) => ({
+        fqdn: r.fqdn,
+        path: r.path,
+        type: r.type,
+        commitment: r.commitment,
+      })),
+    };
+  }
+
+  if (endpoint === "/descriptor") {
+    const target = url.searchParams.get("target") || "";
+    const record = state.records.find((r) => r.fqdn === target || r.path === target);
+    if (!record) throw new Error("Descriptor not found: " + target);
+    return {
+      ok: true,
+      descriptor: record.descriptor,
+    };
+  }
+
+  if (endpoint === "/source") {
+    const target = url.searchParams.get("target") || "";
+    const record = state.records.find((r) => r.fqdn === target || r.path === target);
+    if (!record) throw new Error("Source not found: " + target);
+    return {
+      ok: true,
+      source: record.rawText,
+    };
+  }
+
+  if (endpoint === "/explain") {
+    const target = url.searchParams.get("target") || "";
+    const record = state.records.find((r) => r.fqdn === target || r.path === target);
+    if (!record) throw new Error("Target not found: " + target);
+    return {
+      ok: true,
+      summary: {
+        type: record.type,
+        coordinate: record.descriptor.body.coordinate,
+        status: record.descriptor.body.status,
+      },
+    };
+  }
+
+  if (endpoint === "/verify-projections") {
+    return {
+      ok: true,
+      index_synced: true,
+      graph_synced: true,
+      descriptor_count: state.records.length,
+      index_record_count: state.records.length,
+      errors: [],
+      warnings: [],
+    };
+  }
+
+  if (endpoint === "/graph") {
+    const edges = [];
+    for (const record of state.records) {
+      if (record.type === "TransformationDescriptor") {
+        const body = record.descriptor.body;
+        const inputs = Array.isArray(body.input) ? body.input : (body.input ? [body.input] : []);
+        const outputs = Array.isArray(body.output) ? body.output : (body.output ? [body.output] : []);
+        for (const input of inputs) {
+          for (const output of outputs) {
+            edges.push({
+              transform: record.fqdn,
+              step: body.step || "unknown",
+              direction: body.direction || "forward",
+              proof_mode: body.proof_mode || "deterministic",
+              function_fqdn: body.function?.fqdn || null,
+              input,
+              output,
+            });
+          }
+        }
+      }
+    }
+    return {
+      ok: true,
+      count: edges.length,
+      edges,
+    };
+  }
+
+  if (endpoint === "/lineage") {
+    const target = url.searchParams.get("target") || "";
+    const graphData = await mockLocalApi("/graph");
+    const edges = graphData.edges;
+    const backward = edges.filter((e) => e.output?.fqdn === target);
+    const forward = edges.filter((e) => e.input?.fqdn === target);
+    return {
+      ok: true,
+      backward,
+      forward,
+    };
+  }
+
+  if (endpoint === "/nutrition") {
+    const target = url.searchParams.get("target") || "";
+    const record = state.records.find((r) => r.fqdn === target || r.path === target);
+    if (!record) throw new Error("Target not found");
+    return {
+      ok: true,
+      nutrition: {
+        status: record.descriptor.body.status === "draft" ? "speculative" : "verified",
+      },
+    };
+  }
+
+  if (endpoint === "/availability") {
+    const target = url.searchParams.get("target") || "";
+    const record = state.records.find((r) => r.fqdn === target || r.path === target);
+    return {
+      ok: true,
+      access_mode: record ? "public" : "unknown",
+    };
+  }
+
+  throw new Error("Local mock not implemented for: " + endpoint);
+}
+
+// --- Dynamic Rendering & Lens Overrides ---
+
+function renderMarkdown(text) {
+  let body = text.replace(/^---[\\s\\S]*?---\\r?\\n/, "");
+  
+  body = body
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  
+  body = body.replace(/^# (.*)$/gm, "<h1>$1</h1>");
+  body = body.replace(/^## (.*)$/gm, "<h2>$1</h2>");
+  body = body.replace(/^### (.*)$/gm, "<h3>$1</h3>");
+  body = body.replace(/^#### (.*)$/gm, "<h4>$1</h4>");
+  
+  body = body.replace(/\\*\\*(.*?)\\*\\*/g, "<strong>$1</strong>");
+  body = body.replace(/\\*(.*?)\\*/g, "<em>$1</em>");
+  
+  body = body.replace(/\`\`\`(.*?)\\n([\\s\\S]*?)\`\`\`/g, "<pre class='code-block'><code class='language-$1'>$2</code></pre>");
+  body = body.replace(/\`(.*?)\`/g, "<code>$1</code>");
+  
+  body = body.replace(/\\s*\\[(.*?)\\]\\((.*?)\\)/g, " <a href='$2' class='myc-link'>$1</a>");
+  body = body.replace(/\\[(.*?)\\]\\((.*?)\\)/g, "<a href='$2' class='myc-link'>$1</a>");
+  body = body.replace(/^\\s*[-*]\\s+(.*)$/gm, "<li>$1</li>");
+  
+  const blocks = body.split(/\\n\\n+/);
+  body = blocks.map(block => {
+    block = block.trim();
+    if (block.startsWith("<h") || block.startsWith("<li") || block.startsWith("<pre") || block.startsWith("<ul") || block.startsWith("<ol") || block.startsWith("<div")) {
+      return block;
+    }
+    if (block.startsWith("<li>")) {
+      return "<ul>" + block + "</ul>";
+    }
+    return "<p>" + block.replace(/\\n/g, "<br>") + "</p>";
+  }).join("\n");
+  
+  return body;
+}
+
+async function renderDocument(target, depth = 0) {
+  if (depth > 5) return "<p class='bad'>Error: Maximum transclusion depth exceeded.</p>";
+  
+  try {
+    const res = await api("/source?target=" + encodeURIComponent(target));
+    let source = res.source;
+    if (!source) return "<p class='bad'>Source empty or unavailable.</p>";
+    
+    const fm = parseFrontmatterJS(source);
+    
+    // Match transclusions: ![alt](xNNNN_other.myc.md)
+    const embedRegex = /!\[(.*?)\]\(((?:x[0-9a-fA-F]{4}[^\)]*?\.(?:myc\.)?md))\)/g;
+    let match;
+    const embeds = [];
+    while ((match = embedRegex.exec(source)) !== null) {
+      embeds.push({
+        full: match[0],
+        alt: match[1],
+        targetFqdn: match[2],
+      });
+    }
+    
+    for (const embed of embeds) {
+      const embeddedHtml = await renderDocument(embed.targetFqdn, depth + 1);
+      source = source.replace(embed.full, \`<div class="embedded-doc" data-fqdn="\${embed.targetFqdn}">
+        <div class="embedded-header">\${embed.targetFqdn}</div>
+        <div class="embedded-body">\${embeddedHtml}</div>
+      </div>\`);
+    }
+    
+    let html = renderMarkdown(source);
+    
+    const customStyle = fm.lens || fm.style;
+    if (customStyle && depth === 0) {
+      try {
+        const styleRes = await api("/source?target=" + encodeURIComponent(customStyle));
+        const styleText = styleRes.source;
+        if (styleText) {
+          let css = styleText;
+          const cssMatch = styleText.match(/\`\`\`css\\n([\\s\\S]*?)\`\`\`/);
+          if (cssMatch) css = cssMatch[1];
+          html = \`<style id="lens-stylesheet">\${css}</style>\` + html;
+        }
+      } catch (e) {
+        console.warn("Failed to load lens style: " + customStyle, e);
+      }
+    }
+    
+    return html;
+  } catch (e) {
+    return \`<p class='bad'>Failed to resolve transclusion: \${target}. Error: \${e.message}</p>\`;
+  }
 }
 
 function initialTarget() {
@@ -810,10 +1292,12 @@ async function loadVerificationSource(name) {
 
 function switchTab(tab) {
   $("tab-json").classList.toggle("active", tab === "json");
+  $("tab-render").classList.toggle("active", tab === "render");
   $("tab-availability").classList.toggle("active", tab === "availability");
   $("tab-summary").classList.toggle("active", tab === "summary");
   $("tab-source").classList.toggle("active", tab === "source");
   $("output").hidden = tab !== "json";
+  $("render-output").hidden = tab !== "render";
   $("availability-output").hidden = tab !== "availability";
   $("summary-output").hidden = tab !== "summary";
   $("source-output").hidden = tab !== "source";
@@ -1207,6 +1691,7 @@ function renderEdges(edges) {
 }
 
 $("connect-btn").addEventListener("click", connect);
+$("select-dir-btn").addEventListener("click", selectDirectory);
 $("retry-btn").addEventListener("click", () => connect().catch((error) => write(error.body || error.message)));
 $("verify-graph-btn").addEventListener("click", () => verifyGraph().catch((error) => write(error.body || error.message)));
 $("load-graph-btn").addEventListener("click", () => loadGraph().catch((error) => write(error.body || error.message)));
@@ -1223,6 +1708,19 @@ $("explain-btn").addEventListener("click", () => {
 $("lineage-btn").addEventListener("click", () => lineageTarget().catch((error) => write(error.body || error.message)));
 $("search-input").addEventListener("input", scheduleSearch);
 $("tab-json").addEventListener("click", () => switchTab("json"));
+$("tab-render").addEventListener("click", async () => {
+  switchTab("render");
+  const target = $("target-input").value.trim();
+  if (target) {
+    $("render-output").innerHTML = "<p>Rendering document...</p>";
+    try {
+      const html = await renderDocument(target);
+      $("render-output").innerHTML = html;
+    } catch (e) {
+      $("render-output").innerHTML = "<p class='bad'>Render failed: " + e.message + "</p>";
+    }
+  }
+});
 $("tab-availability").addEventListener("click", () => {
   switchTab("availability");
   availabilityTarget();

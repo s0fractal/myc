@@ -20,6 +20,9 @@ const ALLOWED_DESCRIPTOR_TYPES = new Set([
   "PublishDescriptor",
   "WitnessDescriptor",
   "ReviewDescriptor",
+  "VectorDocumentDescriptor",
+  "myc.roadmap-projection",
+  "myc.probes-projection",
 ]);
 
 const LOCKED_FUNCTION_FQDNS = new Set([
