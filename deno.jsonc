@@ -1,7 +1,7 @@
 {
   "tasks": {
     "myc": "deno run --allow-read --allow-write --allow-env --allow-net src/x0100_myc.ts",
-    "resolve": "deno run --allow-read --allow-run --allow-env src/x0200_resolve.ts",
+    "resolve": "deno run --allow-read --allow-write --allow-run --allow-env src/x0200_resolve.ts",
     "test": "deno test --allow-read --allow-write --allow-env src/x0100_myc_test.ts src/x0200_resolve_test.ts src/x6C00_protocol_audit_test.ts",
     "audit": "deno run --allow-read src/x6C00_protocol_audit.ts",
     "capabilities": "deno run --allow-read src/x4A00_capabilities.ts",
