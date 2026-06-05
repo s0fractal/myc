@@ -72,7 +72,8 @@ hash, but public descriptors do not embed the payload bytes.
 ## Coordinate Resolver (`deno task resolve`)
 
 Alongside the content-addressed `h.<hash>` family, the substrate graph is a flat
-coordinate space: every node is `xNNNN_name.myc.md`. A name is a **resolvable,
+coordinate space — a **neuron-graph** with two kinds of node: chords
+(`xNNNN_name.myc.md`) and organs (`xNNNN_name.ts`). A name is a **resolvable,
 provable link** — give the resolver a coordinate and it finds the file ANYWHERE
 in the local graph (rooted at the git superproject, so one address space spans
 this repo and every sibling substrate) and tells you how trustworthy it is by
@@ -99,14 +100,21 @@ A node is **proven** if EITHER mode validates. `--why` resolves not just the nod
 but its causes (`hears:`/`references:`/`closes:` + the git intent), and **each
 causal step is itself a resolved, proven node** — so the graph can show not only
 what it holds but the verifiable path that produced it, walkable from any node.
-`--graph` shows a node's local topology in BOTH directions — backward causes
-(`↑`) and forward effects (`↓`, the nodes that cite it) — each neighbour itself
-resolved and proven, so you can walk the lattice from any point and verify every
-step. `--graph` walks from a node; `--lattice` takes in the WHOLE graph at once —
-node count, proven vs unproven (📜 git / 🔐 crypto), total causal edges, orphans
-(no edges either way), the hub (most-cited node), and the DANGLING citations: a
-`hears:`/`references:` that resolves to no node — the wiki's broken links. The
-topology does not hide where trust is missing.
+`--graph` shows a node's local topology in BOTH directions, with kind-aware edges:
+a chord shows `↑ caused by` / `↓ feeds into` (its causal `hears:` neighbours); an
+organ shows `↑ built from (imports)` / `↓ used by (imported by)` (its composition
+neighbours). Cross-kind edges resolve too — a chord that cites an organ appears in
+that organ's "used by". Each neighbour is itself resolved and proven, so you can
+walk the lattice from any point and verify every step.
+
+`--graph` walks from a node; `--lattice` takes in the WHOLE neuron-graph at once —
+node count split by kind (chords / organs), proven vs unproven (📜 git / 🔐
+crypto), edges split by kind (causal `hears:` / composition `import`s), orphans
+(no edge of either kind), the hub (most-connected node), and the DANGLING
+citations: a `hears:`/`references:` that resolves to no node — the wiki's broken
+links. The topology does not hide where trust is missing. (The lightweight import
+scan feeds the graph view; trinity's `x6020_gravity` remains the authoritative
+import/gravity-law analyzer.)
 
 > Canonicalization note: the commitment covers `{fqdn, body}`, binding the name
 > to the content. The PWA worker's content-only commitment
