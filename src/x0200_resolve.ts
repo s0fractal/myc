@@ -31,7 +31,17 @@ import {
   relative,
 } from "https://deno.land/std@0.224.0/path/mod.ts";
 
-const FILE_RE = /^x([0-9A-Fa-f]{4})[_.](.+?)\.(?:myc\.md|md)$/i;
+// A node is a coordinate-bearing file: a chord (`.myc.md`/`.md`) or an organ
+// (`.ts`). One flat address space holds both — the substrate's neuron-graph,
+// where chords connect by causal edges (hears:/references:) and organs by
+// composition edges (imports).
+const FILE_RE = /^x([0-9A-Fa-f]{4})[_.](.+?)\.(?:myc\.md|md|ts)$/i;
+
+type NodeKind = "chord" | "organ";
+
+function kindOf(name: string): NodeKind {
+  return name.endsWith(".ts") ? "organ" : "chord";
+}
 
 interface ProofGit {
   tracked: boolean;
@@ -47,6 +57,7 @@ interface Match {
   fqdn: string;
   path: string;
   coordinate: string;
+  kind: NodeKind;
   proven: boolean;
   git: ProofGit;
   crypto: ProofCrypto;
@@ -111,11 +122,11 @@ async function* walk(dir: string): AsyncGenerator<string> {
 }
 
 /** Normalize a query to {coord, handle?}. Accepts x0000, x0000_name, x0000.NAME,
- * with or without the .myc.md/.md suffix. */
+ * with or without the .myc.md/.md/.ts suffix. */
 function parseQuery(
   q: string,
 ): { coord: string; handle: string | null } | null {
-  const stripped = q.trim().replace(/\.(?:myc\.md|md)$/i, "");
+  const stripped = q.trim().replace(/\.(?:myc\.md|md|ts)$/i, "");
   const m = stripped.match(/^x([0-9A-Fa-f]{4})(?:[_.](.+))?$/i);
   if (!m) return null;
   return {
@@ -124,11 +135,17 @@ function parseQuery(
   };
 }
 
-function fileMeta(path: string): { coord: string; handle: string } | null {
+function fileMeta(
+  path: string,
+): { coord: string; handle: string; kind: NodeKind } | null {
   const name = path.split("/").pop() ?? "";
   const m = name.match(FILE_RE);
   if (!m) return null;
-  return { coord: m[1].toLowerCase(), handle: m[2].toLowerCase() };
+  return {
+    coord: m[1].toLowerCase(),
+    handle: m[2].toLowerCase(),
+    kind: kindOf(name),
+  };
 }
 
 function splitFrontmatter(text: string): { fm: string; body: string } {
@@ -223,10 +240,15 @@ async function cryptoProof(
 async function proveFile(
   root: string,
   path: string,
-  meta: { coord: string; handle: string },
+  meta: { coord: string; handle: string; kind: NodeKind },
 ): Promise<Match> {
   const { fm, body } = splitFrontmatter(await Deno.readTextFile(path));
-  const fqdn = `x${meta.coord}_${meta.handle}.myc.md`;
+  // Chords normalize to `.myc.md` (preserving the established crypto
+  // canonicalization); organs carry their real `.ts`. Organs hold no provenance
+  // block, so they are git-proven, never crypto.
+  const fqdn = meta.kind === "organ"
+    ? `x${meta.coord}_${meta.handle}.ts`
+    : `x${meta.coord}_${meta.handle}.myc.md`;
   const [git, crypto] = await Promise.all([
     gitProof(path),
     cryptoProof(fqdn, fm, body),
@@ -235,6 +257,7 @@ async function proveFile(
     fqdn,
     path: relative(root, path),
     coordinate: `x${meta.coord}`,
+    kind: meta.kind,
     proven: git.tracked || crypto.ok,
     git,
     crypto,
@@ -315,7 +338,11 @@ async function whyOf(query: string): Promise<Why | null> {
   const node = matches[0];
   const text = await Deno.readTextFile(join(await graphRoot(), node.path));
   const { fm } = splitFrontmatter(text);
-  const edges = [...fmList(fm, "hears"), ...fmList(fm, "references")];
+  // A chord's causes are what it HEARD; an organ's causes are what it IMPORTS
+  // (the organs it is composed from).
+  const edges = node.kind === "organ"
+    ? importCoords(text)
+    : [...fmList(fm, "hears"), ...fmList(fm, "references")];
   const closes = fm.match(/path_hint\s*:\s*["']?([^"'\n]+)/)?.[1]?.trim() ??
     null;
   const causes: Cause[] = [];
@@ -367,7 +394,8 @@ function citesNode(
   return target.handle.includes(q.handle);
 }
 
-/** Forward edges: the nodes that cite this one (its effects in the lattice). */
+/** Forward edges: the nodes that point at this one (its effects in the lattice)
+ * — chords that CITE it (`hears:`) and organs that IMPORT it. */
 async function effectsOf(node: Match): Promise<Match[]> {
   const root = await graphRoot();
   const target = fileMeta(node.path);
@@ -377,8 +405,11 @@ async function effectsOf(node: Match): Promise<Match[]> {
     if (relative(root, path) === node.path) continue;
     const meta = fileMeta(path);
     if (!meta) continue;
-    const { fm } = splitFrontmatter(await Deno.readTextFile(path));
-    const edges = [...fmList(fm, "hears"), ...fmList(fm, "references")];
+    const text = await Deno.readTextFile(path);
+    const { fm } = splitFrontmatter(text);
+    const edges = meta.kind === "organ"
+      ? importCoords(text)
+      : [...fmList(fm, "hears"), ...fmList(fm, "references")];
     if (edges.some((e) => citesNode(e, target))) {
       out.push(await proveFile(root, path, meta));
     }
@@ -386,23 +417,28 @@ async function effectsOf(node: Match): Promise<Match[]> {
   return out;
 }
 
-// ── the whole graph: trust topology integrity ───────────────────────────────
+// ── the whole graph: the neuron-graph and its trust integrity ────────────────
 //
-// `--graph` walks from one node; `--lattice` takes in the WHOLE shape at once and
-// reports where trust holds and where it is missing: how many nodes are proven
-// (git intent or crypto commitment), how many causal edges bind them, and —
-// crucially — which citations are DANGLING (a `hears:`/`references:` that resolves
-// to no node: the wiki's broken links). The topology should not hide its gaps.
+// `--graph` walks from one node; `--lattice` takes in the WHOLE shape at once.
+// The substrate is a neuron-graph with TWO edge kinds: chords connect by CAUSAL
+// edges (`hears:`/`references:` — this thought heard that one), organs connect by
+// COMPOSITION edges (`import`s — this organ is built from that one). The view
+// reports how many nodes are proven (git intent / crypto commitment), how many
+// edges of each kind bind them, and — crucially — which CAUSAL citations DANGLE
+// (a `hears:`/`references:` that resolves to no node: the wiki's broken links).
+// A topology should not hide where trust is missing.
 
 interface LatticeNode {
   fqdn: string;
   path: string;
   coord: string;
   handle: string;
+  kind: NodeKind;
   proven: boolean;
   crypto: boolean;
   git: boolean;
-  outRefs: string[];
+  causalRefs: string[];
+  compRefs: string[];
 }
 
 /** All git-tracked paths across the superproject AND its submodules, in one call
@@ -413,6 +449,22 @@ async function trackedSet(root: string): Promise<Set<string>> {
   return new Set(r.out.split("\n").filter(Boolean));
 }
 
+/** Composition edges: the coordinate-bearing organs an organ imports. A light
+ * scan of `from "…/xNNNN_name.ts"` — enough for the neuron-graph; the gravity
+ * organ (x6020) remains the authoritative import/gravity-law analyzer. */
+function importCoords(text: string): string[] {
+  const out: string[] = [];
+  const re = /from\s+["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const base = m[1].split("/").pop() ?? "";
+    if (/^x[0-9A-Fa-f]{4}[_.]/i.test(base)) {
+      out.push(base.replace(/\.ts$/i, ""));
+    }
+  }
+  return out;
+}
+
 async function buildLattice(): Promise<LatticeNode[]> {
   const root = await graphRoot();
   const tracked = await trackedSet(root);
@@ -421,22 +473,30 @@ async function buildLattice(): Promise<LatticeNode[]> {
     const meta = fileMeta(path);
     if (!meta) continue;
     const rel = relative(root, path);
-    const { fm, body } = splitFrontmatter(await Deno.readTextFile(path));
-    const fqdn = `x${meta.coord}_${meta.handle}.myc.md`;
+    const text = await Deno.readTextFile(path);
+    const { fm, body } = splitFrontmatter(text);
+    const fqdn = meta.kind === "organ"
+      ? `x${meta.coord}_${meta.handle}.ts`
+      : `x${meta.coord}_${meta.handle}.myc.md`;
     const c = await cryptoProof(fqdn, fm, body);
     const isGit = tracked.has(rel);
-    const outRefs = [...fmList(fm, "hears"), ...fmList(fm, "references")]
-      .filter(looksLikeCoordinate)
-      .map((e) => e.trim().replace(/^["']|["']$/g, "").split(/[\s(]/)[0]);
+    const causalRefs = meta.kind === "chord"
+      ? [...fmList(fm, "hears"), ...fmList(fm, "references")]
+        .filter(looksLikeCoordinate)
+        .map((e) => e.trim().replace(/^["']|["']$/g, "").split(/[\s(]/)[0])
+      : [];
+    const compRefs = meta.kind === "organ" ? importCoords(text) : [];
     nodes.push({
       fqdn,
       path: rel,
       coord: meta.coord,
       handle: meta.handle,
+      kind: meta.kind,
       proven: isGit || c.ok,
       crypto: c.ok,
       git: isGit,
-      outRefs,
+      causalRefs,
+      compRefs,
     });
   }
   return nodes;
@@ -444,10 +504,13 @@ async function buildLattice(): Promise<LatticeNode[]> {
 
 interface Lattice {
   nodes: number;
+  chords: number;
+  organs: number;
   proven: number;
   git: number;
   crypto: number;
-  edges: number;
+  causalEdges: number;
+  compEdges: number;
   dangling: { from: string; ref: string }[];
   unproven: string[];
   orphans: string[];
@@ -461,41 +524,54 @@ function analyzeLattice(nodes: LatticeNode[]): Lattice {
     a.push(n);
     byCoord.set(n.coord, a);
   }
+  const resolveRef = (ref: string): LatticeNode[] => {
+    const q = parseQuery(ref);
+    if (!q) return [];
+    return (byCoord.get(q.coord) ?? []).filter((t) =>
+      !q.handle || t.handle.includes(q.handle)
+    );
+  };
   const inDeg = new Map<string, number>();
   const dangling: { from: string; ref: string }[] = [];
-  let edges = 0;
+  let causalEdges = 0;
+  let compEdges = 0;
   for (const n of nodes) {
-    for (const ref of n.outRefs) {
-      edges++;
-      const q = parseQuery(ref);
-      const hits = q
-        ? (byCoord.get(q.coord) ?? []).filter((t) =>
-          !q.handle || t.handle.includes(q.handle)
-        )
-        : [];
-      if (hits.length === 0) {
-        dangling.push({ from: n.fqdn, ref });
-      } else {
-        for (const t of hits) {
+    // Causal edges: a target that doesn't resolve is a broken citation.
+    for (const ref of n.causalRefs) {
+      causalEdges++;
+      const hits = resolveRef(ref);
+      if (hits.length === 0) dangling.push({ from: n.fqdn, ref });
+      else {for (const t of hits) {
           inDeg.set(t.fqdn, (inDeg.get(t.fqdn) ?? 0) + 1);
-        }
-      }
+        }}
+    }
+    // Composition edges: imports of coordinate organs (in-graph ones only —
+    // an import of an organ outside the walked set is not a broken citation).
+    for (const ref of n.compRefs) {
+      const hits = resolveRef(ref);
+      if (hits.length === 0) continue;
+      compEdges++;
+      for (const t of hits) inDeg.set(t.fqdn, (inDeg.get(t.fqdn) ?? 0) + 1);
     }
   }
   let hub: { fqdn: string; inDegree: number } | null = null;
   for (const [fqdn, d] of inDeg) {
     if (!hub || d > hub.inDegree) hub = { fqdn, inDegree: d };
   }
+  const outDeg = (n: LatticeNode) => n.causalRefs.length + n.compRefs.length;
   return {
     nodes: nodes.length,
+    chords: nodes.filter((n) => n.kind === "chord").length,
+    organs: nodes.filter((n) => n.kind === "organ").length,
     proven: nodes.filter((n) => n.proven).length,
     git: nodes.filter((n) => n.git).length,
     crypto: nodes.filter((n) => n.crypto).length,
-    edges,
+    causalEdges,
+    compEdges,
     dangling,
     unproven: nodes.filter((n) => !n.proven).map((n) => n.fqdn),
     orphans: nodes.filter((n) =>
-      n.outRefs.length === 0 && (inDeg.get(n.fqdn) ?? 0) === 0
+      outDeg(n) === 0 && (inDeg.get(n.fqdn) ?? 0) === 0
     ).map((n) => n.fqdn),
     hub,
   };
@@ -510,7 +586,8 @@ async function main() {
   const stampSigner = stampIdx >= 0 ? args[stampIdx + 1] : undefined;
   const stampValueIdx = stampIdx >= 0 ? stampIdx + 1 : -1;
 
-  // --lattice: the whole graph at once — trust topology integrity. No query.
+  // --lattice: the whole neuron-graph at once — trust topology integrity. No
+  // query. Chords + organs are nodes; causal + composition edges bind them.
   if (args.includes("--lattice")) {
     const l = analyzeLattice(await buildLattice());
     if (json) {
@@ -518,14 +595,17 @@ async function main() {
       return;
     }
     const pct = l.nodes ? Math.round((l.proven / l.nodes) * 100) : 0;
-    console.log(`🕸  trust topology — ${l.nodes} nodes in the lattice`);
+    console.log(`🕸  neuron-graph — ${l.nodes} nodes in the lattice`);
+    console.log(`   kinds:     ${l.chords} chords · ${l.organs} organs`);
     console.log(
       `   proven:    ${l.proven}/${l.nodes} (${pct}%)  📜 git ${l.git} · 🔐 crypto ${l.crypto}`,
     );
     console.log(
       `   unproven:  ${l.unproven.length}  ⚠️  (untracked & unsigned)`,
     );
-    console.log(`   edges:     ${l.edges} causal links`);
+    console.log(
+      `   edges:     ${l.causalEdges} causal (hears) · ${l.compEdges} composition (imports)`,
+    );
     console.log(`   orphans:   ${l.orphans.length}  (no edges in or out)`);
     if (l.hub) {
       console.log(`   hub:       ${l.hub.fqdn} (${l.hub.inDegree} cite it)`);
@@ -618,12 +698,20 @@ async function main() {
       );
       return;
     }
+    // Edge wording depends on the node kind: chords HEAR and FEED INTO; organs
+    // are BUILT FROM (imports) and USED BY (importers).
+    const back = node.kind === "organ"
+      ? "↑ built from (imports)"
+      : "↑ caused by";
+    const fwd = node.kind === "organ"
+      ? "↓ used by (imported by)"
+      : "↓ feeds into";
     console.log(`🗺  ${seal(node)} ${node.fqdn}`);
     console.log(`   intent: ${node.git.head?.intent ?? "(none)"}`);
     const causeNodes = (w?.causes ?? []).filter((c) =>
       c.kind === "node" && c.resolved
     );
-    console.log(`   ↑ caused by (${causeNodes.length}):`);
+    console.log(`   ${back} (${causeNodes.length}):`);
     for (const c of causeNodes) {
       console.log(
         `     ${seal(c.resolved!)} ${c.resolved!.fqdn}  "${
@@ -631,7 +719,7 @@ async function main() {
         }"`,
       );
     }
-    console.log(`   ↓ feeds into (${effects.length}):`);
+    console.log(`   ${fwd} (${effects.length}):`);
     for (const e of effects) {
       console.log(`     ${seal(e)} ${e.fqdn}  "${e.git.head?.intent ?? ""}"`);
     }
