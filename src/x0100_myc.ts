@@ -2514,6 +2514,30 @@ export async function publishTarget(
   );
   await Deno.writeTextFile(exportPath, exportLines.join("\n") + "\n");
 
+  // The PublishDescriptor must also live in the graph as a resolvable node —
+  // the export ndjson alone leaves it invisible to resolveFqdn, which made
+  // `witness` (whose target must BE a PublishDescriptor) unsatisfiable for
+  // every publication. Mirror the witness layout under public/consensus/.
+  // Deterministic body (no timestamp) → republishing the same bytes rewrites
+  // the same file, so this stays idempotent.
+  const publishWritePath = joinPath(
+    root,
+    "public",
+    "consensus",
+    "publish",
+    "h",
+    targetHash,
+    publishFqdn,
+  );
+  await writeDescriptorFile(
+    publishWritePath,
+    publishDescriptor,
+    "Publish Descriptor",
+    "Publication clearance for the target closure; witnessable consensus node.",
+  );
+  await rebuildIndex(root);
+  await rebuildGraph(root);
+
   return { ok: true, fqdn: publishFqdn, path: exportPath, errors: [] };
 }
 

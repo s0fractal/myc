@@ -12,7 +12,10 @@ const DIGEST_LEN = 32;
 
 const TOOL_DIR = dirname(fromFileUrl(import.meta.url));
 const MYC_ROOT = dirname(TOOL_DIR);
-const OUTPUT_DIR = join(MYC_ROOT, "substrates", "spore", "receipts");
+// Second CLI arg overrides the output dir — tests MUST pass a tempdir so a
+// test run never rewrites the repo's committed receipts.
+const OUTPUT_DIR = Deno.args[1] ??
+  join(MYC_ROOT, "substrates", "spore", "receipts");
 
 type Receipt = {
   type: "SPORE_APPLY_RECEIPT";
@@ -256,7 +259,10 @@ schema_version: "myc.spore.receipt.v0.1"
 chord: ["oct:2.receipt", "oct:6.ledger", "oct:1.physics"]
 energy: 1.0
 tension: "Spore Apply Publication Receipt"
-type: "SporeReceiptDescriptor"
+type: "SealedReceiptDescriptor"
+intent_hash: "none"
+status: "APPLIED"
+signature: "unsigned"
 fuel_model: "spore.fuel.v1"
 record_verified: true
 spore_id: "${receipt.spore_id}"

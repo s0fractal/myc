@@ -25,15 +25,21 @@ const VALID_RECEIPT = {
 async function runImporter(receiptData: object): Promise<void> {
   const tmpFile = await Deno.makeTempFile({ suffix: ".json" });
   await Deno.writeTextFile(tmpFile, JSON.stringify(receiptData));
+  // Output goes to a tempdir — the importer's default output dir is the
+  // repo's committed substrates/spore/receipts/, which a test must never
+  // rewrite (observed 2026-06-13: a full test run silently regenerated a
+  // committed receipt into an audit-violating older format).
+  const tmpOut = await Deno.makeTempDir({ prefix: "spore_receipts_" });
 
   const cmd = new Deno.Command("deno", {
-    args: ["run", "-A", IMPORTER_PATH, tmpFile],
+    args: ["run", "-A", IMPORTER_PATH, tmpFile, tmpOut],
     stdout: "piped",
     stderr: "piped",
   });
 
   const { success, stderr } = await cmd.output();
   await Deno.remove(tmpFile);
+  await Deno.remove(tmpOut, { recursive: true }).catch(() => {});
 
   if (!success) {
     const errorMsg = new TextDecoder().decode(stderr);

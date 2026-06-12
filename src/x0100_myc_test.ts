@@ -1194,7 +1194,6 @@ Deno.test("myc witness and review generate valid consensus descriptors", async (
   const {
     captureText,
     publishTarget,
-    importGraph,
     witnessTarget,
     reviewTarget,
     resolveFqdn,
@@ -1214,16 +1213,12 @@ Deno.test("myc witness and review generate valid consensus descriptors", async (
   );
   const intentFqdn = JSON.parse(intents[0]).fqdn;
 
-  // 3. Publish and Import (to persist PublishDescriptor locally)
+  // 3. Publish — persists the PublishDescriptor into the graph directly
+  // (the old same-root importGraph workaround is gone: publish itself now
+  // writes the consensus node, so the import would create a duplicate).
   const publishResult = await publishTarget(root, intentFqdn);
   assert(publishResult.ok, "publish should succeed");
   const publishFqdn = publishResult.fqdn;
-
-  const importResult = await importGraph(root, publishResult.path!);
-  assert(
-    importResult.ok,
-    "import should succeed: " + importResult.errors.join(", "),
-  );
 
   // 4. Witness the PublishDescriptor
   const witnessResult = await witnessTarget(root, publishFqdn, "s0fractal");
