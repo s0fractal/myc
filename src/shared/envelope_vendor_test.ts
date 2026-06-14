@@ -1,6 +1,7 @@
 // myc/src/shared/envelope_vendor_test.ts — the vendored ReceiptEnvelope encoder
 // must keep producing self-consistent envelopes so myc's substrate_tag:myc
-// witness verifies in the trinity Substrate Court. Gated by the `test` task.
+// witness verifies in the trinity Substrate Court. Gated by the `check` task
+// (run in CI) and `test`.
 
 import {
   assert,
