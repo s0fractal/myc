@@ -10,6 +10,7 @@ import {
   fromFileUrl,
   join,
 } from "https://deno.land/std@0.224.0/path/mod.ts";
+import { type CborValue, wrap } from "./shared/envelope.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 // HERE is myc/src/ after migration; MYC_ROOT is the substrate root.
@@ -39,12 +40,29 @@ if (import.meta.main) {
 
   const overall = ok === components.length ? "healthy" : "degraded";
 
-  const receipt = {
+  const substrate_health = {
+    type: "SubstrateHealth",
+    schema: "trinity.substrate-health.v0.1",
+    substrate: "myc",
+    overall,
+    // myc is the PUBLICATION layer — above omega's physical law, it does not
+    // compute it — so it abstains on law_hash (null). The court reads null as
+    // abstention, not drift.
+    law_hash: null,
+    own_components: {
+      ok,
+      fail: components.length - ok,
+      total: components.length,
+    },
+  };
+
+  const receipt: Record<string, unknown> = {
     type: "status",
     position: "2/E",
     action: "status",
     substrate: "myc",
     note: "MYC operational status",
+    law_hash: null,
     summary: {
       overall,
       health: {
@@ -54,7 +72,20 @@ if (import.meta.main) {
         total: components.length,
       },
     },
+    substrate_health,
   };
+
+  // --envelope: myc signs its OWN substrate_health as a ReceiptEnvelope
+  // (substrate_tag: myc) — the fourth Substrate Court witness, completing the
+  // ecosystem. law_hash abstained (null). See RECEIPT_ENVELOPE.v1.0.
+  if (Deno.args.includes("--envelope")) {
+    receipt.substrate_health_envelope = await wrap(
+      substrate_health as unknown as CborValue,
+      "substrate_health",
+      "myc",
+      { created_at_logical: {} },
+    );
+  }
 
   console.log(JSON.stringify(receipt, null, 2));
 }
