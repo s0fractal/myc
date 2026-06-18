@@ -3048,6 +3048,21 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `lifecycle` — the canonical mutation lifecycle (T3): one vocabulary across
+  // apply-receipts (applied) and the consensus graph. Read-only; shelled.
+  if (args[0] === "lifecycle") {
+    const lifePath = new URL("./x3F00_lifecycle.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", lifePath, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   const { command, flags, rest } = parseArgs(args);
   const root = flagString(flags, "root") ?? defaultRoot();
 
@@ -3283,6 +3298,7 @@ function helpText(): string {
     "                                       (graph coordinate → git+crypto proof)",
     "  organism                             (the four substrates as one body)",
     "  trust                                (resonance over published mutations)",
+    "  lifecycle                            (one vocabulary for a mutation's life)",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
     "  verify-projections",
