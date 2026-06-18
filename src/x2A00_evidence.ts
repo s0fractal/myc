@@ -11,7 +11,9 @@
 // INVALID and visible — they never contribute to finality. Lower bucket than the
 // lifecycle (3) so the projection composes it downward (coordinate-gravity law).
 
-import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
+import { basename, dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
+import { blake3 } from "npm:@noble/hashes@1.4.0/blake3";
+import { verifyCommitment } from "./x2F50_voice_auth.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const MYC_ROOT = dirname(HERE);
@@ -53,6 +55,165 @@ async function sha256Hex(s: string): Promise<string> {
 }
 function norm(commitment: string): string {
   return commitment.replace(/^sha256:/, "").trim();
+}
+
+function hexBytes(hex: string): Uint8Array | null {
+  if (!/^[0-9a-f]+$/i.test(hex) || hex.length % 2 !== 0) return null;
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function chordBody(text: string): string | null {
+  const m = text.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  return m ? text.slice(m[0].length) : null;
+}
+
+function contentSig(
+  text: string,
+): { voice: string; payload: string; sig: string } | null {
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const block = fm?.[1].match(/content_sig:\n((?: {2}.*\n?)+)/)?.[1];
+  if (!block) return null;
+  const voice = block.match(/voice:\s*(\S+)/)?.[1];
+  const payload = block.match(/payload:\s*"([^"]+)"/)?.[1];
+  const sig = block.match(/sig:\s*"([^"]+)"/)?.[1];
+  return voice && payload && sig ? { voice, payload, sig } : null;
+}
+
+function readDigest(
+  record: Uint8Array,
+  offset: number,
+): { digest: string; next: number } | null {
+  if (
+    offset + 34 > record.length || record[offset] !== 0x1e ||
+    record[offset + 1] !== 32
+  ) {
+    return null;
+  }
+  return {
+    digest: toHex(record.slice(offset + 2, offset + 34)),
+    next: offset + 34,
+  };
+}
+
+/** Verify the imported SPORE descriptor against the raw apply record it carries. */
+function verifySporeReceipt(
+  text: string,
+): { ok: boolean; reason: string; id?: string } {
+  const status = frontmatterField(text, "status");
+  const verified = frontmatterField(text, "record_verified");
+  const fuelModel = frontmatterField(text, "fuel_model");
+  const sporeId = frontmatterField(text, "spore_id") ?? "";
+  const mutator = frontmatterField(text, "mutator_hash") ?? "";
+  const output = frontmatterField(text, "output_hash") ?? "";
+  const totalFuel = Number(frontmatterField(text, "total_fuel"));
+  const bodyFuel = Number(text.match(/\(Body:\s*(\d+)\s*ATP\)/)?.[1]);
+  const rawHex = text.match(/```hex\s*\n([0-9a-f]+)\n```/i)?.[1] ?? "";
+  const record = hexBytes(rawHex);
+  if (
+    status !== "APPLIED" || verified !== "true" || fuelModel !== "spore.fuel.v1"
+  ) {
+    return {
+      ok: false,
+      reason: "receipt is not an APPLIED, record-verified spore.fuel.v1 record",
+    };
+  }
+  if (!record || !/^[0-9a-f]{64}$/.test(sporeId) || record.length < 9) {
+    return {
+      ok: false,
+      reason: "missing or malformed raw SPORE record/spore_id",
+    };
+  }
+  if (toHex(record.slice(0, 6)) !== "53504f520001") {
+    return { ok: false, reason: "bad SPORE apply magic/version/kind" };
+  }
+  const computed = toHex(
+    blake3(record, { context: "spore.apply.v0", dkLen: 32 }),
+  );
+  if (computed !== sporeId) {
+    return { ok: false, reason: "spore_id does not bind raw record" };
+  }
+  const argc = record[8];
+  let offset = 9;
+  const f = readDigest(record, offset);
+  if (!f) return { ok: false, reason: "malformed mutator multihash" };
+  offset = f.next;
+  for (let i = 0; i < argc; i++) {
+    const arg = readDigest(record, offset);
+    if (!arg) return { ok: false, reason: `malformed argument multihash ${i}` };
+    offset = arg.next;
+  }
+  const expected = readDigest(record, offset);
+  if (!expected || expected.next !== record.length) {
+    return {
+      ok: false,
+      reason: "malformed/trailing expected-output multihash",
+    };
+  }
+  if (f.digest !== mutator || expected.digest !== output) {
+    return {
+      ok: false,
+      reason: "raw record does not bind mutator/output hashes",
+    };
+  }
+  if (!Number.isSafeInteger(bodyFuel) || totalFuel !== bodyFuel + 4 + argc) {
+    return {
+      ok: false,
+      reason: "fuel accounting does not match body + apply boundary",
+    };
+  }
+  return {
+    ok: true,
+    reason: "raw SPORE record, hashes and fuel verify",
+    id: sporeId,
+  };
+}
+
+/** Verify the deterministic PHI receipt signature emitted by omega's fixture law. */
+async function verifyPhaseReceipt(
+  text: string,
+): Promise<{ ok: boolean; reason: string; id?: string }> {
+  const intent = frontmatterField(text, "intent_hash") ?? "";
+  const status = frontmatterField(text, "status") ?? "";
+  const phase = Number(frontmatterField(text, "derived_phase"));
+  const timestamp = Number(text.match(/\*\*Timestamp\*\*:\s*(\d+)/)?.[1]);
+  const signature = frontmatterField(text, "signature") ?? "";
+  if (!/^[0-9a-f]{64}$/.test(intent) || status !== "ACCEPTED") {
+    return { ok: false, reason: "phase receipt has invalid intent/status" };
+  }
+  if (
+    !Number.isSafeInteger(phase) || phase < 0 || phase > 65535 ||
+    !Number.isSafeInteger(timestamp)
+  ) {
+    return { ok: false, reason: "phase receipt has invalid phase/timestamp" };
+  }
+  const receipt = {
+    type: "PHI_RECEIPT",
+    version: "0.1",
+    intent_hash: intent,
+    status,
+    derived_phase: phase,
+    timestamp,
+  };
+  const expected = await sha256Hex(JSON.stringify(receipt));
+  if (signature !== expected) {
+    return {
+      ok: false,
+      reason: "phase receipt signature does not bind deterministic receipt",
+    };
+  }
+  return {
+    ok: true,
+    reason: "deterministic PHI receipt signature verifies",
+    id: intent,
+  };
 }
 
 /** Walk a directory tree (depth-limited) for a file whose name === or startsWith ref. */
@@ -128,9 +289,9 @@ export async function verifyEvidence(
 
   switch (e.kind) {
     case "commit": {
-      // a canonical git object id is 40 hex; the commitment must equal it. We do
-      // NOT prove existence here (that needs git; out of a read-only projection) —
-      // so this establishes a CANONICAL POINTER, never a backend proof on its own.
+      // A read-only membrane cannot prove that an arbitrary Git object exists
+      // without a committed index/receipt. A syntactically canonical id is a
+      // pointer, not proof, so commit refs remain invalid evidence here.
       if (!/^[0-9a-f]{40}$/.test(e.ref)) {
         return v(
           e.kind,
@@ -152,9 +313,9 @@ export async function verifyEvidence(
       return v(
         e.kind,
         e.ref,
-        true,
+        false,
         "git-object-id",
-        "canonical git id; existence not verified from read-only projection",
+        "canonical git id, but object existence is not proven by a tracked evidence receipt",
         e.ref,
       );
     }
@@ -171,24 +332,54 @@ export async function verifyEvidence(
         );
       }
       const text = await Deno.readTextFile(path);
-      const payload = frontmatterField(text, "payload"); // content_sig payload
-      if (!payload) {
+      const signed = contentSig(text);
+      const body = chordBody(text);
+      if (!signed || body === null) {
         return v(
           e.kind,
           e.ref,
           false,
           "chord-content-sig",
-          "chord has no content_sig payload to bind",
+          "chord has no complete content_sig/body to bind",
         );
       }
-      if (norm(payload) !== norm(e.commitment)) {
+      const recomputed = `sha256:${await sha256Hex(
+        `${basename(path)}\n${body}`,
+      )}`;
+      if (signed.payload !== recomputed) {
+        return v(
+          e.kind,
+          e.ref,
+          false,
+          "chord-content-sig",
+          "chord payload does not bind filename + body",
+          norm(recomputed),
+        );
+      }
+      if (norm(signed.payload) !== norm(e.commitment)) {
         return v(
           e.kind,
           e.ref,
           false,
           "chord-content-sig",
           "commitment does not match the chord's content identity",
-          norm(payload),
+          norm(signed.payload),
+        );
+      }
+      const sigOk = await verifyCommitment(
+        signed.voice,
+        signed.payload,
+        signed.sig,
+        superproject,
+      );
+      if (!sigOk) {
+        return v(
+          e.kind,
+          e.ref,
+          false,
+          "chord-content-sig",
+          "chord content signature is absent from registry or invalid",
+          norm(signed.payload),
         );
       }
       return v(
@@ -196,8 +387,8 @@ export async function verifyEvidence(
         e.ref,
         true,
         "chord-content-sig",
-        "chord resolved; commitment matches its content identity",
-        norm(payload),
+        "chord payload recomputed and Ed25519 signature verified",
+        norm(signed.payload),
       );
     }
 
@@ -215,25 +406,26 @@ export async function verifyEvidence(
         );
       }
       const text = await Deno.readTextFile(path);
-      const id = frontmatterField(text, "spore_id") ??
-        frontmatterField(text, "intent_hash");
-      if (!id) {
+      const checked = e.kind === "apply"
+        ? verifySporeReceipt(text)
+        : await verifyPhaseReceipt(text);
+      if (!checked.ok || !checked.id) {
         return v(
           e.kind,
           e.ref,
           false,
           `${sub}-receipt`,
-          "receipt carries no spore_id/intent_hash to bind",
+          checked.reason,
         );
       }
-      if (norm(id) !== norm(e.commitment)) {
+      if (norm(checked.id) !== norm(e.commitment)) {
         return v(
           e.kind,
           e.ref,
           false,
           `${sub}-receipt`,
           "commitment does not match the receipt identity",
-          norm(id),
+          norm(checked.id),
         );
       }
       return v(
@@ -241,8 +433,8 @@ export async function verifyEvidence(
         e.ref,
         true,
         `${sub}-receipt`,
-        `${sub} receipt resolved; identity matches`,
-        norm(id),
+        checked.reason,
+        norm(checked.id),
       );
     }
 

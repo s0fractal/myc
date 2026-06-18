@@ -2,11 +2,13 @@ import {
   assert,
   assertEquals,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { join } from "jsr:@std/path@1.1.4";
+import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { propose } from "./x5800_propose.ts";
 import { resolveProposal } from "./x5810_resolve_proposal.ts";
 import { lifecycle } from "./x3F00_lifecycle.ts";
 import { auditRoot } from "./x6C00_protocol_audit.ts";
+
+const MYC_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
 // ── REAL crypto: ephemeral Ed25519 voices + an injected temp registry, so the
 // finality suite EXECUTES authenticated paths in keyless CI (codex x2900 #4). No
@@ -67,14 +69,15 @@ async function authWith(
 
 /** Create a real, self-binding apply receipt and return an evidence_ref to it. */
 async function applyEvidence(root: string) {
-  const id = "s".repeat(64);
+  const id = "14b5a247729c690e1d5a373bdfa30b6bf70ca4fa1d740470037db1d4ac8ec688";
   const dir = join(root, "substrates", "spore", "receipts");
   await Deno.mkdir(dir, { recursive: true });
-  await Deno.writeTextFile(
-    join(dir, "receipt.s.myc.md"),
-    `---\ntype: "SealedReceiptDescriptor"\nstatus: "APPLIED"\nspore_id: "${id}"\n---\n\n# r\n`,
+  const filename = "receipt.14b5a247729c.myc.md";
+  await Deno.copyFile(
+    join(MYC_ROOT, "substrates", "spore", "receipts", filename),
+    join(dir, filename),
   );
-  return { kind: "apply", ref: "receipt.s.myc.md", commitment: id };
+  return { kind: "apply", ref: filename, commitment: id };
 }
 
 async function stateOf(root: string, superproject: string): Promise<string> {
