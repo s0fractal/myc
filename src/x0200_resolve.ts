@@ -34,7 +34,9 @@ import {
 // A node is a coordinate-bearing file: a chord (`.myc.md`/`.md`) or an organ
 // (`.ts`). One flat address space holds both — the substrate's neuron-graph,
 // where chords connect by causal edges (hears:/references:) and organs by
-// composition edges (imports).
+// composition edges (imports). The coordinate is canonically exactly 4 hex (the
+// x0000..xFFFF octet address space); trinity's x2F30_fqdn_resolver COORD_PREFIX
+// is the parity peer of this width.
 const FILE_RE = /^x([0-9A-Fa-f]{4})[_.](.+?)\.(?:myc\.md|md|ts)$/i;
 
 type NodeKind = "chord" | "organ";

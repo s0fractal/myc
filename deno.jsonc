@@ -1,6 +1,8 @@
 {
   "tasks": {
-    "myc": "deno run --allow-read --allow-write --allow-env --allow-net src/x0100_myc.ts",
+    // --allow-run: the `coord` subcommand shells the x0200 coordinate resolver
+    // (which needs git). All other subcommands ignore it.
+    "myc": "deno run --allow-read --allow-write --allow-env --allow-net --allow-run src/x0100_myc.ts",
     "resolve": "deno run --allow-read --allow-write --allow-run --allow-env src/x0200_resolve.ts",
     // fmt:check / typecheck / lint / test share one organ list (kept in sync by
     // hand). Vendored shared/* (envelope.ts, canonical_cbor.ts) and .myc.md

@@ -2982,6 +2982,36 @@ function flagBoolean(
 }
 
 export async function main(args: string[]): Promise<void> {
+  // `coord <coordinate> [--graph|--lattice|--why|--stamp <signer>|--cat|--json]`
+  // reaches the coordinate/provenance resolver (x0200_resolve.ts) through this
+  // one CLI, so `myc` now spans BOTH address families: descriptor FQDNs (the
+  // `resolve` command below — `task.actor.h.<hash>`) and graph coordinates
+  // (`coord` — `xNNNN_handle`). x0200 owns the git+crypto proof modes and needs
+  // --allow-run for git, so we shell it (matching the dispatcher-shells-organs
+  // idiom) rather than import across the x01→x02 direction. Handled before
+  // parseArgs so x0200's own flags pass through untouched.
+  if (args[0] === "coord") {
+    const resolverPath =
+      new URL("./x0200_resolve.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-run",
+        "--allow-env",
+        resolverPath,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   const { command, flags, rest } = parseArgs(args);
   const root = flagString(flags, "root") ?? defaultRoot();
 
@@ -3212,7 +3242,9 @@ function helpText(): string {
     "Commands:",
     "  capture --text <text> [--actor s0fractal] [--kind message]",
     "  capture --file <path> [--actor s0fractal] [--kind message]",
-    "  resolve <fqdn>",
+    "  resolve <fqdn>                       (descriptor FQDN → descriptor)",
+    "  coord <xNNNN_handle> [--graph|--lattice|--why|--stamp <signer>|--cat]",
+    "                                       (graph coordinate → git+crypto proof)",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
     "  verify-projections",
