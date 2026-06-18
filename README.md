@@ -60,14 +60,10 @@ deno task myc lineage task.s0fractal.h.<hash>.myc.md
 deno task myc explain task.s0fractal.h.<hash>.myc.md
 ```
 
-The demo object currently resolves at:
-
-```text
-task.s0fractal.h.38bfd1d80cb9.myc.md
-```
-
-Its raw payload is stored locally under the private layer and is verified by
-hash, but public descriptors do not embed the payload bytes.
+`deno task myc demo` runs the full capture pipeline and prints the resolved
+`task.s0fractal.h.<hash>.myc.md` address for the demo text. The raw payload is
+stored locally under the private layer and is verified by hash, but public
+descriptors do not embed the payload bytes.
 
 ## Coordinate Resolver (`deno task resolve`)
 
@@ -117,9 +113,10 @@ scan feeds the graph view; trinity's `x6020_gravity` remains the authoritative
 import/gravity-law analyzer.)
 
 > Canonicalization note: the commitment covers `{fqdn, body}`, binding the name
-> to the content. The PWA worker's content-only commitment
-> (`covers: descriptor.body`) is being aligned to this so the CLI and the browser
-> agree on one provenance schema.
+> to the content. The PWA worker now commits the same scheme
+> (`covers: "fqdn + body"`, see `sites/myc.md/worker.ts`), so the CLI and the
+> browser agree on one provenance schema — conformance-locked by
+> `src/x0200_resolve_test.ts` against the `x0000_conformance.myc.md` vector.
 
 ## Local Checks
 
