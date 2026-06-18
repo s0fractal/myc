@@ -20,6 +20,41 @@ descriptors, receipts, routes, naming proofs, and projections.
 
 The global development path is tracked in [ROADMAP.md](./ROADMAP.md).
 
+## The Membrane — one surface onto the body
+
+`myc` is the **membrane** of a four-substrate body: the single surface through
+which models and humans see its proofs, graphs, and fractals — and propose
+changes to it. Every command below is reachable from the trinity superproject as
+`t myc <command>` (read surfaces run read-only; mutating ones need explicit
+write).
+
+```bash
+t myc membrane     # THE surface: the body + its trust + its mutations, composed
+t myc organism     # the four substrates as one body, with each one's proof-kind
+t myc trust        # resonance projection — integrity-verified trust per published node
+t myc lifecycle    # one vocabulary: proposed → applied → published → … → resonant
+t myc effects      # the typed capability (read | effect | serve) of every verb
+t myc coord <xNNNN> [--lattice|--why|--graph]   # provability of any graph node
+```
+
+**Trust is a spectrum.** A node can be true-by-physics (omega), stable-by-resonance
+(liquid), agreed-by-quorum (trinity), existent-by-provenance (myc), or
+deterministic-by-apply (SPORE). The membrane makes every kind legible in one
+graph, fractally zoomable down to four roots (Bitcoin Genesis · phase law · voice
+keys · content hash), and it never hides where trust is missing.
+
+**Every proposal is a spore.** A mutation is proposed into the membrane as a
+content-addressed, unsigned, **dormant** descriptor — it carries no trust until it
+germinates through the witness/publish flow:
+
+```bash
+t myc propose --text "<change>" --requires <omega|liquid|trinity|spore> --actor <you>
+```
+
+`trust` verifies **integrity** (each descriptor binds its body; witnesses/reviews
+join by commitment identity), not yet **authenticity** (signed descriptors await
+key custody). Unverified spores stay visible and dormant; they are never deleted.
+
 ## Core Formula
 
 ```text
