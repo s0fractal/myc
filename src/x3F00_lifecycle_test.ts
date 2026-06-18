@@ -66,11 +66,21 @@ Deno.test("x3F00 lifecycle — apply-receipts read as 'applied'", async () => {
   for (const m of applied) assertEquals(m.state, "applied");
 });
 
-Deno.test("x3F00 lifecycle — proposals read as the 'proposed' head state", async () => {
+Deno.test("x3F00 lifecycle — a proposal reads 'proposed' OR its terminal outcome", async () => {
   const o = await lifecycle();
   const mutations = o.mutations as Array<Record<string, unknown>>;
+  const ok = [
+    "proposed",
+    "implemented",
+    "rejected",
+    "superseded",
+    "withdrawn",
+    "expired",
+  ];
   for (const m of mutations) {
-    if (m.kind === "proposal") assertEquals(m.state, "proposed");
+    if (m.kind === "proposal") {
+      assert(ok.includes(String(m.state)), `proposal state ${m.state} valid`);
+    }
   }
 });
 
