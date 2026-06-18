@@ -10,7 +10,11 @@
 // The PWA worker reimplements this in browser JS (different runtime, no shared
 // import); these vectors are the contract it must reproduce.
 
-import { assert, assertEquals, assertNotEquals } from "jsr:@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertNotEquals,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { canonicalCommitment } from "./x0200_resolve.ts";
 
 // ── the conformance vector ───────────────────────────────────────────────────

@@ -1,5 +1,5 @@
-import { ensureDir } from "jsr:@std/fs";
-import { dirname, fromFileUrl, join } from "jsr:@std/path";
+import { ensureDir } from "jsr:@std/fs@1.0.23";
+import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { blake3 } from "npm:@noble/hashes@1.4.0/blake3";
 
 const DOMAIN_APPLY = "spore.apply.v0";

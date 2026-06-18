@@ -1,4 +1,4 @@
-import { assertRejects } from "jsr:@std/assert";
+import { assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 const IMPORTER_PATH =
   new URL("./x5F00_import_spore_receipt.ts", import.meta.url).pathname;

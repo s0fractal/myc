@@ -1,10 +1,7 @@
-import { crypto } from "jsr:@std/crypto";
-import { encodeHex } from "jsr:@std/encoding/hex";
-import { join } from "jsr:@std/path";
-import { ensureDir } from "jsr:@std/fs";
-
-const INPUT_PATH = Deno.args[0] || "phi_receipt_fixture.json";
-const OUTPUT_DIR = join(Deno.cwd(), "substrates", "liquid", "receipts");
+import { crypto } from "jsr:@std/crypto@1.1.0";
+import { encodeHex } from "jsr:@std/encoding@1.0.10/hex";
+import { join } from "jsr:@std/path@1.1.4";
+import { ensureDir } from "jsr:@std/fs@1.0.23";
 
 async function sha256(data: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -15,15 +12,18 @@ async function sha256(data: string): Promise<string> {
   return encodeHex(hashBuffer);
 }
 
-async function importReceipt() {
-  const rawReceipt = await Deno.readTextFile(INPUT_PATH);
+export async function importReceipt(
+  inputPath: string,
+  outputDir: string,
+): Promise<string> {
+  const rawReceipt = await Deno.readTextFile(inputPath);
   const receiptObj = JSON.parse(rawReceipt);
 
   if (receiptObj.type !== "PHI_RECEIPT") {
     throw new Error("Invalid input: not a PHI_RECEIPT");
   }
 
-  await ensureDir(OUTPUT_DIR);
+  await ensureDir(outputDir);
 
   // Generate a PN_CAD_DESCRIPTOR style markdown
   const content = `---
@@ -54,10 +54,22 @@ response to a liquid PHI_INTENT.
   // Use a hash of the content to generate a deterministic file name
   const contentHash = (await sha256(content)).substring(0, 12);
   const fileName = `receipt.${contentHash}.myc.md`;
-  const outPath = join(OUTPUT_DIR, fileName);
+  const outPath = join(outputDir, fileName);
 
   await Deno.writeTextFile(outPath, content);
-  console.log(`[MYC] Imported PHI_RECEIPT. Wrote descriptor to ${outPath}`);
+  return outPath;
 }
 
-importReceipt().catch(console.error);
+if (import.meta.main) {
+  const inputPath = Deno.args[0] || "phi_receipt_fixture.json";
+  const outputDir = Deno.args[1] ||
+    join(Deno.cwd(), "substrates", "liquid", "receipts");
+  importReceipt(inputPath, outputDir)
+    .then((outPath) =>
+      console.log(`[MYC] Imported PHI_RECEIPT. Wrote descriptor to ${outPath}`)
+    )
+    .catch((err) => {
+      console.error(err);
+      Deno.exitCode = 1;
+    });
+}
