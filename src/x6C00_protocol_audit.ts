@@ -21,6 +21,7 @@ const ALLOWED_DESCRIPTOR_TYPES = new Set([
   "WitnessDescriptor",
   "ReviewDescriptor",
   "ProposedMutationDescriptor",
+  "ProposalResolutionDescriptor",
   "VectorDocumentDescriptor",
   "myc.roadmap-projection",
   "myc.probes-projection",
@@ -572,6 +573,28 @@ async function auditDescriptorFile(
     if (body.state !== "dormant") {
       errors.push(
         `${relative}: ProposedMutationDescriptor.state must be 'dormant' (proposals never self-declare trust)`,
+      );
+    }
+  }
+
+  if (descriptor.type === "ProposalResolutionDescriptor") {
+    const body = descriptor.body as Record<string, unknown>;
+    if (typeof body.proposal_commitment !== "string") {
+      errors.push(
+        `${relative}: ProposalResolutionDescriptor must bind a 'proposal_commitment' string`,
+      );
+    }
+    if (typeof body.resolver !== "string") {
+      errors.push(
+        `${relative}: ProposalResolutionDescriptor must have a 'resolver' string`,
+      );
+    }
+    if (
+      !["implemented", "rejected", "superseded", "withdrawn", "expired"]
+        .includes(body.outcome as string)
+    ) {
+      errors.push(
+        `${relative}: ProposalResolutionDescriptor.outcome must be implemented|rejected|superseded|withdrawn|expired`,
       );
     }
   }

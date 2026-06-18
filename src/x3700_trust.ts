@@ -26,7 +26,7 @@
 //     ([[project_coherence_decreases_with_growth]]).
 
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
-import { verifyCommitment } from "./x2F50_voice_auth.ts";
+import { verifyCommitment, voiceFamily } from "./x2F50_voice_auth.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const MYC_ROOT = dirname(HERE);
@@ -128,6 +128,7 @@ export interface TrustNode {
 
 export async function trustTopology(
   publicDir: string = DEFAULT_PUBLIC_DIR,
+  superprojectOverride?: string,
 ): Promise<Record<string, unknown>> {
   const publishes: Descriptor[] = [];
   const witnesses: {
@@ -162,7 +163,7 @@ export async function trustTopology(
 
   // superproject root for registry lookup (myc's parent), derived from publicDir
   // when it is the real layout, else default.
-  const superproject = dirname(dirname(publicDir));
+  const superproject = superprojectOverride ?? dirname(dirname(publicDir));
 
   const nodes: TrustNode[] = await Promise.all(publishes.map(async (p) => {
     const pubFqdn = p.fqdn ?? "?";
@@ -193,10 +194,15 @@ export async function trustTopology(
         invalidW.push({ actor, reason: `status: ${status}` });
       } else {
         valid.add(actor); // dedup by actor identity (integrity)
-        // authenticity: if the witness carries a content_sig over its own
-        // commitment that verifies against the registry, the actor is who it
-        // claims. (null = registry unavailable ⇒ honestly not authenticated.)
-        if (w.sig && w.d.commitment?.value) {
+        // authenticity: a witness is authenticated only when its content_sig
+        // verifies AND the proven signer is the claimed actor — signer == actor
+        // (per codex coarchitect review x6300_954228 P0). A valid signature by a
+        // DIFFERENT voice over a descriptor claiming `actor` must NOT authenticate
+        // `actor`. (null ⇒ registry unavailable ⇒ honestly not authenticated.)
+        if (
+          w.sig && w.d.commitment?.value &&
+          voiceFamily(w.sig.voice) === voiceFamily(actor)
+        ) {
           const ok = await verifyCommitment(
             w.sig.voice,
             w.d.commitment.value,

@@ -184,3 +184,123 @@ Deno.test("x3700 — the live witness authenticates as claude (when registry rea
   // witness verifies. Either way the field is a number.
   assert(typeof total === "number");
 });
+
+// ── P0 (codex x6300_954228): a signature authenticates only the SIGNER, never a
+// different claimed actor. signer == actor, or it does not authenticate.
+import { signCommitment } from "./x2F50_voice_auth.ts";
+import { join as joinP } from "jsr:@std/path@1.1.4";
+
+const TRINITY_ROOT = new URL("../../", import.meta.url).pathname; // has x2F38 registry
+
+async function buildSignedWitness(
+  dir: string,
+  opts: {
+    actor: string;
+    signVoice: string;
+    pubCommit: string;
+    pubFqdn: string;
+  },
+): Promise<void> {
+  const wbody = {
+    target_fqdn: opts.pubFqdn,
+    target_commitment: opts.pubCommit,
+    witness_actor: opts.actor,
+    verification_status: "structurally_valid",
+  };
+  const c = await commit(wbody as unknown as Json);
+  const sig = await signCommitment(opts.signVoice, c);
+  if (!sig) throw new Error("no-key"); // caller skips
+  const desc = {
+    type: "WitnessDescriptor",
+    fqdn: `h.${opts.actor}.witness.myc.md`,
+    commitment: { algorithm: "sha256", value: c, covers: "descriptor.body" },
+    body: wbody,
+  };
+  const fm =
+    `---\nchord:\n  primary: "oct:3.7"\ncontent_sig:\n  voice: ${opts.signVoice}\n` +
+    `  alg: ed25519\n  covers: "commitment"\n  sig: "${sig}"\n---\n\n# w\n\n`;
+  await Deno.writeTextFile(
+    joinP(dir, `h.${opts.actor}.witness.myc.md`),
+    fm + "```json myc\n" + JSON.stringify(desc, null, 2) + "\n```\n",
+  );
+}
+
+Deno.test("x3700 — P0: a claude signature does NOT authenticate a witness claiming another actor", async () => {
+  const root = await Deno.makeTempDir({ prefix: "signer_actor_" });
+  try {
+    const pdir = joinP(root, "public", "consensus", "publish");
+    const wdir = joinP(root, "public", "consensus", "witness");
+    await Deno.mkdir(pdir, { recursive: true });
+    await Deno.mkdir(wdir, { recursive: true });
+    const pbody = {
+      publish_clearance: {
+        target_fqdn: "t",
+        target_commitment: "tc",
+        export_scope: "closure",
+      },
+      publication_gates: {
+        naming_proof_verified: true,
+        graph_verified: true,
+        payload_scrubbed: true,
+      },
+      destinations: [],
+    };
+    const pc = await commit(pbody as unknown as Json);
+    const pfqdn = "h.pub.publish.myc.md";
+    await Deno.writeTextFile(
+      joinP(pdir, pfqdn),
+      '---\nchord:\n  primary: "oct:3.7"\n---\n\n# p\n\n```json myc\n' +
+        JSON.stringify(
+          {
+            type: "PublishDescriptor",
+            fqdn: pfqdn,
+            commitment: {
+              algorithm: "sha256",
+              value: pc,
+              covers: "descriptor.body",
+            },
+            body: pbody,
+          },
+          null,
+          2,
+        ) +
+        "\n```\n",
+    );
+    try {
+      // gemini-claimed witness, signed by claude (valid sig, wrong identity)
+      await buildSignedWitness(wdir, {
+        actor: "gemini",
+        signVoice: "claude",
+        pubCommit: pc,
+        pubFqdn: pfqdn,
+      });
+      // claude-claimed witness, signed by claude (matching)
+      await buildSignedWitness(wdir, {
+        actor: "claude",
+        signVoice: "claude",
+        pubCommit: pc,
+        pubFqdn: pfqdn,
+      });
+    } catch {
+      return; // no local claude key (CI) — binding rule unexercisable here
+    }
+    const o = await trustTopology(
+      joinP(root, "public"),
+      TRINITY_ROOT.replace(/\/$/, ""),
+    );
+    const node = (o.nodes as Array<Record<string, unknown>>)[0];
+    const auth = node.authenticated_witnesses as string[];
+    const valid = node.valid_witnesses as string[];
+    assert(
+      valid.includes("gemini") && valid.includes("claude"),
+      "both pass integrity",
+    );
+    assert(auth.includes("claude"), "claude's own sig authenticates claude");
+    assert(
+      !auth.includes("gemini"),
+      "claude's sig must NOT authenticate a gemini-claimed witness",
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});

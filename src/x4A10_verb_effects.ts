@@ -38,6 +38,7 @@ export const VERB_EFFECTS: Record<string, Effect> = {
   help: "read",
   // effect surfaces — write the descriptor graph / stamp provenance
   propose: "effect",
+  "resolve-proposal": "effect",
   authenticate: "effect",
   capture: "effect",
   publish: "effect",

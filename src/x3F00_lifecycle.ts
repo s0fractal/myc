@@ -72,6 +72,12 @@ export const LIFECYCLE = [
     of: "consensus",
     meaning: "integrity failure — commitment does not bind body",
   },
+  {
+    state: "implemented",
+    of: "resolution",
+    meaning:
+      "TERMINAL: a commitment-bound ProposalResolutionDescriptor records the proposal's requested change was made (also: rejected | superseded | withdrawn | expired)",
+  },
 ] as const;
 
 interface Mutation {
@@ -83,8 +89,39 @@ interface Mutation {
   derived_from?: string | null; // consensus → its apply-receipt key (the thread)
 }
 
-/** Read dormant proposals (public/proposals/) → the lifecycle head state. */
-async function readProposals(root: string): Promise<Mutation[]> {
+/** Read terminal resolutions: proposal_commitment → outcome (codex P1). */
+async function readResolutions(root: string): Promise<Map<string, string>> {
+  const dir = join(root, "public", "resolutions");
+  const out = new Map<string, string>();
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [...Deno.readDirSync(dir)];
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    if (!e.isFile || !e.name.endsWith(".myc.md")) continue;
+    const m = (await Deno.readTextFile(join(dir, e.name)))
+      .match(/```json myc\s*\n([\s\S]*?)\n```/);
+    if (!m) continue;
+    try {
+      const d = JSON.parse(m[1]);
+      if (d?.type !== "ProposalResolutionDescriptor") continue;
+      const b = d.body ?? {};
+      if (b.proposal_commitment && b.outcome) {
+        out.set(String(b.proposal_commitment), String(b.outcome));
+      }
+    } catch { /* skip */ }
+  }
+  return out;
+}
+
+/** Read proposals (public/proposals/) → the lifecycle head state, OR the terminal
+ *  outcome when a commitment-bound resolution exists. */
+async function readProposals(
+  root: string,
+  resolutions: Map<string, string>,
+): Promise<Mutation[]> {
   const dir = join(root, "public", "proposals");
   const out: Mutation[] = [];
   let entries: Deno.DirEntry[];
@@ -102,13 +139,16 @@ async function readProposals(root: string): Promise<Mutation[]> {
       const d = JSON.parse(m[1]);
       if (d?.type !== "ProposedMutationDescriptor") continue;
       const b = d.body ?? {};
+      const outcome = resolutions.get(String(d.commitment?.value));
       out.push({
         id: String(d.fqdn ?? e.name).slice(0, 26),
         kind: "proposal",
-        state: "proposed",
-        detail: `requires=${b.requires_verification ?? "?"} proposer=${
-          b.proposer ?? "?"
-        }`,
+        state: outcome ?? "proposed", // terminal truth if resolved, else dormant
+        detail: outcome
+          ? `requires=${b.requires_verification ?? "?"} · resolved: ${outcome}`
+          : `requires=${b.requires_verification ?? "?"} proposer=${
+            b.proposer ?? "?"
+          }`,
       });
     } catch { /* skip malformed */ }
   }
@@ -156,11 +196,21 @@ async function readReceipts(
 export async function lifecycle(
   root: string = MYC_ROOT,
 ): Promise<Record<string, unknown>> {
-  const proposed = await readProposals(root);
-  const applied = [
+  const resolutions = await readResolutions(root);
+  const proposed = await readProposals(root, resolutions);
+  const appliedRaw = [
     ...await readReceipts(root, "substrates/spore/receipts", "spore-apply"),
     ...await readReceipts(root, "substrates/liquid/receipts", "phase"),
   ];
+  // dedup apply receipts by identity (codex x6300_954228): two receipt files
+  // for one intent_hash/spore_id are the same applied mutation, shown once.
+  const seen = new Set<string>();
+  const applied = appliedRaw.filter((m) => {
+    const k = m.key ?? m.id;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 
   const trust = await trustTopology(join(root, "public"));
   const nodes = (trust.nodes ?? []) as Array<Record<string, unknown>>;

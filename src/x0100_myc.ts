@@ -3113,6 +3113,30 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `resolve-proposal` — record a terminal, commitment-bound outcome for a
+  // dormant proposal (codex x6300_954228 P1). Effect class; rebuilds the index.
+  if (args[0] === "resolve-proposal") {
+    const resPath = new URL("./x5810_resolve_proposal.ts", import.meta.url)
+      .pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        resPath,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    else await rebuildIndex(defaultRoot());
+    return;
+  }
+
   // `authenticate` — add a voice content_sig to a descriptor (witness), lifting
   // it from integrity to authenticity. Writes (frontmatter only; commitment
   // stable). Effect class; needs the user-level voice key.
@@ -3415,6 +3439,8 @@ function helpText(): string {
     "                                       (propose a DORMANT mutation; writes)",
     "  authenticate <descriptor> [--voice claude]",
     "                                       (sign a witness — integrity → authenticity)",
+    "  resolve-proposal <proposal> --outcome <implemented|rejected|…> --evidence <t>",
+    "                                       (terminal, commitment-bound resolution)",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
     "  verify-projections",
