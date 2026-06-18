@@ -3031,6 +3031,23 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `trust` — trust topology / resonance ranking (ROADMAP Phase 9). Reads the
+  // publish/witness/review consensus graph and surfaces a subjective resonance
+  // signal per published mutation. Shelled (like organism/coord) to keep x0100
+  // lean; TTY-aware.
+  if (args[0] === "trust" || args[0] === "resonance") {
+    const trustPath = new URL("./x3700_trust.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", trustPath, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   const { command, flags, rest } = parseArgs(args);
   const root = flagString(flags, "root") ?? defaultRoot();
 
@@ -3265,6 +3282,7 @@ function helpText(): string {
     "  coord <xNNNN_handle> [--graph|--lattice|--why|--stamp <signer>|--cat]",
     "                                       (graph coordinate → git+crypto proof)",
     "  organism                             (the four substrates as one body)",
+    "  trust                                (resonance over published mutations)",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
     "  verify-projections",
