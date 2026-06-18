@@ -11,7 +11,9 @@
 // where every fractal of provenance bottoms out. The JSON is embedded too, so
 // the same artifact serves a human's eye and a machine's parser.
 //
-// Read-only generation: `t myc render [--out membrane.html]` (stdout by default).
+// Read-only: `t myc render > membrane.html` (HTML to stdout; the user redirects).
+// Trust nodes are FRACTAL — each zooms into its own provenance (commitment →
+// witnesses → apply thread → the four roots), recursively, via native <details>.
 
 import { organism } from "./x8F00_organism.ts";
 import { trustTopology } from "./x3700_trust.ts";
@@ -55,6 +57,39 @@ export async function renderHtml(): Promise<string> {
       <div class="proof">via ${esc(g.proof_kind)}</div></div>`;
   }).join("\n");
 
+  // A published node, rendered as a FRACTAL of its provenance: click to zoom in,
+  // each level the same shape (a claim + its support), bottoming at the four
+  // roots. Native <details> — recursion you can open, no script.
+  const rootList = roots.map((r) =>
+    `<li><span class="rsub">${esc(r.substrate)}</span> ${esc(r.root)}</li>`
+  ).join("");
+  function provenance(n: Record<string, unknown>): string {
+    const auth = new Set(n.authenticated_witnesses as string[]);
+    const witnesses = (n.valid_witnesses as string[]).map((a) =>
+      `<details class="lvl"><summary>${
+        auth.has(a)
+          ? `🔏 ${esc(a)} — authenticated`
+          : `· ${esc(a)} — integrity only`
+      }</summary>
+        <div class="leaf">attested voice <b>${esc(a)}</b>; ${
+        auth.has(a)
+          ? "content_sig verifies against the voice registry"
+          : "no verified signature — bound by commitment, not yet by identity"
+      }</div></details>`
+    ).join("");
+    const thread = n.derived_from
+      ? `<details class="lvl"><summary>⟿ derived from apply ${
+        esc(String(n.derived_from).slice(0, 16))
+      }</summary><div class="leaf">this published mutation threads back to its apply receipt (proposed → applied → published).</div></details>`
+      : "";
+    return `<details class="lvl"><summary>🧬 commitment ${
+      esc(String(n.commitment).slice(0, 16))
+    } — binds the body</summary>
+      <div class="leaf">sha256(body) — integrity: the content cannot change without breaking this.</div>
+      ${witnesses}${thread}
+      <details class="lvl"><summary>↓ bottoms out at the four roots</summary>
+        <ul class="roots">${rootList}</ul></details></details>`;
+  }
   const trustRows = tnodes.length === 0
     ? `<div class="muted">no published mutations yet</div>`
     : tnodes.map((n) => {
@@ -62,11 +97,12 @@ export async function renderHtml(): Promise<string> {
       const wit = (n.valid_witnesses as string[])
         .map((a) => auth.has(a) ? `${esc(a)} 🔏` : esc(a)).join(", ") || "—";
       const st = esc(n.state);
-      return `<div class="tnode ${st}">
-        <div class="tnode-head"><span class="reson">r=${esc(n.resonance)}</span>
-        <span class="state">${st}</span></div>
-        <div class="fqdn">${esc(n.target_fqdn)}</div>
-        <div class="wit">witnessed by ${wit}</div></div>`;
+      return `<details class="tnode ${st}"><summary>
+        <span class="reson">r=${esc(n.resonance)}</span>
+        <span class="state">${st}</span>
+        <span class="fqdn">${esc(n.target_fqdn)}</span></summary>
+        <div class="wit">witnessed by ${wit} · zoom into provenance ↓</div>
+        ${provenance(n)}</details>`;
     }).join("\n");
 
   const states = [
@@ -131,6 +167,18 @@ export async function renderHtml(): Promise<string> {
   .muted { color:#5c6370; } footer { margin-top:3rem; color:#3a3f4b;
     font-size:.8rem; border-top:1px solid #2c313a; padding-top:1rem; }
   .legend { color:#5c6370; font-size:.8rem; margin-top:.5rem; }
+  details.tnode > summary, details.lvl > summary { cursor:pointer; list-style:none;
+    user-select:none; }
+  details.tnode > summary::-webkit-details-marker,
+  details.lvl > summary::-webkit-details-marker { display:none; }
+  details.tnode > summary { display:flex; gap:.7rem; align-items:baseline; }
+  details.tnode[open] > summary { margin-bottom:.4rem; }
+  .lvl { margin:.35rem 0 .35rem 1rem; padding-left:.8rem;
+    border-left:1px solid #2c313a; }
+  .lvl > summary { color:#abb2bf; padding:.15rem 0; }
+  .lvl > summary:hover { color:#e5e9f0; }
+  .leaf { color:#5c6370; font-size:.83rem; padding:.1rem 0 .3rem; }
+  .leaf b { color:#98c379; }
 </style></head>
 <body><div class="wrap">
   <h1>🍄 myc — the membrane</h1>

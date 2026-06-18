@@ -14,6 +14,21 @@ Deno.test("x8FE0 render — produces a self-contained HTML document", async () =
   assert(!/https?:\/\//.test(html.replace(/lang="en"/, "")), "no network URLs");
 });
 
+Deno.test("x8FE0 render — trust nodes are fractal (zoomable provenance, native details)", async () => {
+  const html = await renderHtml();
+  // when there is a published node, it must be a zoomable <details> whose
+  // provenance recurses down to the four roots — with no script.
+  if (html.includes('class="tnode')) {
+    assertStringIncludes(html, '<details class="tnode');
+    assertStringIncludes(html, '<details class="lvl');
+    assertStringIncludes(html, "bottoms out at the four roots");
+  }
+  assert(
+    !/<script(?![^>]*application\/json)/.test(html),
+    "no behavioural script",
+  );
+});
+
 Deno.test("x8FE0 render — shows the four substrates and embeds the data", async () => {
   const html = await renderHtml();
   for (const sub of ["omega", "liquid", "trinity", "myc"]) {
