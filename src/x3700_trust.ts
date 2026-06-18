@@ -26,10 +26,24 @@
 //     ([[project_coherence_decreases_with_growth]]).
 
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
+import { verifyCommitment } from "./x2F50_voice_auth.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const MYC_ROOT = dirname(HERE);
 const DEFAULT_PUBLIC_DIR = join(MYC_ROOT, "public");
+
+/** Extract a frontmatter content_sig block ({voice, sig}) if present. */
+function extractContentSig(
+  text: string,
+): { voice: string; sig: string } | null {
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm) return null;
+  const block = fm[1].match(/content_sig:\n((?: {2}.*\n?)+)/);
+  if (!block) return null;
+  const voice = block[1].match(/voice:\s*(\S+)/)?.[1];
+  const sig = block[1].match(/sig:\s*"([^"]+)"/)?.[1];
+  return voice && sig ? { voice, sig } : null;
+}
 
 // Canonical commitment, replicated from x0100_myc.ts (stableStringify + sha256Hex)
 // to avoid a circular import (x0100 imports this organ for capability-separated
@@ -105,6 +119,7 @@ export interface TrustNode {
   derived_from: string | null;
   self_verified: boolean;
   valid_witnesses: string[];
+  authenticated_witnesses: string[];
   invalid_witnesses: { actor: string; reason: string }[];
   reviews: { reviewer: string; rating: string }[];
   resonance: number;
@@ -115,12 +130,16 @@ export async function trustTopology(
   publicDir: string = DEFAULT_PUBLIC_DIR,
 ): Promise<Record<string, unknown>> {
   const publishes: Descriptor[] = [];
-  const witnesses: Descriptor[] = [];
+  const witnesses: {
+    d: Descriptor;
+    sig: { voice: string; sig: string } | null;
+  }[] = [];
   const reviews: Descriptor[] = [];
   const invalid: { type: string; fqdn: string; reason: string }[] = [];
 
   for await (const path of walkMd(publicDir)) {
-    const d = extractDescriptor(await Deno.readTextFile(path));
+    const text = await Deno.readTextFile(path);
+    const d = extractDescriptor(text);
     if (!d?.type) continue;
     const kind = d.type;
     if (
@@ -136,11 +155,16 @@ export async function trustTopology(
       continue; // an unverified descriptor never feeds scoring
     }
     if (kind === "PublishDescriptor") publishes.push(d);
-    else if (kind === "WitnessDescriptor") witnesses.push(d);
-    else reviews.push(d);
+    else if (kind === "WitnessDescriptor") {
+      witnesses.push({ d, sig: extractContentSig(text) });
+    } else reviews.push(d);
   }
 
-  const nodes: TrustNode[] = publishes.map((p) => {
+  // superproject root for registry lookup (myc's parent), derived from publicDir
+  // when it is the real layout, else default.
+  const superproject = dirname(dirname(publicDir));
+
+  const nodes: TrustNode[] = await Promise.all(publishes.map(async (p) => {
     const pubFqdn = p.fqdn ?? "?";
     const pubCommit = p.commitment?.value ?? null;
     const derivedFrom = typeof (p.body ?? {}).derived_from === "string"
@@ -148,9 +172,10 @@ export async function trustTopology(
       : null;
 
     const valid = new Set<string>();
+    const authenticated = new Set<string>();
     const invalidW: { actor: string; reason: string }[] = [];
     for (const w of witnesses) {
-      const b = w.body ?? {};
+      const b = w.d.body ?? {};
       if (b.target_fqdn !== pubFqdn) continue;
       const actor = String(b.witness_actor ?? "unknown");
       const status = String(b.verification_status ?? "unknown");
@@ -167,7 +192,19 @@ export async function trustTopology(
       } else if (status !== "structurally_valid") {
         invalidW.push({ actor, reason: `status: ${status}` });
       } else {
-        valid.add(actor); // dedup by actor identity
+        valid.add(actor); // dedup by actor identity (integrity)
+        // authenticity: if the witness carries a content_sig over its own
+        // commitment that verifies against the registry, the actor is who it
+        // claims. (null = registry unavailable ⇒ honestly not authenticated.)
+        if (w.sig && w.d.commitment?.value) {
+          const ok = await verifyCommitment(
+            w.sig.voice,
+            w.d.commitment.value,
+            w.sig.sig,
+            superproject,
+          );
+          if (ok) authenticated.add(actor);
+        }
       }
     }
 
@@ -205,26 +242,33 @@ export async function trustTopology(
       derived_from: derivedFrom,
       self_verified: true, // only self-verified publishes reach here
       valid_witnesses: [...valid].sort(),
+      authenticated_witnesses: [...authenticated].sort(),
       invalid_witnesses: invalidW,
       reviews: rev,
       resonance,
       state,
     };
-  });
+  }));
 
   nodes.sort((a, b) => b.resonance - a.resonance);
+
+  const totalAuth = nodes.reduce(
+    (n, x) => n + x.authenticated_witnesses.length,
+    0,
+  );
 
   return {
     type: "resonance_projection",
     position: "3/7",
     note:
-      "integrity-verified observability over published mutations (myc Phase 9, T2.1). Verifies each descriptor binds its body and joins witnesses/reviews by commitment identity. NOT authenticity — signatures await key custody. Resonance describes the graph; it is not a target.",
+      "integrity + authenticity over published mutations (myc Phase 9). Each descriptor binds its body; witnesses/reviews join by commitment identity; a witness is AUTHENTICATED when its content_sig over its commitment verifies against the voice registry. Resonance describes the graph; it is not a target.",
     counts: {
       published: publishes.length,
       witnesses: witnesses.length,
       reviews: reviews.length,
       dormant: nodes.filter((n) => n.state === "dormant").length,
       invalid_descriptors: invalid.length,
+      authenticated_witnesses: totalAuth,
     },
     invalid_descriptors: invalid,
     nodes,
@@ -233,11 +277,9 @@ export async function trustTopology(
 
 function renderHuman(o: Record<string, unknown>): void {
   const c = o.counts as Record<string, number>;
+  console.log("🤝 resonance projection — integrity + authenticity");
   console.log(
-    "🤝 resonance projection — integrity-verified, not yet authenticated",
-  );
-  console.log(
-    `   ${c.published} published · ${c.witnesses} witnesses · ${c.reviews} reviews · ${c.dormant} dormant · ${c.invalid_descriptors} invalid\n`,
+    `   ${c.published} published · ${c.witnesses} witnesses (${c.authenticated_witnesses} authenticated) · ${c.reviews} reviews · ${c.dormant} dormant · ${c.invalid_descriptors} invalid\n`,
   );
   for (const iv of o.invalid_descriptors as Array<Record<string, string>>) {
     console.log(`   ✗ invalid ${iv.type} ${iv.fqdn}: ${iv.reason}`);
@@ -255,9 +297,12 @@ function renderHuman(o: Record<string, unknown>): void {
       : n.state === "invalid"
       ? "✗"
       : "○";
-    const who = n.valid_witnesses.join(", ") || "—";
+    const auth = new Set(n.authenticated_witnesses);
+    const who = n.valid_witnesses
+      .map((a) => auth.has(a) ? `${a}🔏` : a)
+      .join(", ") || "—";
     console.log(`   ${icon} r=${n.resonance}  ${n.target_fqdn}  (${n.state})`);
-    console.log(`        witnessed by: ${who}`);
+    console.log(`        witnessed by: ${who}   (🔏 = authenticated)`);
     for (const iv of n.invalid_witnesses) {
       console.log(`        ⚠ ${iv.actor}: ${iv.reason}`);
     }

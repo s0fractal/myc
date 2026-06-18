@@ -3113,6 +3113,29 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `authenticate` — add a voice content_sig to a descriptor (witness), lifting
+  // it from integrity to authenticity. Writes (frontmatter only; commitment
+  // stable). Effect class; needs the user-level voice key.
+  if (args[0] === "authenticate") {
+    const authPath = new URL("./x2F50_voice_auth.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        authPath,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `effects` — the typed effect of every myc verb (the capability boundary,
   // mirrored by trinity's t myc passthrough). Read-only; shelled.
   if (args[0] === "effects") {
@@ -3374,6 +3397,8 @@ function helpText(): string {
     "  effects                              (the typed capability of each verb)",
     "  propose --text <t> --requires <omega|liquid|trinity|spore> [--actor a]",
     "                                       (propose a DORMANT mutation; writes)",
+    "  authenticate <descriptor> [--voice claude]",
+    "                                       (sign a witness — integrity → authenticity)",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
     "  verify-projections",

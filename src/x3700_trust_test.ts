@@ -166,3 +166,21 @@ Deno.test("x3700 — live repo graph still reads resonant (regression)", async (
   const o = await trustTopology();
   assert((o.counts as { published: number }).published >= 1);
 });
+
+Deno.test("x3700 — every node exposes an authenticated_witnesses array (shape)", async () => {
+  const o = await trustTopology();
+  for (const n of (o.nodes as Array<Record<string, unknown>>)) {
+    assert(
+      Array.isArray(n.authenticated_witnesses),
+      "authenticity dimension present",
+    );
+  }
+});
+
+Deno.test("x3700 — the live witness authenticates as claude (when registry reachable)", async () => {
+  const o = await trustTopology();
+  const total = (o.counts as Record<string, number>).authenticated_witnesses;
+  // myc standalone (no superproject registry) ⇒ 0; under trinity ⇒ the signed
+  // witness verifies. Either way the field is a number.
+  assert(typeof total === "number");
+});

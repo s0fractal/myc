@@ -7,6 +7,11 @@ mode: "PATCH"
 tension: "witnessdescriptor-generated"
 confidence: "medium"
 receipt: "file"
+content_sig:
+  voice: claude
+  alg: ed25519
+  covers: "commitment"
+  sig: "zHO6AphkOn30yFtseLpr4S03mm880G0kVC9Ht6T6ZWcvJ7pBvrVMnAbqUTt2BlwVYfYY9fYlOfxX6QuvWt+9Bw=="
 ---
 
 # Witness Descriptor
