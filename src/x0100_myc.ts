@@ -3012,6 +3012,25 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `organism` / `membrane` — the membrane self-portrait: the four substrates
+  // as one proof-carrying body (LAW/omega · FIELD/liquid · MIND/trinity ·
+  // MYCELIUM/myc), their proof-kinds, the four roots of trust, and the spores
+  // germinated across substrate boundaries. Shelled (like `coord`) to keep
+  // x0100 lean; TTY-aware (a readable body for humans, JSON for models).
+  if (args[0] === "organism" || args[0] === "membrane") {
+    const organismPath =
+      new URL("./x8F00_organism.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", organismPath, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   const { command, flags, rest } = parseArgs(args);
   const root = flagString(flags, "root") ?? defaultRoot();
 
@@ -3245,6 +3264,7 @@ function helpText(): string {
     "  resolve <fqdn>                       (descriptor FQDN → descriptor)",
     "  coord <xNNNN_handle> [--graph|--lattice|--why|--stamp <signer>|--cat]",
     "                                       (graph coordinate → git+crypto proof)",
+    "  organism                             (the four substrates as one body)",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
     "  verify-projections",
