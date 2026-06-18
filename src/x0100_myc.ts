@@ -3063,6 +3063,21 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `effects` — the typed effect of every myc verb (the capability boundary,
+  // mirrored by trinity's t myc passthrough). Read-only; shelled.
+  if (args[0] === "effects") {
+    const fxPath = new URL("./x4A10_verb_effects.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", fxPath, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   const { command, flags, rest } = parseArgs(args);
   const root = flagString(flags, "root") ?? defaultRoot();
 
@@ -3299,6 +3314,7 @@ function helpText(): string {
     "  organism                             (the four substrates as one body)",
     "  trust                                (resonance over published mutations)",
     "  lifecycle                            (one vocabulary for a mutation's life)",
+    "  effects                              (the typed capability of each verb)",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
     "  verify-projections",
