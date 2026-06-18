@@ -3078,6 +3078,35 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `propose` — propose a mutation INTO the membrane (the efferent half, dormant
+  // slice). Writes a content-addressed, UNSIGNED, DORMANT ProposedMutationDescriptor
+  // under public/proposals/. Effect class (writes); never signs/germinates.
+  if (args[0] === "propose") {
+    const propPath = new URL("./x5800_propose.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        propPath,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) {
+      Deno.exitCode = code;
+    } else {
+      // keep public/index.ndjson in sync (as publish/witness/review do) so the
+      // dormant proposal is indexed + resolvable and verify-projections stays green.
+      await rebuildIndex(defaultRoot());
+    }
+    return;
+  }
+
   // `effects` — the typed effect of every myc verb (the capability boundary,
   // mirrored by trinity's t myc passthrough). Read-only; shelled.
   if (args[0] === "effects") {
@@ -3331,6 +3360,8 @@ function helpText(): string {
     "  trust                                (resonance over published mutations)",
     "  lifecycle                            (one vocabulary for a mutation's life)",
     "  effects                              (the typed capability of each verb)",
+    "  propose --text <t> --requires <omega|liquid|trinity|spore> [--actor a]",
+    "                                       (propose a DORMANT mutation; writes)",
     "  verify <path-or-fqdn> [--with-private]",
     "  verify-graph",
     "  verify-projections",

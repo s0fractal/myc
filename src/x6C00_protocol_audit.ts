@@ -20,6 +20,7 @@ const ALLOWED_DESCRIPTOR_TYPES = new Set([
   "PublishDescriptor",
   "WitnessDescriptor",
   "ReviewDescriptor",
+  "ProposedMutationDescriptor",
   "VectorDocumentDescriptor",
   "myc.roadmap-projection",
   "myc.probes-projection",
@@ -529,6 +530,39 @@ async function auditDescriptorFile(
     if (!["approve", "reject", "neutral"].includes(body.rating as string)) {
       errors.push(
         `${relative}: ReviewDescriptor.rating must be 'approve', 'reject', or 'neutral'`,
+      );
+    }
+  }
+
+  if (descriptor.type === "ProposedMutationDescriptor") {
+    const body = descriptor.body as Record<string, unknown>;
+    if (
+      typeof body.proposal !== "string" || !(body.proposal as string).trim()
+    ) {
+      errors.push(
+        `${relative}: ProposedMutationDescriptor must have a non-empty 'proposal' string`,
+      );
+    }
+    if (typeof body.proposer !== "string") {
+      errors.push(
+        `${relative}: ProposedMutationDescriptor must have a 'proposer' string`,
+      );
+    }
+    if (
+      !["omega", "liquid", "trinity", "spore"].includes(
+        body.requires_verification as string,
+      )
+    ) {
+      errors.push(
+        `${relative}: ProposedMutationDescriptor.requires_verification must be 'omega', 'liquid', 'trinity', or 'spore'`,
+      );
+    }
+    // SAFETY INVARIANT: a proposal is ALWAYS dormant. Trust is earned through the
+    // witness/publish flow, never self-declared — so a forged 'resonant' or
+    // 'witnessed' proposal is rejected at the protocol gate.
+    if (body.state !== "dormant") {
+      errors.push(
+        `${relative}: ProposedMutationDescriptor.state must be 'dormant' (proposals never self-declare trust)`,
       );
     }
   }

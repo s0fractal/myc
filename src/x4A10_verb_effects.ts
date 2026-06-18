@@ -36,6 +36,7 @@ export const VERB_EFFECTS: Record<string, Effect> = {
   effects: "read",
   help: "read",
   // effect surfaces — write the descriptor graph / stamp provenance
+  propose: "effect",
   capture: "effect",
   publish: "effect",
   witness: "effect",

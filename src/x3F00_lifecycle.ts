@@ -31,6 +31,12 @@ const MYC_ROOT = dirname(HERE);
 // The canonical lifecycle. Ordered; `dormant`/`invalid` are off-path states.
 export const LIFECYCLE = [
   {
+    state: "proposed",
+    of: "proposal",
+    meaning:
+      "a dormant ProposedMutationDescriptor — proposed into the membrane, unsigned, not yet applied or verified",
+  },
+  {
     state: "applied",
     of: "apply-receipt",
     meaning:
@@ -70,9 +76,41 @@ export const LIFECYCLE = [
 
 interface Mutation {
   id: string;
-  kind: "spore-apply" | "phase" | "consensus";
+  kind: "proposal" | "spore-apply" | "phase" | "consensus";
   state: string;
   detail: string;
+}
+
+/** Read dormant proposals (public/proposals/) → the lifecycle head state. */
+async function readProposals(root: string): Promise<Mutation[]> {
+  const dir = join(root, "public", "proposals");
+  const out: Mutation[] = [];
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [...Deno.readDirSync(dir)];
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    if (!e.isFile || !e.name.endsWith(".myc.md")) continue;
+    const text = await Deno.readTextFile(join(dir, e.name));
+    const m = text.match(/```json myc\s*\n([\s\S]*?)\n```/);
+    if (!m) continue;
+    try {
+      const d = JSON.parse(m[1]);
+      if (d?.type !== "ProposedMutationDescriptor") continue;
+      const b = d.body ?? {};
+      out.push({
+        id: String(d.fqdn ?? e.name).slice(0, 26),
+        kind: "proposal",
+        state: "proposed",
+        detail: `requires=${b.requires_verification ?? "?"} proposer=${
+          b.proposer ?? "?"
+        }`,
+      });
+    } catch { /* skip malformed */ }
+  }
+  return out;
 }
 
 function frontmatter(text: string): Record<string, string> {
@@ -113,6 +151,7 @@ async function readReceipts(
 }
 
 export async function lifecycle(): Promise<Record<string, unknown>> {
+  const proposed = await readProposals(MYC_ROOT);
   const applied = [
     ...await readReceipts("substrates/spore/receipts", "spore-apply"),
     ...await readReceipts("substrates/liquid/receipts", "phase"),
@@ -129,7 +168,7 @@ export async function lifecycle(): Promise<Record<string, unknown>> {
     }]`,
   }));
 
-  const mutations = [...applied, ...consensus];
+  const mutations = [...proposed, ...applied, ...consensus];
   const counts: Record<string, number> = {};
   for (const m of mutations) counts[m.state] = (counts[m.state] ?? 0) + 1;
 
@@ -147,7 +186,7 @@ export async function lifecycle(): Promise<Record<string, unknown>> {
 function renderHuman(o: Record<string, unknown>): void {
   console.log("🌱 mutation lifecycle — one vocabulary across the membrane\n");
   console.log(
-    "   states: applied → published → witnessed → reviewed → resonant",
+    "   states: proposed → applied → published → witnessed → reviewed → resonant",
   );
   console.log(
     "           (off-path: dormant = unwitnessed · invalid = unbound)\n",
@@ -158,13 +197,17 @@ function renderHuman(o: Record<string, unknown>): void {
       Object.entries(counts).map(([s, n]) => `${s}:${n}`).join("  ") + "\n",
   );
   for (const m of o.mutations as Mutation[]) {
-    const icon = m.kind === "consensus" ? "◆" : "⟿";
+    const icon = m.kind === "consensus"
+      ? "◆"
+      : m.kind === "proposal"
+      ? "✎"
+      : "⟿";
     console.log(
       `   ${icon} ${m.state.padEnd(10)} ${m.id.padEnd(26)} ${m.detail}`,
     );
   }
   console.log(
-    "\n   ⟿ apply-receipt (SPORE/phase)   ◆ consensus node",
+    "\n   ✎ proposal (dormant)   ⟿ apply-receipt (SPORE/phase)   ◆ consensus node",
   );
   console.log(
     "   note: apply→published is not yet threaded in the data (next data step).",
