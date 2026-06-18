@@ -2412,6 +2412,10 @@ function policyList(text: string, key: string): string[] {
 export async function publishTarget(
   root: string,
   target: string,
+  // Optional thread to the apply-receipt this publication derives from
+  // (a SPORE spore_id / liquid intent_hash). Closes the lifecycle's
+  // apply→published gap — the mutation x5800-proposed (h.9068b4888a6f).
+  derivedFrom?: string,
 ): Promise<{
   ok: boolean;
   fqdn: string;
@@ -2490,6 +2494,8 @@ export async function publishTarget(
         payload_scrubbed: true,
       },
       destinations: [],
+      // present only when supplied → keeps the commitment of older publishes stable
+      ...(derivedFrom ? { derived_from: derivedFrom } : {}),
     },
   };
 
@@ -3263,7 +3269,13 @@ export async function main(args: string[]): Promise<void> {
   if (command === "publish") {
     const target = rest[0];
     if (!target) throw new Error("publish requires a fqdn");
-    const result = await publishTarget(root, target);
+    // --derived-from <apply-id>: thread this publication to its SPORE/phase
+    // apply receipt so the lifecycle reads end-to-end (x5800 proposal).
+    const result = await publishTarget(
+      root,
+      target,
+      flagString(flags, "derived-from"),
+    );
     console.log(JSON.stringify(result, null, 2));
     if (!result.ok) Deno.exitCode = 1;
     return;

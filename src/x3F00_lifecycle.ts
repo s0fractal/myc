@@ -79,6 +79,8 @@ interface Mutation {
   kind: "proposal" | "spore-apply" | "phase" | "consensus";
   state: string;
   detail: string;
+  key?: string; // matchable identity: receipt id / consensus fqdn
+  derived_from?: string | null; // consensus → its apply-receipt key (the thread)
 }
 
 /** Read dormant proposals (public/proposals/) → the lifecycle head state. */
@@ -125,10 +127,11 @@ function frontmatter(text: string): Record<string, string> {
 }
 
 async function readReceipts(
+  root: string,
   relDir: string,
   kind: "spore-apply" | "phase",
 ): Promise<Mutation[]> {
-  const dir = join(MYC_ROOT, relDir);
+  const dir = join(root, relDir);
   const out: Mutation[] = [];
   let entries: Deno.DirEntry[];
   try {
@@ -139,25 +142,27 @@ async function readReceipts(
   for (const e of entries) {
     if (!e.isFile || !e.name.endsWith(".myc.md")) continue;
     const fm = frontmatter(await Deno.readTextFile(join(dir, e.name)));
-    const id = fm.spore_id ?? fm.intent_hash ?? e.name;
+    const key = fm.spore_id ?? fm.intent_hash ?? e.name; // full id for matching
     const detail = kind === "spore-apply"
       ? `status=${fm.status ?? "?"} fuel=${fm.total_fuel ?? "?"} (${
         fm.fuel_model ?? "spore.fuel.v1"
       })`
       : `status=${fm.status ?? "?"} phase=${fm.derived_phase ?? "?"}`;
-    out.push({ id: id.slice(0, 16), kind, state: "applied", detail });
+    out.push({ id: key.slice(0, 16), kind, state: "applied", detail, key });
   }
   return out;
 }
 
-export async function lifecycle(): Promise<Record<string, unknown>> {
-  const proposed = await readProposals(MYC_ROOT);
+export async function lifecycle(
+  root: string = MYC_ROOT,
+): Promise<Record<string, unknown>> {
+  const proposed = await readProposals(root);
   const applied = [
-    ...await readReceipts("substrates/spore/receipts", "spore-apply"),
-    ...await readReceipts("substrates/liquid/receipts", "phase"),
+    ...await readReceipts(root, "substrates/spore/receipts", "spore-apply"),
+    ...await readReceipts(root, "substrates/liquid/receipts", "phase"),
   ];
 
-  const trust = await trustTopology();
+  const trust = await trustTopology(join(root, "public"));
   const nodes = (trust.nodes ?? []) as Array<Record<string, unknown>>;
   const consensus: Mutation[] = nodes.map((n) => ({
     id: String(n.target_fqdn).slice(0, 24),
@@ -166,7 +171,27 @@ export async function lifecycle(): Promise<Record<string, unknown>> {
     detail: `resonance=${n.resonance} witnesses=[${
       (n.valid_witnesses as string[]).join(",")
     }]`,
+    key: String(n.target_fqdn),
+    derived_from: (n.derived_from as string | null) ?? null,
   }));
+
+  // Thread apply→published (x5800 proposal h.9068b4888a6f): a consensus node's
+  // derived_from matches an apply-receipt's key. Match on prefix so a 16/12-char
+  // id and the full hash thread the same.
+  const threads: { applied: string; published: string }[] = [];
+  for (const c of consensus) {
+    if (!c.derived_from) continue;
+    const a = applied.find((r) =>
+      r.key === c.derived_from ||
+      (r.key && c.derived_from!.startsWith(r.key)) ||
+      r.key?.startsWith(c.derived_from!)
+    );
+    if (a) {
+      threads.push({ applied: a.id, published: c.id });
+      a.detail += ` → published ${c.id}`;
+      c.detail += ` ← from ${a.id}`;
+    }
+  }
 
   const mutations = [...proposed, ...applied, ...consensus];
   const counts: Record<string, number> = {};
@@ -175,10 +200,12 @@ export async function lifecycle(): Promise<Record<string, unknown>> {
   return {
     type: "lifecycle",
     position: "3/F",
-    note:
-      "one vocabulary for a mutation's life (T3). Classifies apply-receipts (applied) and the consensus graph (published→resonant/dormant/invalid). The apply→published LINK is not yet in the data — that is the next data step, not a view claim.",
+    note: threads.length > 0
+      ? "one vocabulary for a mutation's life (T3 + thread). apply→published is now threaded where PublishDescriptor.derived_from binds a consensus node to its apply receipt."
+      : "one vocabulary for a mutation's life (T3). apply→published threads when a PublishDescriptor carries derived_from (publish --derived-from <apply-id>); none in the current data yet.",
     vocabulary: LIFECYCLE,
     counts,
+    threads,
     mutations,
   };
 }
@@ -209,9 +236,14 @@ function renderHuman(o: Record<string, unknown>): void {
   console.log(
     "\n   ✎ proposal (dormant)   ⟿ apply-receipt (SPORE/phase)   ◆ consensus node",
   );
-  console.log(
-    "   note: apply→published is not yet threaded in the data (next data step).",
-  );
+  const threads = (o.threads as Array<unknown>) ?? [];
+  if (threads.length > 0) {
+    console.log(`   ⛓ ${threads.length} apply→published thread(s) bound.`);
+  } else {
+    console.log(
+      "   note: apply→published threads when a publish carries --derived-from.",
+    );
+  }
 }
 
 export async function runCli(args: string[] = Deno.args): Promise<void> {

@@ -102,6 +102,7 @@ async function* walkMd(dir: string): AsyncGenerator<string> {
 export interface TrustNode {
   target_fqdn: string;
   commitment: string | null;
+  derived_from: string | null;
   self_verified: boolean;
   valid_witnesses: string[];
   invalid_witnesses: { actor: string; reason: string }[];
@@ -142,6 +143,9 @@ export async function trustTopology(
   const nodes: TrustNode[] = publishes.map((p) => {
     const pubFqdn = p.fqdn ?? "?";
     const pubCommit = p.commitment?.value ?? null;
+    const derivedFrom = typeof (p.body ?? {}).derived_from === "string"
+      ? (p.body as Record<string, string>).derived_from
+      : null;
 
     const valid = new Set<string>();
     const invalidW: { actor: string; reason: string }[] = [];
@@ -198,6 +202,7 @@ export async function trustTopology(
     return {
       target_fqdn: pubFqdn,
       commitment: pubCommit,
+      derived_from: derivedFrom,
       self_verified: true, // only self-verified publishes reach here
       valid_witnesses: [...valid].sort(),
       invalid_witnesses: invalidW,

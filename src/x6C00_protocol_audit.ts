@@ -484,6 +484,15 @@ async function auditDescriptorFile(
         `${relative}: PublishDescriptor must have a 'destinations' array`,
       );
     }
+    // Optional thread to the originating apply-receipt (lifecycle apply→published).
+    if (
+      Object.hasOwn(body, "derived_from") &&
+      typeof body.derived_from !== "string"
+    ) {
+      errors.push(
+        `${relative}: PublishDescriptor.derived_from must be a string (apply-receipt id) when present`,
+      );
+    }
   }
 
   if (descriptor.type === "WitnessDescriptor") {
