@@ -3136,6 +3136,21 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `render` — the membrane as a self-contained HTML page (for human eyes).
+  // Read-only; HTML to stdout (redirect to a file, open in any browser).
+  if (args[0] === "render") {
+    const renderPath = new URL("./x8FE0_render.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", renderPath, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `effects` — the typed effect of every myc verb (the capability boundary,
   // mirrored by trinity's t myc passthrough). Read-only; shelled.
   if (args[0] === "effects") {
@@ -3395,6 +3410,7 @@ function helpText(): string {
     "  trust                                (resonance over published mutations)",
     "  lifecycle                            (one vocabulary for a mutation's life)",
     "  effects                              (the typed capability of each verb)",
+    "  render                               (the membrane as HTML — for human eyes)",
     "  propose --text <t> --requires <omega|liquid|trinity|spore> [--actor a]",
     "                                       (propose a DORMANT mutation; writes)",
     "  authenticate <descriptor> [--voice claude]",
