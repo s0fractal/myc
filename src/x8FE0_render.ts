@@ -119,6 +119,18 @@ export async function renderHtml(): Promise<string> {
     }</span>`
   ).join('<span class="arrow">→</span>');
 
+  // the actual living mutations — so a person sees the membrane's own proposals
+  // (✎ dormant), apply receipts (⟿), and consensus nodes (◆), not just counts.
+  const mutations = (life.mutations as Array<Record<string, unknown>>) ?? [];
+  const mutRows = mutations.map((m) => {
+    const k = String(m.kind);
+    const icon = k === "consensus" ? "◆" : k === "proposal" ? "✎" : "⟿";
+    return `<div class="mut"><span class="micon">${icon}</span>
+      <span class="mstate">${esc(m.state)}</span>
+      <span class="mid">${esc(m.id)}</span>
+      <span class="mdetail">${esc(m.detail)}</span></div>`;
+  }).join("\n");
+
   const rootRows = roots.map((r) =>
     `<li><span class="rsub">${esc(r.substrate)}</span> ${esc(r.root)}</li>`
   ).join("\n");
@@ -161,6 +173,10 @@ export async function renderHtml(): Promise<string> {
     background:#21252b; padding:.8rem; border-radius:6px; }
   .lstate { color:#5c6370; } .lstate.on { color:#e5e9f0; }
   .lstate b { color:#61afef; } .arrow { color:#3a3f4b; }
+  .muts { margin-top:.8rem; } .mut { display:flex; gap:.6rem; align-items:baseline;
+    padding:.25rem 0; border-bottom:1px solid #23272e; font-size:.85rem; }
+  .micon { width:1rem; } .mstate { width:5.5rem; color:#61afef; }
+  .mid { color:#e5e9f0; } .mdetail { color:#5c6370; word-break:break-all; }
   ul.roots { list-style:none; padding:0; } ul.roots li { padding:.3rem 0;
     border-bottom:1px solid #23272e; }
   .rsub { display:inline-block; width:5.5rem; color:#c678dd; }
@@ -206,6 +222,7 @@ export async function renderHtml(): Promise<string> {
       ? `<p class="legend">⛓ ${threads.length} apply→published thread(s) bound</p>`
       : ""
   }
+  <div class="muts">${mutRows}</div>
 
   <h2>four roots — where every fractal of provenance bottoms out</h2>
   <ul class="roots">${rootRows}</ul>
