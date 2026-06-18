@@ -71,10 +71,20 @@ async function proposalCommitment(
   }
 }
 
+/** A structured pointer to evidence — never free text for finality (codex
+ *  x7d00_954231 P0.1). `ref` is an fqdn or hash; `commitment` is the thing's
+ *  commitment, so the projection can resolve + commitment-check it. */
+export interface EvidenceRef {
+  kind: string; // commit | chord | apply | publish | review | phase | …
+  ref: string; // fqdn or hash
+  commitment: string; // the referenced thing's commitment (checked at projection)
+}
+
 export interface ResolveInput {
   proposalFqdn: string;
   outcome: Outcome;
-  evidence: string;
+  evidence_refs: EvidenceRef[];
+  evidence_note?: string;
   resolver: string;
 }
 
@@ -95,18 +105,25 @@ export async function resolveProposal(
       error: `proposal not found or invalid: ${input.proposalFqdn}`,
     };
   }
-  const body = {
-    evidence: input.evidence,
+  // sorted-key stable body; evidence is STRUCTURED refs (finality cannot rest on
+  // free text). Human commentary is allowed in evidence_note but is not authority.
+  const body: Record<string, Json> = {
+    evidence_refs: input.evidence_refs.map((e) => ({
+      commitment: e.commitment,
+      kind: e.kind,
+      ref: e.ref,
+    })),
     outcome: input.outcome,
     proposal_commitment: prop.commitment, // BOUND to the proposal's commitment
     proposal_fqdn: prop.fqdn,
     resolver: input.resolver,
   };
+  if (input.evidence_note) body.evidence_note = input.evidence_note;
   const value = await sha256Hex(stableStringify(body));
   const fqdn = `h.${value.slice(0, 12)}.resolution.myc.md`;
   const descriptor = {
     type: "ProposalResolutionDescriptor",
-    schema_version: "myc.proposal-resolution.v0.1",
+    schema_version: "myc.proposal-resolution.v0.2",
     fqdn,
     commitment: { algorithm: "sha256", value, covers: "descriptor.body" },
     body,
@@ -120,14 +137,18 @@ tension: "terminal resolution of a proposed mutation"
 receipt: "file"
 ---
 
-# Proposal Resolution — ${input.outcome}
+# Proposal Resolution (v0.2) — ${input.outcome}
 
-The immutable record of what became of a proposed mutation. It binds to the
-proposal's commitment, so it cannot float to a different proposal.
+A CLAIM about what became of a proposed mutation. It binds to the proposal's
+commitment. It becomes FINAL only when its resolver is authenticated
+(\`t myc authenticate\` as the resolver) and its structured evidence_refs resolve
+by commitment — until then the lifecycle shows it as \`resolution_claimed\`, never
+as truth. Human commentary lives in evidence_note and is never authority.
 
 - **outcome**: \`${input.outcome}\`
 - **proposal**: \`${prop.fqdn}\`
-- **resolver**: \`${input.resolver}\`
+- **resolver**: \`${input.resolver}\` (sign to make it count toward finality)
+- **evidence**: ${input.evidence_refs.length} structured ref(s)
 
 \`\`\`json myc
 ${JSON.stringify(descriptor, null, 2)}
@@ -142,33 +163,46 @@ ${JSON.stringify(descriptor, null, 2)}
 
 function parseArgs(
   args: string[],
-): { pos?: string; flags: Record<string, string> } {
+): { pos?: string; flags: Record<string, string>; refs: string[] } {
   const flags: Record<string, string> = {};
+  const refs: string[] = [];
   let pos: string | undefined;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a.startsWith("--")) {
       const eq = a.indexOf("=");
-      if (eq >= 0) flags[a.slice(2, eq)] = a.slice(eq + 1);
-      else flags[a.slice(2)] = args[++i] ?? "true";
+      const key = eq >= 0 ? a.slice(2, eq) : a.slice(2);
+      const val = eq >= 0 ? a.slice(eq + 1) : (args[++i] ?? "true");
+      if (key === "evidence-ref") refs.push(val); // repeatable
+      else flags[key] = val;
     } else if (!pos) pos = a;
   }
-  return { pos, flags };
+  return { pos, flags, refs };
 }
 
 export async function runCli(args: string[] = Deno.args): Promise<void> {
-  const { pos, flags: f } = parseArgs(args);
+  const { pos, flags: f, refs } = parseArgs(args);
   const root = f.root ?? Deno.env.get("MYC_ROOT") ?? Deno.cwd();
   if (!pos) {
     console.error(
-      "usage: resolve-proposal <proposal-fqdn> --outcome <implemented|rejected|superseded|withdrawn|expired> --evidence <text> [--actor a]",
+      "usage: resolve-proposal <proposal-fqdn> --outcome <implemented|rejected|superseded|withdrawn|expired> --evidence-ref <kind:ref:commitment> [--evidence-ref …] [--note <text>] [--actor a]\n  (then `t myc authenticate <resolution> --voice <resolver>` to count toward finality)",
     );
     Deno.exit(1);
   }
+  // each --evidence-ref is "kind:ref:commitment"
+  const evidence_refs = refs.map((r) => {
+    const [kind, ref, commitment] = r.split(":");
+    return {
+      kind: kind ?? "ref",
+      ref: ref ?? "",
+      commitment: commitment ?? "",
+    };
+  });
   const result = await resolveProposal(root, {
     proposalFqdn: pos,
     outcome: (f.outcome ?? "") as Outcome,
-    evidence: f.evidence ?? "",
+    evidence_refs,
+    evidence_note: f.note,
     resolver: f.actor ?? f.resolver ?? "anonymous",
   });
   console.log(JSON.stringify(

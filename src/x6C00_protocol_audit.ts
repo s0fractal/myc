@@ -597,6 +597,29 @@ async function auditDescriptorFile(
         `${relative}: ProposalResolutionDescriptor.outcome must be implemented|rejected|superseded|withdrawn|expired`,
       );
     }
+    // v0.2: structured evidence_refs (optional — v0.1 with free-text evidence
+    // stays readable). When present, each ref must be {kind, ref, commitment}.
+    if (Object.hasOwn(body, "evidence_refs")) {
+      const refs = body.evidence_refs;
+      if (!Array.isArray(refs)) {
+        errors.push(
+          `${relative}: ProposalResolutionDescriptor.evidence_refs must be an array`,
+        );
+      } else {
+        for (const r of refs) {
+          const e = r as Record<string, unknown>;
+          if (
+            typeof e?.kind !== "string" || typeof e?.ref !== "string" ||
+            typeof e?.commitment !== "string"
+          ) {
+            errors.push(
+              `${relative}: each evidence_ref must have string kind, ref, commitment`,
+            );
+            break;
+          }
+        }
+      }
+    }
   }
 
   if (

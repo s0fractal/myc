@@ -24,9 +24,155 @@
 
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { trustTopology } from "./x3700_trust.ts";
+import { verifyCommitment, voiceFamily } from "./x2F50_voice_auth.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const MYC_ROOT = dirname(HERE);
+
+// ── Resolution Finality v0.2 (codex x7d00_954231 P0) ────────────────────────────
+// A resolution is a CLAIM until it is final: it must self-verify, its resolver must
+// be authenticated (signer == resolver), and it must carry structured evidence_refs
+// that resolve. Resolutions are grouped by proposal_commitment (never overwritten);
+// incompatible authenticated outcomes are `conflicted`, surfaced with claimants;
+// file order never decides truth.
+
+type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
+function stableStringify(v: Json): string {
+  if (v === null) return "null";
+  if (typeof v === "boolean" || typeof v === "number") return JSON.stringify(v);
+  if (typeof v === "string") return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(stableStringify).join(",")}]`;
+  return `{${
+    Object.keys(v).sort().map((k) =>
+      `${JSON.stringify(k)}:${stableStringify(v[k])}`
+    )
+      .join(",")
+  }}`;
+}
+async function sha256Hex(s: string): Promise<string> {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(d)).map((b) =>
+    b.toString(16).padStart(2, "0")
+  )
+    .join("");
+}
+function frontmatterSig(text: string): { voice: string; sig: string } | null {
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm) return null;
+  const block = fm[1].match(/content_sig:\n((?: {2}.*\n?)+)/);
+  if (!block) return null;
+  const voice = block[1].match(/voice:\s*(\S+)/)?.[1];
+  const sig = block[1].match(/sig:\s*"([^"]+)"/)?.[1];
+  return voice && sig ? { voice, sig } : null;
+}
+
+interface Resolution {
+  proposalCommitment: string;
+  outcome: string;
+  resolver: string;
+  descriptorCommitment: string;
+  sig: { voice: string; sig: string } | null;
+  evidenceCount: number;
+  selfVerified: boolean;
+}
+
+/** Read resolutions richly: self-verify each, capture its content_sig + evidence. */
+async function readResolutions(root: string): Promise<Resolution[]> {
+  const dir = join(root, "public", "resolutions");
+  const out: Resolution[] = [];
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [...Deno.readDirSync(dir)];
+  } catch {
+    return out;
+  }
+  for (const e of entries) {
+    if (!e.isFile || !e.name.endsWith(".myc.md")) continue;
+    const text = await Deno.readTextFile(join(dir, e.name));
+    const m = text.match(/```json myc\s*\n([\s\S]*?)\n```/);
+    if (!m) continue;
+    try {
+      const d = JSON.parse(m[1]);
+      if (d?.type !== "ProposalResolutionDescriptor") continue;
+      const b = d.body ?? {};
+      const claimed = d.commitment?.value;
+      const recomputed = await sha256Hex(stableStringify(b));
+      out.push({
+        proposalCommitment: String(b.proposal_commitment ?? ""),
+        outcome: String(b.outcome ?? ""),
+        resolver: String(b.resolver ?? ""),
+        descriptorCommitment: String(claimed ?? ""),
+        sig: frontmatterSig(text),
+        evidenceCount: Array.isArray(b.evidence_refs)
+          ? b.evidence_refs.length
+          : (b.evidence ? 1 : 0), // v0.1 free-text counts as 1 weak ref
+        selfVerified: !!claimed && recomputed === claimed,
+      });
+    } catch { /* skip */ }
+  }
+  return out;
+}
+
+/** Compute the finality of one proposal from its resolutions (deterministic;
+ *  grouped by commitment; authenticated outcomes decide; conflicts surfaced). */
+async function proposalFinality(
+  proposalCommitment: string,
+  resolutions: Resolution[],
+  superproject: string,
+): Promise<{ state: string; finality: string; detail: string }> {
+  // group by THIS proposal's commitment; only self-verified resolutions count.
+  const mine = resolutions.filter((r) =>
+    r.selfVerified && r.proposalCommitment === proposalCommitment
+  );
+  if (mine.length === 0) {
+    return { state: "proposed", finality: "open", detail: "no resolution" };
+  }
+  // authenticate: signer == resolver, sig verifies, and ≥1 evidence ref present.
+  // Collect ALL authenticated claims; ANY two incompatible authenticated outcomes
+  // conflict (even from one actor contradicting itself) — codex P0: two incompatible
+  // valid claims produce `conflicted`, never silent last-wins.
+  const authed: { resolver: string; outcome: string }[] = [];
+  const claims = new Set<string>();
+  for (const r of mine) {
+    claims.add(r.outcome);
+    const signerMatches = r.sig &&
+      voiceFamily(r.sig.voice) === voiceFamily(r.resolver);
+    if (signerMatches && r.evidenceCount > 0) {
+      const ok = await verifyCommitment(
+        r.sig!.voice,
+        r.descriptorCommitment,
+        r.sig!.sig,
+        superproject,
+      );
+      if (ok) authed.push({ resolver: r.resolver, outcome: r.outcome });
+    }
+  }
+  const distinctAuthed = new Set(authed.map((a) => a.outcome));
+  if (distinctAuthed.size > 1) {
+    return {
+      state: "conflicted",
+      finality: "conflicted",
+      detail: `conflicting authenticated outcomes: ${
+        authed.map((a) => `${a.resolver}=${a.outcome}`).join(", ")
+      }`,
+    };
+  }
+  if (distinctAuthed.size === 1) {
+    const outcome = [...distinctAuthed][0];
+    const who = [...new Set(authed.map((a) => a.resolver))].join(", ");
+    return {
+      state: outcome, // TERMINAL truth (implemented|rejected|…)
+      finality: "final",
+      detail: `final: ${outcome} (authenticated by ${who})`,
+    };
+  }
+  // resolutions exist but none authenticated+evidenced → a CLAIM, never truth.
+  return {
+    state: "resolution_claimed",
+    finality: "claimed",
+    detail: `claimed ${[...claims].join("/")} — not authenticated/evidenced`,
+  };
+}
 
 // The canonical lifecycle. Ordered; `dormant`/`invalid` are off-path states.
 export const LIFECYCLE = [
@@ -73,10 +219,22 @@ export const LIFECYCLE = [
     meaning: "integrity failure — commitment does not bind body",
   },
   {
+    state: "resolution_claimed",
+    of: "resolution",
+    meaning:
+      "a resolution exists but its resolver is not authenticated or it lacks evidence — a claim, never truth (codex P0 finality)",
+  },
+  {
+    state: "conflicted",
+    of: "resolution",
+    meaning:
+      "incompatible AUTHENTICATED outcomes for one proposal — surfaced with claimants, never silently collapsed",
+  },
+  {
     state: "implemented",
     of: "resolution",
     meaning:
-      "TERMINAL: a commitment-bound ProposalResolutionDescriptor records the proposal's requested change was made (also: rejected | superseded | withdrawn | expired)",
+      "FINAL: an authenticated, evidenced resolution records the outcome (also: rejected | superseded | withdrawn | expired)",
   },
 ] as const;
 
@@ -89,38 +247,12 @@ interface Mutation {
   derived_from?: string | null; // consensus → its apply-receipt key (the thread)
 }
 
-/** Read terminal resolutions: proposal_commitment → outcome (codex P1). */
-async function readResolutions(root: string): Promise<Map<string, string>> {
-  const dir = join(root, "public", "resolutions");
-  const out = new Map<string, string>();
-  let entries: Deno.DirEntry[];
-  try {
-    entries = [...Deno.readDirSync(dir)];
-  } catch {
-    return out;
-  }
-  for (const e of entries) {
-    if (!e.isFile || !e.name.endsWith(".myc.md")) continue;
-    const m = (await Deno.readTextFile(join(dir, e.name)))
-      .match(/```json myc\s*\n([\s\S]*?)\n```/);
-    if (!m) continue;
-    try {
-      const d = JSON.parse(m[1]);
-      if (d?.type !== "ProposalResolutionDescriptor") continue;
-      const b = d.body ?? {};
-      if (b.proposal_commitment && b.outcome) {
-        out.set(String(b.proposal_commitment), String(b.outcome));
-      }
-    } catch { /* skip */ }
-  }
-  return out;
-}
-
-/** Read proposals (public/proposals/) → the lifecycle head state, OR the terminal
- *  outcome when a commitment-bound resolution exists. */
+/** Read proposals → the lifecycle head state, OR the finality-computed state when
+ *  resolutions exist (proposed | resolution_claimed | conflicted | <terminal>). */
 async function readProposals(
   root: string,
-  resolutions: Map<string, string>,
+  resolutions: Resolution[],
+  superproject: string,
 ): Promise<Mutation[]> {
   const dir = join(root, "public", "proposals");
   const out: Mutation[] = [];
@@ -139,16 +271,20 @@ async function readProposals(
       const d = JSON.parse(m[1]);
       if (d?.type !== "ProposedMutationDescriptor") continue;
       const b = d.body ?? {};
-      const outcome = resolutions.get(String(d.commitment?.value));
+      const f = await proposalFinality(
+        String(d.commitment?.value ?? ""),
+        resolutions,
+        superproject,
+      );
       out.push({
         id: String(d.fqdn ?? e.name).slice(0, 26),
         kind: "proposal",
-        state: outcome ?? "proposed", // terminal truth if resolved, else dormant
-        detail: outcome
-          ? `requires=${b.requires_verification ?? "?"} · resolved: ${outcome}`
-          : `requires=${b.requires_verification ?? "?"} proposer=${
+        state: f.state,
+        detail: f.finality === "open"
+          ? `requires=${b.requires_verification ?? "?"} proposer=${
             b.proposer ?? "?"
-          }`,
+          }`
+          : `requires=${b.requires_verification ?? "?"} · ${f.detail}`,
       });
     } catch { /* skip malformed */ }
   }
@@ -195,9 +331,11 @@ async function readReceipts(
 
 export async function lifecycle(
   root: string = MYC_ROOT,
+  superprojectOverride?: string,
 ): Promise<Record<string, unknown>> {
+  const superproject = superprojectOverride ?? dirname(root);
   const resolutions = await readResolutions(root);
-  const proposed = await readProposals(root, resolutions);
+  const proposed = await readProposals(root, resolutions, superproject);
   const appliedRaw = [
     ...await readReceipts(root, "substrates/spore/receipts", "spore-apply"),
     ...await readReceipts(root, "substrates/liquid/receipts", "phase"),
@@ -212,7 +350,7 @@ export async function lifecycle(
     return true;
   });
 
-  const trust = await trustTopology(join(root, "public"));
+  const trust = await trustTopology(join(root, "public"), superproject);
   const nodes = (trust.nodes ?? []) as Array<Record<string, unknown>>;
   const consensus: Mutation[] = nodes.map((n) => ({
     id: String(n.target_fqdn).slice(0, 24),

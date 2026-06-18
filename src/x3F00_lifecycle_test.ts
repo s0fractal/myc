@@ -71,6 +71,8 @@ Deno.test("x3F00 lifecycle — a proposal reads 'proposed' OR its terminal outco
   const mutations = o.mutations as Array<Record<string, unknown>>;
   const ok = [
     "proposed",
+    "resolution_claimed",
+    "conflicted",
     "implemented",
     "rejected",
     "superseded",
