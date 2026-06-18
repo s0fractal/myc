@@ -72,7 +72,9 @@ Deno.test("x3F00 lifecycle — a proposal reads 'proposed' OR its terminal outco
   const ok = [
     "proposed",
     "resolution_claimed",
+    "evidence_verified",
     "conflicted",
+    "invalid",
     "implemented",
     "rejected",
     "superseded",

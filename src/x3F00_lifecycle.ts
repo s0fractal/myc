@@ -25,6 +25,7 @@
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { trustTopology } from "./x3700_trust.ts";
 import { verifyCommitment, voiceFamily } from "./x2F50_voice_auth.ts";
+import { type EvidenceRef, verifyEvidence } from "./x2A00_evidence.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
 const MYC_ROOT = dirname(HERE);
@@ -72,7 +73,7 @@ interface Resolution {
   resolver: string;
   descriptorCommitment: string;
   sig: { voice: string; sig: string } | null;
-  evidenceCount: number;
+  evidenceRefs: EvidenceRef[];
   selfVerified: boolean;
 }
 
@@ -103,9 +104,9 @@ async function readResolutions(root: string): Promise<Resolution[]> {
         resolver: String(b.resolver ?? ""),
         descriptorCommitment: String(claimed ?? ""),
         sig: frontmatterSig(text),
-        evidenceCount: Array.isArray(b.evidence_refs)
-          ? b.evidence_refs.length
-          : (b.evidence ? 1 : 0), // v0.1 free-text counts as 1 weak ref
+        evidenceRefs: Array.isArray(b.evidence_refs)
+          ? (b.evidence_refs as EvidenceRef[])
+          : [], // v0.1 free-text evidence carries no verifiable ref
         selfVerified: !!claimed && recomputed === claimed,
       });
     } catch { /* skip */ }
@@ -113,64 +114,115 @@ async function readResolutions(root: string): Promise<Resolution[]> {
   return out;
 }
 
-/** Compute the finality of one proposal from its resolutions (deterministic;
- *  grouped by commitment; authenticated outcomes decide; conflicts surfaced). */
+/** The evidence kind a backend verifier policy requires (codex x2900 P0.3.2). */
+const BACKEND_KIND: Record<string, string> = {
+  spore: "apply",
+  liquid: "phase",
+  omega: "omega",
+};
+
+/** Compute the finality of one proposal: self-verified + grouped by commitment;
+ *  a resolution counts only when AUTHENTICATED (signer==resolver) and its evidence
+ *  RESOLVES (not merely present); then the proposal's verifier policy decides —
+ *  `trinity` needs ≥2 distinct principals (one voice is not quorum); spore/liquid/
+ *  omega need a valid backend receipt. proposed → resolution_claimed →
+ *  evidence_verified → final, with conflicted orthogonal. (codex x2900_954260) */
 async function proposalFinality(
-  proposalCommitment: string,
+  proposal: { commitment: string; requires: string },
   resolutions: Resolution[],
-  superproject: string,
+  ctx: { root: string; superproject: string },
 ): Promise<{ state: string; finality: string; detail: string }> {
-  // group by THIS proposal's commitment; only self-verified resolutions count.
   const mine = resolutions.filter((r) =>
-    r.selfVerified && r.proposalCommitment === proposalCommitment
+    r.selfVerified && r.proposalCommitment === proposal.commitment
   );
   if (mine.length === 0) {
     return { state: "proposed", finality: "open", detail: "no resolution" };
   }
-  // authenticate: signer == resolver, sig verifies, and ≥1 evidence ref present.
-  // Collect ALL authenticated claims; ANY two incompatible authenticated outcomes
-  // conflict (even from one actor contradicting itself) — codex P0: two incompatible
-  // valid claims produce `conflicted`, never silent last-wins.
-  const authed: { resolver: string; outcome: string }[] = [];
-  const claims = new Set<string>();
+
+  let anyAuthed = false;
+  const badEvidence: string[] = [];
+  // authenticated AND evidence-resolved resolutions
+  const verified: { resolver: string; outcome: string; kinds: Set<string> }[] =
+    [];
   for (const r of mine) {
-    claims.add(r.outcome);
     const signerMatches = r.sig &&
       voiceFamily(r.sig.voice) === voiceFamily(r.resolver);
-    if (signerMatches && r.evidenceCount > 0) {
-      const ok = await verifyCommitment(
-        r.sig!.voice,
-        r.descriptorCommitment,
-        r.sig!.sig,
-        superproject,
-      );
-      if (ok) authed.push({ resolver: r.resolver, outcome: r.outcome });
+    if (!signerMatches) continue;
+    const authedOk = await verifyCommitment(
+      r.sig!.voice,
+      r.descriptorCommitment,
+      r.sig!.sig,
+      ctx.superproject,
+    );
+    if (!authedOk) continue;
+    anyAuthed = true;
+    // RESOLVE every evidence ref — presence is not proof.
+    const verdicts = await Promise.all(
+      r.evidenceRefs.map((e) => verifyEvidence(e, ctx)),
+    );
+    const validKinds = new Set(
+      verdicts.filter((x) => x.valid).map((x) => x.kind),
+    );
+    for (const x of verdicts.filter((x) => !x.valid)) {
+      badEvidence.push(`${r.resolver}:${x.kind}(${x.reason})`);
+    }
+    if (validKinds.size > 0) {
+      verified.push({
+        resolver: r.resolver,
+        outcome: r.outcome,
+        kinds: validKinds,
+      });
     }
   }
-  const distinctAuthed = new Set(authed.map((a) => a.outcome));
-  if (distinctAuthed.size > 1) {
+
+  if (verified.length === 0) {
+    const why = !anyAuthed
+      ? "no authenticated resolver"
+      : `evidence did not resolve [${badEvidence.join("; ")}]`;
+    return { state: "resolution_claimed", finality: "claimed", detail: why };
+  }
+
+  const distinctOutcomes = new Set(verified.map((x) => x.outcome));
+  if (distinctOutcomes.size > 1) {
     return {
       state: "conflicted",
       finality: "conflicted",
-      detail: `conflicting authenticated outcomes: ${
-        authed.map((a) => `${a.resolver}=${a.outcome}`).join(", ")
+      detail: `conflicting evidence-verified outcomes: ${
+        verified.map((x) => `${x.resolver}=${x.outcome}`).join(", ")
       }`,
     };
   }
-  if (distinctAuthed.size === 1) {
-    const outcome = [...distinctAuthed][0];
-    const who = [...new Set(authed.map((a) => a.resolver))].join(", ");
+  const outcome = [...distinctOutcomes][0];
+  const principals = new Set(verified.map((x) => voiceFamily(x.resolver)));
+
+  // backend verifier policy
+  let backendOk: boolean;
+  let policy: string;
+  if (proposal.requires === "trinity") {
+    backendOk = principals.size >= 2; // one voice is not quorum
+    policy = `trinity quorum ${principals.size}/2`;
+  } else if (BACKEND_KIND[proposal.requires]) {
+    const need = BACKEND_KIND[proposal.requires];
+    backendOk = verified.some((x) => x.kinds.has(need));
+    policy = `${proposal.requires} needs verified '${need}' evidence`;
+  } else {
+    backendOk = true; // no declared backend policy → evidence-verified suffices
+    policy = `no backend policy (${proposal.requires || "unset"})`;
+  }
+
+  if (backendOk) {
     return {
-      state: outcome, // TERMINAL truth (implemented|rejected|…)
+      state: outcome,
       finality: "final",
-      detail: `final: ${outcome} (authenticated by ${who})`,
+      detail: `final: ${outcome} — ${policy} satisfied (principals: ${
+        [...principals].join(", ")
+      })`,
     };
   }
-  // resolutions exist but none authenticated+evidenced → a CLAIM, never truth.
   return {
-    state: "resolution_claimed",
-    finality: "claimed",
-    detail: `claimed ${[...claims].join("/")} — not authenticated/evidenced`,
+    state: "evidence_verified",
+    finality: "evidence_verified",
+    detail: `${outcome} evidence-verified but NOT final — ${policy} unmet`,
   };
 }
 
@@ -225,16 +277,22 @@ export const LIFECYCLE = [
       "a resolution exists but its resolver is not authenticated or it lacks evidence — a claim, never truth (codex P0 finality)",
   },
   {
+    state: "evidence_verified",
+    of: "resolution",
+    meaning:
+      "authenticated + evidence RESOLVED, but the proposal's verifier policy is not yet met (e.g. trinity quorum needs ≥2 principals) — not final (codex x2900 P0.3)",
+  },
+  {
     state: "conflicted",
     of: "resolution",
     meaning:
-      "incompatible AUTHENTICATED outcomes for one proposal — surfaced with claimants, never silently collapsed",
+      "incompatible evidence-verified outcomes for one proposal — surfaced with claimants, never silently collapsed",
   },
   {
     state: "implemented",
     of: "resolution",
     meaning:
-      "FINAL: an authenticated, evidenced resolution records the outcome (also: rejected | superseded | withdrawn | expired)",
+      "FINAL: an authenticated, evidence-verified resolution that satisfies the backend policy (also: rejected | superseded | withdrawn | expired)",
   },
 ] as const;
 
@@ -271,10 +329,25 @@ async function readProposals(
       const d = JSON.parse(m[1]);
       if (d?.type !== "ProposedMutationDescriptor") continue;
       const b = d.body ?? {};
+      const claimed = String(d.commitment?.value ?? "");
+      // self-verify the proposal: a tampered proposal cannot be a trust anchor.
+      const recomputed = await sha256Hex(stableStringify(b));
+      if (!claimed || recomputed !== claimed) {
+        out.push({
+          id: String(d.fqdn ?? e.name).slice(0, 26),
+          kind: "proposal",
+          state: "invalid",
+          detail: "proposal commitment does not bind its body (tampered)",
+        });
+        continue;
+      }
       const f = await proposalFinality(
-        String(d.commitment?.value ?? ""),
+        {
+          commitment: claimed,
+          requires: String(b.requires_verification ?? ""),
+        },
         resolutions,
-        superproject,
+        { root, superproject },
       );
       out.push({
         id: String(d.fqdn ?? e.name).slice(0, 26),
