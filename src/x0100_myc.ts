@@ -3017,11 +3017,26 @@ export async function main(args: string[]): Promise<void> {
   // MYCELIUM/myc), their proof-kinds, the four roots of trust, and the spores
   // germinated across substrate boundaries. Shelled (like `coord`) to keep
   // x0100 lean; TTY-aware (a readable body for humans, JSON for models).
-  if (args[0] === "organism" || args[0] === "membrane") {
+  if (args[0] === "organism") {
     const organismPath =
       new URL("./x8F00_organism.ts", import.meta.url).pathname;
     const proc = new Deno.Command("deno", {
       args: ["run", "--allow-read", organismPath, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
+  // `membrane` — the single surface: the body + its trust + its mutations'
+  // lives, composed into one read-only view (the architect's founding vision).
+  if (args[0] === "membrane") {
+    const memPath = new URL("./x8FF0_membrane.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", memPath, ...args.slice(1)],
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
@@ -3311,6 +3326,7 @@ function helpText(): string {
     "  resolve <fqdn>                       (descriptor FQDN → descriptor)",
     "  coord <xNNNN_handle> [--graph|--lattice|--why|--stamp <signer>|--cat]",
     "                                       (graph coordinate → git+crypto proof)",
+    "  membrane                             (THE single surface — body+trust+life)",
     "  organism                             (the four substrates as one body)",
     "  trust                                (resonance over published mutations)",
     "  lifecycle                            (one vocabulary for a mutation's life)",
