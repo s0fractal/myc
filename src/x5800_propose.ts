@@ -55,6 +55,10 @@ export interface ProposeInput {
   proposal: string;
   requires: Backend;
   proposer: string;
+  /** Optional TYPED finality policy (codex bootstrap x2900_954396): the verified
+   *  principals must cover these class counts, e.g. {human:1, model:1}. Prose is
+   *  not policy — this is the machine-enforced rule. */
+  finality_policy?: { classes: Record<string, number> };
 }
 
 export interface ProposeResult {
@@ -82,13 +86,16 @@ export async function propose(
     };
   }
   // body is sorted-key stable; state is ALWAYS dormant (the safety invariant).
-  const body = {
+  const body: Record<string, unknown> = {
     proposal: input.proposal.trim(),
     proposer: input.proposer,
     requires_verification: input.requires,
     state: "dormant" as const,
   };
-  const commitment = await sha256Hex(stableStringify(body));
+  if (input.finality_policy) body.finality_policy = input.finality_policy;
+  const commitment = await sha256Hex(
+    stableStringify(body as unknown as Parameters<typeof stableStringify>[0]),
+  );
   const short = commitment.slice(0, 12);
   const fqdn = `h.${short}.proposal.myc.md`;
   const descriptor = {
@@ -150,10 +157,19 @@ function parseFlags(args: string[]): Record<string, string> {
 export async function runCli(args: string[] = Deno.args): Promise<void> {
   const f = parseFlags(args);
   const root = f.root ?? Deno.env.get("MYC_ROOT") ?? Deno.cwd();
+  // repeatable `--policy class:count` → a typed finality policy (codex bootstrap)
+  const classes: Record<string, number> = {};
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--policy" && args[i + 1]) {
+      const [cls, n] = args[i + 1].split(":");
+      if (cls && n && Number.isInteger(+n)) classes[cls] = +n;
+    }
+  }
   const result = await propose(root, {
     proposal: f.text ?? f.proposal ?? "",
     requires: (f.requires ?? f.backend ?? "") as Backend,
     proposer: f.actor ?? f.proposer ?? "anonymous",
+    finality_policy: Object.keys(classes).length > 0 ? { classes } : undefined,
   });
   console.log(JSON.stringify(
     {

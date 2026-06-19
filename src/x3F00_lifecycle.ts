@@ -114,6 +114,24 @@ async function readResolutions(root: string): Promise<Resolution[]> {
   return out;
 }
 
+/** Non-custody principal-class registry (codex bootstrap x2900_954396): which
+ *  CLASS (human|model|…) each voice is. Absent ⇒ empty ⇒ every class policy fails
+ *  closed (no principal has a class). Separate file from the key registry. */
+async function principalClasses(
+  superproject: string,
+): Promise<Record<string, string>> {
+  try {
+    const reg = JSON.parse(
+      await Deno.readTextFile(
+        join(superproject, "src", "x2F39_principal_classes.json"),
+      ),
+    );
+    return (reg.classes ?? {}) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
 /** The evidence kind a backend verifier policy requires (codex x2900 P0.3.2). */
 const BACKEND_KIND: Record<string, string> = {
   spore: "apply",
@@ -128,7 +146,11 @@ const BACKEND_KIND: Record<string, string> = {
  *  omega need a valid backend receipt. proposed → resolution_claimed →
  *  evidence_verified → final, with conflicted orthogonal. (codex x2900_954260) */
 async function proposalFinality(
-  proposal: { commitment: string; requires: string },
+  proposal: {
+    commitment: string;
+    requires: string;
+    classes?: Record<string, number>;
+  },
   resolutions: Resolution[],
   ctx: { root: string; superproject: string },
 ): Promise<{ state: string; finality: string; detail: string }> {
@@ -198,7 +220,26 @@ async function proposalFinality(
   // backend verifier policy
   let backendOk: boolean;
   let policy: string;
-  if (proposal.requires === "trinity") {
+  if (proposal.classes && Object.keys(proposal.classes).length > 0) {
+    // TYPED CLASS POLICY (codex bootstrap): the verified principals must cover the
+    // required class counts. Fail closed — a principal with no registered class
+    // counts toward nothing; an unknown required class can never be satisfied.
+    const classOf = await principalClasses(ctx.superproject);
+    const counts: Record<string, number> = {};
+    for (const p of principals) {
+      const cls = classOf[p];
+      if (cls) counts[cls] = (counts[cls] ?? 0) + 1;
+    }
+    backendOk = Object.entries(proposal.classes).every(
+      ([cls, need]) => (counts[cls] ?? 0) >= need,
+    );
+    policy = `class quorum ${
+      Object.entries(proposal.classes).map(([c, n]) =>
+        `${c}:${counts[c] ?? 0}/${n}`
+      )
+        .join(", ")
+    }`;
+  } else if (proposal.requires === "trinity") {
     backendOk = principals.size >= 2; // one voice is not quorum
     policy = `trinity quorum ${principals.size}/2`;
   } else if (BACKEND_KIND[proposal.requires]) {
@@ -345,6 +386,8 @@ async function readProposals(
         {
           commitment: claimed,
           requires: String(b.requires_verification ?? ""),
+          classes: (b.finality_policy as { classes?: Record<string, number> })
+            ?.classes,
         },
         resolutions,
         { root, superproject },

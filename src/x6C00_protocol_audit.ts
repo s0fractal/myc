@@ -575,6 +575,24 @@ async function auditDescriptorFile(
         `${relative}: ProposedMutationDescriptor.state must be 'dormant' (proposals never self-declare trust)`,
       );
     }
+    // Optional TYPED finality policy (codex bootstrap x2900_954396): when present,
+    // `finality_policy.classes` must be a map of class → positive integer. Fail
+    // closed on a malformed policy — prose is not policy, and a broken policy must
+    // never silently degrade to the looser default quorum.
+    if (Object.hasOwn(body, "finality_policy")) {
+      const fp = body.finality_policy as { classes?: unknown };
+      const classes = fp?.classes as Record<string, unknown> | undefined;
+      const ok = classes && typeof classes === "object" &&
+        Object.keys(classes).length > 0 &&
+        Object.values(classes).every((v) =>
+          typeof v === "number" && Number.isInteger(v) && v > 0
+        );
+      if (!ok) {
+        errors.push(
+          `${relative}: ProposedMutationDescriptor.finality_policy.classes must be a non-empty map of class → positive integer`,
+        );
+      }
+    }
   }
 
   if (descriptor.type === "ProposalResolutionDescriptor") {

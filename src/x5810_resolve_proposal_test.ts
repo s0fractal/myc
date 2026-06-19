@@ -99,6 +99,30 @@ async function scaffold(requires: string) {
   return { root, sup, p };
 }
 
+/** A proposal carrying a TYPED finality policy (codex bootstrap x2900_954396). */
+async function scaffoldPolicy(classes: Record<string, number>) {
+  const root = await Deno.makeTempDir({ prefix: "fin_root_" });
+  const sup = await Deno.makeTempDir({ prefix: "fin_sup_" });
+  const p = await propose(root, {
+    proposal: "core",
+    requires: "trinity",
+    proposer: "alpha",
+    finality_policy: { classes },
+  });
+  return { root, sup, p };
+}
+
+async function writeClasses(
+  superproject: string,
+  classes: Record<string, string>,
+): Promise<void> {
+  await Deno.mkdir(join(superproject, "src"), { recursive: true });
+  await Deno.writeTextFile(
+    join(superproject, "src", "x2F39_principal_classes.json"),
+    JSON.stringify({ classes }),
+  );
+}
+
 Deno.test("finality — unauthenticated resolution is resolution_claimed", async () => {
   const { root, sup, p } = await scaffold("spore");
   try {
@@ -405,6 +429,92 @@ Deno.test("finality — v0.2 resolution passes its own audit; unknown outcome re
       !audit.errors.some((e) => /Resolution/i.test(e)),
       JSON.stringify(audit.errors),
     );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+    await Deno.remove(sup, { recursive: true });
+  }
+});
+
+Deno.test("finality — class policy {human:1,model:1}: claude + codex (two models) is NOT final (codex bootstrap)", async () => {
+  const { root, sup, p } = await scaffoldPolicy({ human: 1, model: 1 });
+  try {
+    const c = await genVoice(), x = await genVoice();
+    await writeRegistry(sup, { claude: c.pub, codex: x.pub });
+    await writeClasses(sup, { claude: "model", codex: "model" });
+    const ev = await applyEvidence(root);
+    const ra = await resolveProposal(root, {
+      proposalFqdn: p.fqdn!,
+      outcome: "implemented",
+      evidence_refs: [ev],
+      resolver: "claude",
+    });
+    await authWith(ra.path!, "claude", c.priv);
+    const rb = await resolveProposal(root, {
+      proposalFqdn: p.fqdn!,
+      outcome: "implemented",
+      evidence_refs: [ev],
+      resolver: "codex",
+    });
+    await authWith(rb.path!, "codex", x.priv);
+    // two model principals cannot ratify a rule needing a human → not final
+    assertEquals(await stateOf(root, sup), "evidence_verified");
+  } finally {
+    await Deno.remove(root, { recursive: true });
+    await Deno.remove(sup, { recursive: true });
+  }
+});
+
+Deno.test("finality — class policy {human:1,model:1}: s0fractal + a model IS final (codex bootstrap)", async () => {
+  const { root, sup, p } = await scaffoldPolicy({ human: 1, model: 1 });
+  try {
+    const human = await genVoice(), model = await genVoice();
+    await writeRegistry(sup, { s0fractal: human.pub, claude: model.pub });
+    await writeClasses(sup, { s0fractal: "human", claude: "model" });
+    const ev = await applyEvidence(root);
+    const rh = await resolveProposal(root, {
+      proposalFqdn: p.fqdn!,
+      outcome: "implemented",
+      evidence_refs: [ev],
+      resolver: "s0fractal",
+    });
+    await authWith(rh.path!, "s0fractal", human.priv);
+    const rm = await resolveProposal(root, {
+      proposalFqdn: p.fqdn!,
+      outcome: "implemented",
+      evidence_refs: [ev],
+      resolver: "claude",
+    });
+    await authWith(rm.path!, "claude", model.priv);
+    assertEquals(await stateOf(root, sup), "implemented");
+  } finally {
+    await Deno.remove(root, { recursive: true });
+    await Deno.remove(sup, { recursive: true });
+  }
+});
+
+Deno.test("finality — class policy FAILS CLOSED: an unclassified principal counts toward nothing", async () => {
+  const { root, sup, p } = await scaffoldPolicy({ human: 1, model: 1 });
+  try {
+    const human = await genVoice(), ghost = await genVoice();
+    await writeRegistry(sup, { s0fractal: human.pub, nobody: ghost.pub });
+    await writeClasses(sup, { s0fractal: "human" }); // 'nobody' has NO class
+    const ev = await applyEvidence(root);
+    const rh = await resolveProposal(root, {
+      proposalFqdn: p.fqdn!,
+      outcome: "implemented",
+      evidence_refs: [ev],
+      resolver: "s0fractal",
+    });
+    await authWith(rh.path!, "s0fractal", human.priv);
+    const rn = await resolveProposal(root, {
+      proposalFqdn: p.fqdn!,
+      outcome: "implemented",
+      evidence_refs: [ev],
+      resolver: "nobody",
+    });
+    await authWith(rn.path!, "nobody", ghost.priv);
+    // human:1 ok, but model:1 unmet (the unclassified 'nobody' counts for nothing)
+    assertEquals(await stateOf(root, sup), "evidence_verified");
   } finally {
     await Deno.remove(root, { recursive: true });
     await Deno.remove(sup, { recursive: true });
