@@ -20,7 +20,12 @@
 // never `valid_at_signing`.
 
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
-import { type KeyEvent, resolveKeyState } from "./x2F70_keytimeline.ts";
+import {
+  type KeyEvent,
+  resolveKeyState,
+  type SignatureVerifier,
+  verifyAndResolve,
+} from "./x2F70_keytimeline.ts";
 
 export const SIGNATURE_DOMAIN = "myc.temporal-signature.v1";
 
@@ -124,10 +129,16 @@ export function validateEnvelope(
   };
 }
 
-/** Injected, explicit (codex: MYC never reads ambient paths or its parent). */
+/** Injected, explicit (codex: MYC never reads ambient paths or its parent). When a
+ *  registry root + signature verifier + verified anchor set are supplied, the
+ *  timeline is run through the FULL chain verifier (x2F70.verifyChain); otherwise the
+ *  timeline contributes only an advisory, unverified routing hint. */
 export interface TrustBundle {
   anchor_receipt?: TemporalAnchorReceipt;
   timeline_events?: KeyEvent[];
+  registry_root?: Record<string, string>;
+  verify_signature?: SignatureVerifier;
+  verified_anchor_receipts?: string[];
 }
 
 export interface StandingVerdict {
@@ -140,8 +151,10 @@ export interface StandingVerdict {
   envelope_commitment?: string;
   /** the anchor receipt's claimed height — DERIVED FROM CALLER INPUT, not proof. */
   anchored_by_height?: number;
-  /** advisory: key state at the anchor against an UNVERIFIED timeline (not root- or
-   *  chain-verified here). Routing hint only, never authority. */
+  /** whether the supplied timeline passed the FULL chain verifier. When false or
+   *  absent, valid_at_anchor below is an advisory hint over an unverified timeline. */
+  chain_valid?: boolean;
+  /** key state at the anchor. Chain-verified iff chain_valid; else advisory only. */
   valid_at_anchor?: boolean;
   trusted_now?: boolean;
   signing_key?: string | null;
@@ -205,13 +218,36 @@ export async function classifyStanding(
     anchored_by_height: receipt.bitcoin_block_height,
   };
   if (bundle?.timeline_events) {
-    const ks = resolveKeyState(bundle.timeline_events, env.signer, {
-      kind: "bitcoin_block",
+    const anchor = {
+      kind: "bitcoin_block" as const,
       height: receipt.bitcoin_block_height,
-    });
-    verdict.valid_at_anchor = ks.valid_at_signing; // advisory: window contains anchor
-    verdict.trusted_now = ks.trusted_now;
-    verdict.signing_key = ks.signing_key;
+    };
+    if (bundle.registry_root && bundle.verify_signature) {
+      // real chain verification (codex P1): resolve only from a verified chain.
+      const { chain, state } = await verifyAndResolve(
+        bundle.timeline_events,
+        env.signer,
+        anchor,
+        {
+          registryRoot: bundle.registry_root,
+          verifySignature: bundle.verify_signature,
+          verifiedAnchorReceipts: new Set(
+            bundle.verified_anchor_receipts ?? [],
+          ),
+        },
+      );
+      verdict.chain_valid = chain.valid;
+      verdict.valid_at_anchor = state.valid_at_signing;
+      verdict.trusted_now = state.trusted_now;
+      verdict.signing_key = state.signing_key;
+    } else {
+      // advisory only — the timeline is NOT chain-verified (no root/verifier supplied).
+      const ks = resolveKeyState(bundle.timeline_events, env.signer, anchor);
+      verdict.chain_valid = false;
+      verdict.valid_at_anchor = ks.valid_at_signing;
+      verdict.trusted_now = ks.trusted_now;
+      verdict.signing_key = ks.signing_key;
+    }
   }
   return verdict;
 }

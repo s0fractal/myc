@@ -115,3 +115,50 @@ Deno.test("temporal — the signed envelope is NON-CIRCULAR: commitment binds no
   assertEquals(r1.subject, `sha256:${c}`);
   assertEquals(r2.subject, `sha256:${c}`); // the envelope was not rewritten to be anchored
 });
+
+import { commitmentOf, type KeyEvent } from "./x2F70_keytimeline.ts";
+
+Deno.test("temporal — a verified timeline reports chain_valid:true; advisory path is false", async () => {
+  const e = env({ signer: "codex" });
+  const receipt = await receiptFor(e, { bitcoin_block_height: 200 });
+  // a minimal valid chain: genesis activate for codex, anchor verified.
+  const genesis: KeyEvent = {
+    principal: "codex",
+    event: "activate",
+    signing_key: "K0",
+    custodian: "architect",
+    issuer: "architect",
+    sequence: 0,
+    predecessor_commitment: null,
+    valid_from: {
+      kind: "bitcoin_block",
+      height: 100,
+      inclusion_receipt: "rcpt",
+    },
+    commitment: "",
+  };
+  genesis.commitment = await commitmentOf(genesis);
+  const verified = await classifyStanding({
+    covers: "envelope.v1",
+    envelope: e,
+  }, {
+    anchor_receipt: receipt,
+    timeline_events: [genesis],
+    registry_root: { codex: "K0" },
+    verify_signature: (_p, _c, _s) => true,
+    verified_anchor_receipts: ["rcpt"],
+  });
+  assertEquals(verified.standing, "temporal_candidate");
+  assertEquals(verified.chain_valid, true);
+  assertEquals(verified.valid_at_anchor, true);
+  assertEquals(verified.proof_complete, false); // anchor PROOF bytes still unverified (P2)
+  // without a registry root + verifier, the same timeline is advisory only.
+  const advisory = await classifyStanding({
+    covers: "envelope.v1",
+    envelope: e,
+  }, {
+    anchor_receipt: receipt,
+    timeline_events: [genesis],
+  });
+  assertEquals(advisory.chain_valid, false);
+});
