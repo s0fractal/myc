@@ -409,3 +409,51 @@ Deno.test("protocol audit rejects invalid imported receipts", async () => {
     result.errors.join("\n"),
   );
 });
+
+Deno.test("protocol audit: a valid action_grant passes; a malformed one fails closed", async () => {
+  const { propose } = await import("./x5800_propose.ts");
+  const root = await Deno.makeTempDir({ prefix: "myc-grant-test-" });
+  // a well-formed action_grant is accepted
+  const ok = await propose(root, {
+    proposal: "authorize the demo apply",
+    requires: "spore",
+    proposer: "claude",
+    action_grant: { intent_commitment: "a".repeat(64) },
+  });
+  assert(ok.ok, ok.error ?? "propose failed");
+  const good = await auditRoot(root);
+  assert(
+    !good.errors.some((e) => e.includes("action_grant")),
+    "a well-formed action_grant must not error: " + good.errors.join("\n"),
+  );
+  // a malformed action_grant (empty intent_commitment) fails closed
+  await write(
+    `${root}/public/proposals/h.bad00bad00bad.proposal.myc.md`,
+    [
+      "```json myc",
+      JSON.stringify({
+        type: "ProposedMutationDescriptor",
+        schema_version: "myc.proposed-mutation.v0.1",
+        fqdn: "h.bad00bad00bad.proposal.myc.md",
+        commitment: {
+          algorithm: "sha256",
+          value: "bad",
+          covers: "descriptor.body",
+        },
+        body: {
+          proposal: "x",
+          proposer: "claude",
+          requires_verification: "spore",
+          state: "dormant",
+          action_grant: { intent_commitment: "" },
+        },
+      }),
+      "```",
+    ].join("\n"),
+  );
+  const bad = await auditRoot(root);
+  assert(
+    bad.errors.some((e) => e.includes("action_grant")),
+    "an empty action_grant.intent_commitment must fail audit",
+  );
+});

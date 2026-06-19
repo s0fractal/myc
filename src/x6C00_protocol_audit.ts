@@ -593,6 +593,21 @@ async function auditDescriptorFile(
         );
       }
     }
+    // `action_grant` (actuation authority, codex x5d00_954412) must carry a
+    // non-empty intent_commitment string. Fail closed — a malformed grant must
+    // never become an exploitable or ambiguous authority.
+    if (Object.hasOwn(body, "action_grant")) {
+      const ag = body.action_grant as { intent_commitment?: unknown };
+      if (
+        !ag || typeof ag !== "object" ||
+        typeof ag.intent_commitment !== "string" ||
+        ag.intent_commitment.trim().length === 0
+      ) {
+        errors.push(
+          `${relative}: ProposedMutationDescriptor.action_grant must be { intent_commitment: <non-empty string> }`,
+        );
+      }
+    }
   }
 
   if (descriptor.type === "ProposalResolutionDescriptor") {

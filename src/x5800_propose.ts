@@ -59,6 +59,11 @@ export interface ProposeInput {
    *  principals must cover these class counts, e.g. {human:1, model:1}. Prose is
    *  not policy — this is the machine-enforced rule. */
   finality_policy?: { classes: Record<string, number> };
+  /** Optional ACTUATION grant (codex x5d00_954412): this proposal authorizes ONE
+   *  concrete action — the one whose canonical intent_commitment is recorded here.
+   *  A warrant admits an action only if a final proposal grants exactly its intent;
+   *  a proposal with no grant is governance history, never actuation authority. */
+  action_grant?: { intent_commitment: string };
 }
 
 export interface ProposeResult {
@@ -93,6 +98,7 @@ export async function propose(
     state: "dormant" as const,
   };
   if (input.finality_policy) body.finality_policy = input.finality_policy;
+  if (input.action_grant) body.action_grant = input.action_grant;
   const commitment = await sha256Hex(
     stableStringify(body as unknown as Parameters<typeof stableStringify>[0]),
   );
@@ -165,11 +171,19 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
       if (cls && n && Number.isInteger(+n)) classes[cls] = +n;
     }
   }
+  // --action-grant <intent_commitment>: this proposal authorizes one concrete
+  // action. Compute the commitment with `t warrant intent <intent.json>` (one
+  // algorithm, trinity-side) and pass it here — never hand-type a guess.
+  const grant = f["action-grant"];
+  const action_grant = grant && grant !== "true"
+    ? { intent_commitment: grant }
+    : undefined;
   const result = await propose(root, {
     proposal: f.text ?? f.proposal ?? "",
     requires: (f.requires ?? f.backend ?? "") as Backend,
     proposer: f.actor ?? f.proposer ?? "anonymous",
     finality_policy: Object.keys(classes).length > 0 ? { classes } : undefined,
+    action_grant,
   });
   console.log(JSON.stringify(
     {
