@@ -219,6 +219,37 @@ Deno.test("finality — requires=trinity with TWO distinct principals agreeing �
   }
 });
 
+Deno.test("finality — sub-handles of ONE voice family CANNOT fake a quorum (red-team)", async () => {
+  // claude + claude-fable-5 share voiceFamily 'claude' → one principal, not two.
+  // Both resolutions verify against the single registered claude key, but the
+  // quorum counts distinct FAMILIES, so trinity stays short of final.
+  const { root, sup, p } = await scaffold("trinity");
+  try {
+    const claude = await genVoice();
+    await writeRegistry(sup, { claude: claude.pub });
+    const ev = await applyEvidence(root);
+    const r1 = await resolveProposal(root, {
+      proposalFqdn: p.fqdn!,
+      outcome: "implemented",
+      evidence_refs: [ev],
+      resolver: "claude",
+    });
+    await authWith(r1.path!, "claude", claude.priv);
+    const r2 = await resolveProposal(root, {
+      proposalFqdn: p.fqdn!,
+      outcome: "implemented",
+      evidence_refs: [ev],
+      resolver: "claude-fable-5", // same family, signed by the same key
+    });
+    await authWith(r2.path!, "claude-fable-5", claude.priv);
+    // both authenticate + evidence-verify, but it is ONE principal → not final
+    assertEquals(await stateOf(root, sup), "evidence_verified");
+  } finally {
+    await Deno.remove(root, { recursive: true });
+    await Deno.remove(sup, { recursive: true });
+  }
+});
+
 Deno.test("finality — two distinct principals, DIFFERENT outcomes → conflicted", async () => {
   const { root, sup, p } = await scaffold("trinity");
   try {
