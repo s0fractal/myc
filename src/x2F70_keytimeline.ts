@@ -1,17 +1,23 @@
-// myc/src/x2F70_keytimeline.ts — the pure key-timeline verifier, MYC-resident.
+// myc/src/x2F70_keytimeline.ts — the pure key-timeline STATE RESOLVER, MYC-resident.
 // position: 2/F.7 → mirror × bridge, which key was valid WHEN.
 //
-// codex x6d00_954417 step 4: the canonical pure timeline verifier belongs in MYC,
-// because authenticity is a membrane contract and MYC must verify a supplied trust
-// bundle WITHOUT reading Trinity. This is the verification subset of Trinity's
-// x2B00_keytimeline — VENDORED byte-identically (Trinity CI runs without this
-// submodule, so a static import is impossible). A shared known-answer vector pins
-// the two `keyStateAt` implementations; if either drifts, exactly one test fails.
+// codex x6d00_954417 step 4 + x2d00_954422 P0.3: this is the MYC-resident KEY-STATE
+// RESOLVER, NOT yet the canonical chain verifier. It resolves, over an
+// ASSUMED-VALID event set, which key window contains an anchor and whether trust was
+// withdrawn — and it suspends a principal on a duplicate sequence/predecessor fork.
+// It does NOT yet verify event body commitments, contiguous predecessor links,
+// predecessor-authorization signatures, rotate/delegate proof-of-possession,
+// registry-root genesis, or anchors on key events. Calling it a verifier would
+// overclaim; that full chain verification is codex P1.
 //
-// Pure and fail-closed: it answers "which key was valid for a principal AT an
-// anchor, and is it still trusted?" — never WHO may rotate or revoke (custody). A
-// forked principal is suspended; no heuristic or resonance score ever picks a
-// branch (the three-planes law).
+// It mirrors the resolveKeyState subset of Trinity's x2B00_keytimeline, VENDORED
+// (Trinity CI runs without this submodule, so a static import is impossible). A
+// shared known-answer vector pins the two resolvers over KEY SELECTION; codex notes
+// this proves selection parity, NOT full protocol parity (the reduced type here
+// omits custody/issuer/scope/authorization). Full parity awaits P1.
+//
+// Pure and fail-closed; no heuristic or resonance score ever picks a branch (the
+// three-planes law).
 
 export type AnchorKind = "bitcoin_block" | "wall_clock" | "none";
 export interface Anchor {

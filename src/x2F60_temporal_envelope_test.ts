@@ -4,140 +4,114 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   classifyStanding,
-  ENVELOPE_DOMAIN,
   envelopeCommitment,
-  type TemporalEnvelopeV1,
+  SIGNATURE_DOMAIN,
+  type TemporalAnchorReceipt,
+  type TemporalSignatureEnvelope,
 } from "./x2F60_temporal_envelope.ts";
 
-const env = (over: Partial<TemporalEnvelopeV1> = {}): TemporalEnvelopeV1 => ({
-  domain: ENVELOPE_DOMAIN,
+const env = (
+  over: Partial<TemporalSignatureEnvelope> = {},
+): TemporalSignatureEnvelope => ({
+  domain: SIGNATURE_DOMAIN,
   descriptor_commitment: "sha256:dddd",
   signer: "codex",
   key_timeline_root: "sha256:rrrr",
-  signing_anchor: {
-    kind: "bitcoin_block",
-    height: 954417,
-    inclusion_receipt: "rcpt-1",
-  },
+  nonce: "n1",
+  ...over,
+});
+const receiptFor = async (
+  e: TemporalSignatureEnvelope,
+  over: Partial<TemporalAnchorReceipt> = {},
+): Promise<TemporalAnchorReceipt> => ({
+  type: "TemporalAnchorReceipt.v1",
+  subject: `sha256:${await envelopeCommitment(e)}`,
+  proof_kind: "opentimestamps",
+  proof_commitment: "sha256:ots",
+  bitcoin_block_height: 954500,
+  bitcoin_block_hash: "00..",
+  verifier: "ots:0.7",
   ...over,
 });
 
-Deno.test("temporal envelope — v0 signature is current_registry_only, never historical (codex #8)", async () => {
-  const v = await classifyStanding({ covers: "commitment" });
-  assertEquals(v.standing, "current_registry_only");
-});
-
-Deno.test("temporal envelope — v1 with an independently verified anchor is historical_v1", async () => {
-  const v = await classifyStanding(
-    { covers: "envelope.v1", envelope: env() },
-    { verified_anchor_receipts: ["rcpt-1"] },
-  );
-  assertEquals(v.standing, "historical_v1");
-});
-
-Deno.test("temporal envelope — self-asserted anchor is never historical proof (codex #6)", async () => {
-  // receipt not in the verified set
-  const a = await classifyStanding(
-    { covers: "envelope.v1", envelope: env() },
-    { verified_anchor_receipts: ["other"] },
-  );
-  assertEquals(a.standing, "self_asserted");
-  // no inclusion_receipt at all
-  const b = await classifyStanding(
-    {
-      covers: "envelope.v1",
-      envelope: env({
-        signing_anchor: { kind: "bitcoin_block", height: 954417 },
+Deno.test("temporal — NOTHING is ever proof_complete in this slice (no overclaim)", async () => {
+  const e = env();
+  for (
+    const v of [
+      await classifyStanding({}),
+      await classifyStanding({ covers: "commitment" }),
+      await classifyStanding({ covers: "envelope.v1", envelope: e }),
+      await classifyStanding({ covers: "envelope.v1", envelope: e }, {
+        anchor_receipt: await receiptFor(e),
       }),
-    },
-    { verified_anchor_receipts: ["rcpt-1"] },
-  );
-  assertEquals(b.standing, "self_asserted");
+    ]
+  ) {
+    // proof_complete is typed `false`; the Standing union has no anchored_valid /
+    // historical_v1 member, so an overclaim is impossible by construction.
+    assertEquals(v.proof_complete, false);
+  }
 });
 
-Deno.test("temporal envelope — no anchor verifier bundle is unavailable, never pass", async () => {
+Deno.test("temporal — v0 is current_registry_only; no content_sig is unsigned", async () => {
+  assertEquals(
+    (await classifyStanding({ covers: "commitment" })).standing,
+    "current_registry_only",
+  );
+  assertEquals((await classifyStanding({})).standing, "unsigned");
+});
+
+Deno.test("temporal — a v1 envelope with a matching anchor receipt is at most temporal_candidate", async () => {
+  const e = env();
+  const v = await classifyStanding({ covers: "envelope.v1", envelope: e }, {
+    anchor_receipt: await receiptFor(e),
+  });
+  assertEquals(v.standing, "temporal_candidate");
+  assertEquals(v.anchored_by_height, 954500);
+});
+
+Deno.test("temporal — NEGATIVE: an anchor receipt for ANOTHER subject does not bind (codex P0.4)", async () => {
+  const e = env();
+  const other = env({ nonce: "different" });
+  const wrong = await receiptFor(other); // subject is the OTHER envelope's commitment
+  const v = await classifyStanding({ covers: "envelope.v1", envelope: e }, {
+    anchor_receipt: wrong,
+  });
+  assertEquals(v.standing, "temporal_unanchored_candidate");
+});
+
+Deno.test("temporal — NEGATIVE: a v1 envelope with no anchor receipt is unanchored", async () => {
   const v = await classifyStanding(
     { covers: "envelope.v1", envelope: env() },
-    null,
+    {},
   );
-  assertEquals(v.standing, "unavailable");
+  assertEquals(v.standing, "temporal_unanchored_candidate");
 });
 
-Deno.test("temporal envelope — commitment binds anchor height and timeline root (codex #1, #2)", async () => {
-  const base = await envelopeCommitment(env());
-  assert(
-    base !==
-      await envelopeCommitment(
-        env({
-          signing_anchor: {
-            kind: "bitcoin_block",
-            height: 999999,
-            inclusion_receipt: "rcpt-1",
-          },
-        }),
-      ),
-  );
-  assert(
-    base !==
-      await envelopeCommitment(env({ key_timeline_root: "sha256:other" })),
-  );
-  assert(
-    base !==
-      await envelopeCommitment(env({ descriptor_commitment: "sha256:other" })),
-  );
-});
-
-Deno.test("temporal envelope — malformed v1 envelope fails closed to unavailable", async () => {
-  const v = await classifyStanding(
-    { covers: "envelope.v1", envelope: { domain: "wrong" } },
-    { verified_anchor_receipts: ["rcpt-1"] },
-  );
-  assertEquals(v.standing, "unavailable");
-});
-
-Deno.test("temporal envelope — historical_v1 resolves valid_at_signing against the timeline (step 4)", async () => {
-  const events = [
-    {
-      principal: "codex",
-      event: "activate" as const,
-      signing_key: "K0",
-      sequence: 0,
-      predecessor_commitment: null,
-      valid_from: { kind: "bitcoin_block" as const, height: 954000 },
-    },
-    {
-      principal: "codex",
-      event: "revoke" as const,
-      signing_key: "K0",
-      sequence: 1,
-      predecessor_commitment: null,
-      valid_from: { kind: "bitcoin_block" as const, height: 955000 },
-      compromised_since: { kind: "bitcoin_block" as const, height: 954500 },
-    },
-  ];
-  // anchor at 954417: after activation, BEFORE the compromise point → trusted
-  const ok = await classifyStanding(
-    { covers: "envelope.v1", envelope: env({ signer: "codex" }) },
-    { verified_anchor_receipts: ["rcpt-1"], timeline_events: events },
-  );
-  assertEquals(ok.standing, "historical_v1");
-  assertEquals(ok.valid_at_signing, true);
-  assertEquals(ok.trusted_now, true);
-  // anchor after compromised_since → valid at signing, but trust withdrawn
-  const compromised = await classifyStanding(
-    {
+Deno.test("temporal — malformed v1 envelope fails closed", async () => {
+  assertEquals(
+    (await classifyStanding({
       covers: "envelope.v1",
-      envelope: env({
-        signer: "codex",
-        signing_anchor: {
-          kind: "bitcoin_block",
-          height: 954600,
-          inclusion_receipt: "rcpt-1",
-        },
-      }),
-    },
-    { verified_anchor_receipts: ["rcpt-1"], timeline_events: events },
+      envelope: { domain: "wrong" },
+    })).standing,
+    "malformed",
   );
-  assertEquals(compromised.valid_at_signing, true);
-  assertEquals(compromised.trusted_now, false);
+});
+
+Deno.test("temporal — the signed envelope is NON-CIRCULAR: commitment binds no anchor", async () => {
+  const e = env();
+  // commitment changes with envelope fields...
+  assert(
+    await envelopeCommitment(e) !==
+      await envelopeCommitment(env({ nonce: "n2" })),
+  );
+  assert(
+    await envelopeCommitment(e) !==
+      await envelopeCommitment(env({ key_timeline_root: "sha256:x" })),
+  );
+  // ...but is INDEPENDENT of any anchor: two different receipts attest the SAME bytes
+  const c = await envelopeCommitment(e);
+  const r1 = await receiptFor(e, { bitcoin_block_height: 954500 });
+  const r2 = await receiptFor(e, { bitcoin_block_height: 960000 });
+  assertEquals(r1.subject, `sha256:${c}`);
+  assertEquals(r2.subject, `sha256:${c}`); // the envelope was not rewritten to be anchored
 });

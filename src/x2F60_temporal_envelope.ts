@@ -1,52 +1,64 @@
-// myc/src/x2F60_temporal_envelope.ts — Temporal Trust Envelope v1 (format + standing).
+// myc/src/x2F60_temporal_envelope.ts — Temporal trust: format contract + classifier.
 // position: 2/F.6 → mirror × bridge, the time a signature was actually made.
 //
-// codex x6d00_954417 P0. A v0 content_sig covers only the body commitment:
+// codex x2d00_954422: **a classifier is not a verifier.** An earlier draft emitted
+// `historical_v1` / `valid_at_signing` from a string allowlist, with no Ed25519
+// check, no timeline-root recompute, no event-chain verification, and no anchor
+// proof — presence dressed as proof, the lesson the membrane keeps relearning. And
+// its envelope was temporally CIRCULAR: the future Bitcoin receipt sat inside the
+// signed bytes, but a real OpenTimestamps receipt can only exist AFTER the envelope
+// digest does.
 //
-//   content_sig: { voice, alg, covers: "commitment", sig }
-//
-// It binds NO time, so it can never be historically verified — an editable or
-// self-asserted anchor could move a signature to a moment before a revocation, and
-// the (already-built) key timeline x2B00 has nothing on the descriptor to evaluate
-// `keyStateAt` against. The v1 envelope closes that gap by signing a domain-
-// separated payload that binds the descriptor commitment, the signing anchor, and
-// the exact key-timeline snapshot used to select the key.
-//
-// THIS SLICE IS VERIFICATION-ONLY and does NOT change live signing (x2F50). It
-// specifies the envelope, its commitment, and the STANDING a signature may claim —
-// fail closed. The `valid_at_signing` / `trusted_now` resolution against the key
-// timeline arrives when the pure timeline verifier becomes MYC-resident (codex
-// step 4). Minting, rotation, recovery and fork adjudication remain human custody.
+// This module is therefore deliberately SCOPED to (1) the NON-CIRCULAR contract —
+// a signature envelope that binds no future anchor, and a separate anchor receipt
+// whose subject is the envelope commitment — and (2) an honest FORMAT classifier.
+// It performs NO cryptography yet: every verdict carries `proof_complete: false`,
+// and its strongest result is `temporal_candidate`, never `anchored_valid`. The
+// real verification pipeline (signature, root recompute, chain authorization,
+// anchor-proof bytes) is codex P1/P2. OTS proves existence no-later-than a block,
+// never an author's signing instant — so the temporal axis is `valid_at_anchor`,
+// never `valid_at_signing`.
 
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { type KeyEvent, resolveKeyState } from "./x2F70_keytimeline.ts";
 
-export const ENVELOPE_DOMAIN = "myc.content-sig.v1";
+export const SIGNATURE_DOMAIN = "myc.temporal-signature.v1";
 
-/** A signing anchor: an external time reference. It is historical proof ONLY with an
- *  independently verified inclusion_receipt — a bare height is self-asserted. */
-export interface SigningAnchor {
-  kind: "bitcoin_block" | string;
-  height: number;
-  inclusion_receipt?: string;
-}
-
-/** The v1 envelope — the EXACT payload the signature covers (not just the commitment). */
-export interface TemporalEnvelopeV1 {
-  domain: string; // must equal ENVELOPE_DOMAIN
+/** Signed FIRST. It binds NO future anchor and asserts no block height it cannot
+ *  prove (codex: non-circular). `key_timeline_root` means only "the signer selected
+ *  its key under this declared snapshot" — untrusted until a verifier recomputes it. */
+export interface TemporalSignatureEnvelope {
+  domain: string; // must equal SIGNATURE_DOMAIN
   descriptor_commitment: string;
   signer: string;
-  signing_anchor: SigningAnchor;
-  key_timeline_root: string; // the verified event snapshot used to select the key
+  key_timeline_root: string;
+  nonce: string;
 }
 
-/** The standing a signature may honestly claim. Ordered weakest→strongest only by
- *  meaning, never by a score: standing is categorical, never a heuristic. */
+/** Produced LATER, SEPARATE from the signed envelope. Its height/hash are derived
+ *  from verified proof bytes, never copied from the envelope; it is meaningful only
+ *  if a registered verifier proves those bytes attest exactly `subject`. Verifying
+ *  the proof bytes is codex P2 — not done here. */
+export interface TemporalAnchorReceipt {
+  type: "TemporalAnchorReceipt.v1";
+  subject: string; // sha256:<envelope commitment>
+  proof_kind: string; // e.g. "opentimestamps"
+  proof_commitment: string;
+  bitcoin_block_height: number;
+  bitcoin_block_hash: string;
+  verifier: string;
+}
+
+/** Honest FORMAT standing — NOT proof. Cryptographic verdicts (signature_invalid,
+ *  anchored_valid, revoked_or_compromised) belong to the P1/P2 verifier and are
+ *  intentionally NOT emitted here. */
 export type Standing =
-  | "unavailable" // v1 but no anchor verifier/bundle supplied — never pass, not invalid
-  | "self_asserted" // v1 whose anchor lacks an independently verified inclusion receipt
-  | "current_registry_only" // v0 — verifiable vs the CURRENT registry, never historically
-  | "historical_v1"; // v1 with a verified anchor — eligible for valid_at_signing (step 4)
+  | "unsigned" // no content_sig at all
+  | "malformed" // a v1 envelope of the wrong shape — fail closed
+  | "unavailable" // required input missing
+  | "current_registry_only" // v0 — the signature verifier checks it vs the pinned registry, not here
+  | "temporal_unanchored_candidate" // valid-shaped v1 envelope, no anchor receipt binding it
+  | "temporal_candidate"; // v1 envelope + an anchor receipt whose subject matches — proof NOT verified
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 function stable(v: Json): string {
@@ -67,171 +79,144 @@ async function sha256(s: string): Promise<string> {
     .join("");
 }
 
-/** The commitment the v1 signature covers — the stable encoding of the WHOLE
- *  envelope. Changing the anchor height, the timeline root, or the descriptor
- *  commitment changes this value, so a v1 signature cannot be replayed to another
- *  time or another timeline snapshot (codex acceptance 1 & 2). */
+/** The commitment the Ed25519 signature covers — the stable encoding of the signed
+ *  envelope. It contains no anchor, so the same bytes can later be attested by an
+ *  external receipt without being rewritten (codex: non-circular). Changing any
+ *  field (incl. nonce, key_timeline_root) changes this value. */
 export async function envelopeCommitment(
-  env: TemporalEnvelopeV1,
+  env: TemporalSignatureEnvelope,
 ): Promise<string> {
   return await sha256(stable({
     descriptor_commitment: env.descriptor_commitment,
     domain: env.domain,
     key_timeline_root: env.key_timeline_root,
+    nonce: env.nonce,
     signer: env.signer,
-    signing_anchor: {
-      height: env.signing_anchor.height,
-      inclusion_receipt: env.signing_anchor.inclusion_receipt ?? null,
-      kind: env.signing_anchor.kind,
-    },
   }));
 }
 
-/** Validate the structural shape of a v1 envelope. Fail closed. */
 export function validateEnvelope(
   v: unknown,
-): { ok: true; env: TemporalEnvelopeV1 } | { ok: false; error: string } {
+): { ok: true; env: TemporalSignatureEnvelope } | { ok: false; error: string } {
   if (!v || typeof v !== "object") {
     return { ok: false, error: "envelope must be an object" };
   }
   const o = v as Record<string, unknown>;
-  if (o.domain !== ENVELOPE_DOMAIN) {
-    return { ok: false, error: `domain must be ${ENVELOPE_DOMAIN}` };
+  if (o.domain !== SIGNATURE_DOMAIN) {
+    return { ok: false, error: `domain must be ${SIGNATURE_DOMAIN}` };
   }
-  if (typeof o.descriptor_commitment !== "string" || !o.descriptor_commitment) {
-    return {
-      ok: false,
-      error: "descriptor_commitment must be a non-empty string",
-    };
-  }
-  if (typeof o.signer !== "string" || !o.signer) {
-    return { ok: false, error: "signer must be a non-empty string" };
-  }
-  if (typeof o.key_timeline_root !== "string" || !o.key_timeline_root) {
-    return { ok: false, error: "key_timeline_root must be a non-empty string" };
-  }
-  const a = o.signing_anchor as Record<string, unknown> | undefined;
-  if (
-    !a || typeof a !== "object" || typeof a.kind !== "string" ||
-    typeof a.height !== "number"
+  for (
+    const f of ["descriptor_commitment", "signer", "key_timeline_root", "nonce"]
   ) {
-    return {
-      ok: false,
-      error: "signing_anchor must have a string kind and numeric height",
-    };
+    if (typeof o[f] !== "string" || !(o[f] as string)) {
+      return { ok: false, error: `${f} must be a non-empty string` };
+    }
   }
   return {
     ok: true,
     env: {
-      domain: o.domain,
-      descriptor_commitment: o.descriptor_commitment,
-      signer: o.signer,
-      key_timeline_root: o.key_timeline_root,
-      signing_anchor: {
-        kind: a.kind,
-        height: a.height,
-        inclusion_receipt: typeof a.inclusion_receipt === "string"
-          ? a.inclusion_receipt
-          : undefined,
-      },
+      domain: o.domain as string,
+      descriptor_commitment: o.descriptor_commitment as string,
+      signer: o.signer as string,
+      key_timeline_root: o.key_timeline_root as string,
+      nonce: o.nonce as string,
     },
   };
 }
 
-/** The injected trust bundle (codex: registry genesis + event bundle + verified
- *  anchor receipts are passed EXPLICITLY; MYC never searches ambient paths or
- *  imports its parent). For this slice only the verified-anchor set is consulted. */
+/** Injected, explicit (codex: MYC never reads ambient paths or its parent). */
 export interface TrustBundle {
-  /** inclusion_receipt ids that have been INDEPENDENTLY verified. */
-  verified_anchor_receipts?: string[];
-  /** the key-event timeline (the verified snapshot named by key_timeline_root), so
-   *  a historical signature can be resolved to valid_at_signing / trusted_now. */
+  anchor_receipt?: TemporalAnchorReceipt;
   timeline_events?: KeyEvent[];
 }
 
 export interface StandingVerdict {
   standing: Standing;
+  /** ALWAYS false in this slice — no signature/root/chain/anchor-proof is verified
+   *  here. A `temporal_candidate` is a CANDIDATE, never a proven historical fact. */
+  proof_complete: false;
   reason: string;
   signer?: string;
   envelope_commitment?: string;
-  /** present only for historical_v1 with a supplied timeline: was the signer's key
-   *  active at the bound anchor, and is it still trusted? (codex step 4) */
-  valid_at_signing?: boolean;
+  /** the anchor receipt's claimed height — DERIVED FROM CALLER INPUT, not proof. */
+  anchored_by_height?: number;
+  /** advisory: key state at the anchor against an UNVERIFIED timeline (not root- or
+   *  chain-verified here). Routing hint only, never authority. */
+  valid_at_anchor?: boolean;
   trusted_now?: boolean;
   signing_key?: string | null;
 }
 
-/** Classify the standing a content_sig may honestly claim. Fail closed: a v1
- *  envelope whose anchor receipt is not in the supplied verified set is
- *  `self_asserted` (never historical); a v1 envelope with no bundle at all is
- *  `unavailable` (never pass); a v0 signature is `current_registry_only` and must
- *  never be reported as historically verified. */
+/** Classify the FORMAT standing of a content_sig. Fail closed; never proof. */
 export async function classifyStanding(
   contentSig: { covers?: string; envelope?: unknown },
   bundle?: TrustBundle | null,
 ): Promise<StandingVerdict> {
-  // v0 — signs only the commitment, binds no time.
+  if (!contentSig || (!contentSig.covers && !contentSig.envelope)) {
+    return {
+      standing: "unsigned",
+      proof_complete: false,
+      reason: "no content_sig present",
+    };
+  }
+  // v0 — signs only the body commitment, binds no time.
   if (contentSig.covers === "commitment" || !contentSig.envelope) {
     return {
       standing: "current_registry_only",
+      proof_complete: false,
       reason:
-        "v0 signature binds no signing anchor — verifiable against the current registry, never historically",
+        "v0 signature binds no time; its validity vs the pinned registry is the signature verifier's job, not this classifier's — never historically anchored",
     };
   }
   const v = validateEnvelope(contentSig.envelope);
   if (!v.ok) {
     return {
-      standing: "unavailable",
-      reason: `malformed v1 envelope: ${v.error}`,
+      standing: "malformed",
+      proof_complete: false,
+      reason: `v1 envelope: ${v.error}`,
     };
   }
   const env = v.env;
   const commitment = await envelopeCommitment(env);
-  const receipt = env.signing_anchor.inclusion_receipt;
-  if (!bundle || !bundle.verified_anchor_receipts) {
+  const receipt = bundle?.anchor_receipt;
+  // an anchor receipt counts as a CANDIDATE binding only if its subject is exactly
+  // this envelope's commitment. We do NOT verify the proof bytes (codex P2), so this
+  // can never exceed `temporal_candidate`.
+  const subjectMatches = !!receipt &&
+    receipt.subject === `sha256:${commitment}`;
+  if (!receipt || !subjectMatches) {
     return {
-      standing: "unavailable",
-      reason:
-        "no anchor verifier bundle supplied — cannot establish historical trust",
+      standing: "temporal_unanchored_candidate",
+      proof_complete: false,
+      reason: receipt
+        ? "anchor receipt subject does not match this envelope commitment — not a binding"
+        : "no anchor receipt — a v1 envelope without an attested anchor is unanchored",
       signer: env.signer,
       envelope_commitment: commitment,
     };
   }
-  if (!receipt || !bundle.verified_anchor_receipts.includes(receipt)) {
-    return {
-      standing: "self_asserted",
-      reason:
-        "signing anchor has no independently verified inclusion receipt — a self-asserted time is not historical proof",
-      signer: env.signer,
-      envelope_commitment: commitment,
-    };
-  }
-  // anchor independently verified → resolve the signer's key state AT the bound
-  // anchor against the supplied timeline (step 4: the verifier is MYC-resident).
   const verdict: StandingVerdict = {
-    standing: "historical_v1",
-    reason: "anchor independently verified",
+    standing: "temporal_candidate",
+    proof_complete: false,
+    reason:
+      "anchor receipt names this envelope, but its proof bytes are NOT verified here (codex P2) — a candidate, not a proven anchored fact",
     signer: env.signer,
     envelope_commitment: commitment,
+    anchored_by_height: receipt.bitcoin_block_height,
   };
-  if (bundle.timeline_events) {
+  if (bundle?.timeline_events) {
     const ks = resolveKeyState(bundle.timeline_events, env.signer, {
       kind: "bitcoin_block",
-      height: env.signing_anchor.height,
+      height: receipt.bitcoin_block_height,
     });
-    verdict.valid_at_signing = ks.valid_at_signing;
+    verdict.valid_at_anchor = ks.valid_at_signing; // advisory: window contains anchor
     verdict.trusted_now = ks.trusted_now;
     verdict.signing_key = ks.signing_key;
-    verdict.reason = `anchor verified; ${ks.reason}`;
-  } else {
-    verdict.reason =
-      "anchor verified, but no timeline supplied — valid_at_signing unresolved";
   }
   return verdict;
 }
 
-// ── CLI surface (read-only): make the verifier live + report the honest standing ──
-/** Pull the `covers` field of a descriptor's content_sig from its frontmatter. */
+// ── CLI surface (read-only): report the honest FORMAT standing distribution ──────
 function coversOf(text: string): string | null {
   const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
   const sig = fm.match(/content_sig:\n((?: {2}.*\n?)+)/)?.[1];
@@ -259,19 +244,20 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
       {
         type: "temporal_envelope",
         position: "2/F6",
-        usage:
-          "standing [dir]   classify the temporal standing of signed descriptors",
+        usage: "standing [dir] [--json]",
         note:
-          "v0 signatures bind no time → current_registry_only; v1 envelopes can be historically verified",
+          "FORMAT classifier (no cryptography yet, codex x2d00 P0): v0 → current_registry_only; v1 strongest → temporal_candidate. Never a proof.",
       },
       null,
       2,
     ));
     return;
   }
-  // default scope: the superproject src/ (where the signed chords live).
-  const root = dirname(dirname(fromFileUrl(import.meta.url))); // …/myc
-  const dir = args[1] ?? join(dirname(root), "src");
+  // codex P0.1: parse flags correctly — a leading non-flag positional is the dir,
+  // and `--json` is a flag, never the scan path.
+  const positional = args.slice(1).find((a) => !a.startsWith("--"));
+  const root = dirname(dirname(fromFileUrl(import.meta.url)));
+  const dir = positional ?? join(dirname(root), "src");
   const tally: Record<string, number> = {};
   let signed = 0;
   for await (const path of walk(dir)) {
@@ -287,10 +273,11 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
       position: "2/F6",
       scope: dir,
       signed,
+      proof_complete: false,
       standing: tally,
       note: (tally.current_registry_only ?? 0) === signed && signed > 0
-        ? "ALL current signatures are v0 (current_registry_only): valid against the current registry, but NONE are historically verified. Historical verification requires v1 temporal envelopes, whose emission binds a verified anchor receipt (architect custody)."
-        : "mixed standing — see counts",
+        ? "All current signatures are v0 (current_registry_only): bind no time and are NOT historically anchored. This is a FORMAT classification — cryptographic verification of any signature is the verifier's job, not this scan. Historical anchoring requires v1 temporal signatures + a verified anchor proof (architect custody)."
+        : "FORMAT classification only — see codex x2d00 for the verification pipeline",
     },
     null,
     2,
