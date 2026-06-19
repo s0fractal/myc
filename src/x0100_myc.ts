@@ -3091,7 +3091,16 @@ export async function main(args: string[]): Promise<void> {
   if (args[0] === "temporal-sign") {
     const sp = new URL("./x2F90_temporal_sign.ts", import.meta.url).pathname;
     const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", "--allow-env", sp, ...args.slice(1)],
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-env",
+        `--allow-write=${
+          new URL("../public/temporal", import.meta.url).pathname
+        }`,
+        sp,
+        ...args.slice(1),
+      ],
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",

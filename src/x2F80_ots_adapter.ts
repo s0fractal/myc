@@ -79,7 +79,7 @@ async function run(
  *  embedded (claimed) attestations are still reported from `ots info`. */
 export async function verifyOtsProof(
   otsPath: string,
-  opts: { verify?: boolean } = {},
+  opts: { verify?: boolean; expectedSubject?: string } = {},
 ): Promise<OtsVerdict> {
   const version = await run(["ots", "--version"]);
   if (!version) {
@@ -108,6 +108,19 @@ export async function verifyOtsProof(
     };
   }
   const parsed = parseOtsInfo(info.out);
+  const expected = opts.expectedSubject?.replace(/^sha256:/, "").toLowerCase();
+  if (expected && parsed.subject_digest !== expected) {
+    return {
+      available: true,
+      subject_digest: parsed.subject_digest,
+      bitcoin_block_heights: parsed.bitcoin_block_heights,
+      pending_attestations: parsed.pending_attestations,
+      verify: "invalid",
+      verifier_version,
+      reason:
+        `proof subject mismatch: expected ${expected}, got ${parsed.subject_digest}`,
+    };
+  }
 
   let verify: VerifyResult = "unavailable";
   let reason =
@@ -117,7 +130,7 @@ export async function verifyOtsProof(
     if (!v) {
       verify = "unavailable";
       reason = "ots verify could not run";
-    } else if (/Success!|verified|exists/i.test(v.err + v.out)) {
+    } else if (v.code === 0) {
       verify = "valid";
       reason = "ots verify confirmed the Bitcoin attestation";
     } else if (
@@ -149,13 +162,17 @@ export async function verifyOtsProof(
 
 export async function runCli(args: string[] = Deno.args): Promise<void> {
   const verify = args.includes("--verify");
-  const path = args.find((a) => !a.startsWith("--"));
+  const subjectIndex = args.indexOf("--subject");
+  const expectedSubject = subjectIndex >= 0
+    ? args[subjectIndex + 1]
+    : undefined;
+  const path = args[0] && !args[0].startsWith("--") ? args[0] : undefined;
   if (!path) {
     console.log(JSON.stringify(
       {
         type: "ots_adapter",
         position: "2/F8",
-        usage: "ots-verify <proof.ots> [--verify]",
+        usage: "ots-verify <proof.ots> [--subject sha256:<digest>] [--verify]",
         note:
           "reads embedded attestations via `ots info`; --verify runs the on-chain `ots verify` (unavailable without a Bitcoin source). Never fabricates an anchor.",
       },
@@ -164,7 +181,7 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
     ));
     return;
   }
-  const verdict = await verifyOtsProof(path, { verify });
+  const verdict = await verifyOtsProof(path, { verify, expectedSubject });
   console.log(
     JSON.stringify(
       { type: "ots_adapter", position: "2/F8", ...verdict },
@@ -172,7 +189,7 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
       2,
     ),
   );
-  if (!verdict.available) Deno.exitCode = 1;
+  if (!verdict.available || verdict.verify === "invalid") Deno.exitCode = 1;
 }
 
 if (import.meta.main) await runCli();

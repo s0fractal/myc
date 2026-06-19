@@ -54,3 +54,16 @@ Deno.test("ots — verifyOtsProof is honest in BOTH environments (tool present o
     assertEquals(v.verify, "unavailable"); // no --verify ⇒ on-chain header unchecked
   }
 });
+
+Deno.test("ots — an expected subject mismatch is invalid before on-chain standing", async () => {
+  const path = new URL(
+    "../../probes/spore-bootstrap-pin-v0/external/spore-bootstrap-v0.root.ots",
+    import.meta.url,
+  ).pathname;
+  const v = await verifyOtsProof(path, {
+    expectedSubject: `sha256:${"0".repeat(64)}`,
+  });
+  if (!v.available) return; // CI without ots remains honestly unavailable.
+  assertEquals(v.verify, "invalid");
+  assert(v.reason.includes("subject mismatch"));
+});

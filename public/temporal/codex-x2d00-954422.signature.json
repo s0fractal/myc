@@ -1,0 +1,9 @@
+{
+  "type": "TemporalSignatureArtifact.v1",
+  "envelope_file": "codex-x2d00-954422.envelope.json",
+  "envelope_commitment": "79dd965fbfcd43776a9f760185b24e09fdcd3cf2a69065ac499f1944d1cd5831",
+  "signature": "d29t8xZEextbyOd97v4jCAAw2Kt0cnc4XN8xObLyKG2XIy7GYUcgki+Sy6wUk8gAL/bnwoZ9dwg0kLFa9oIaCg==",
+  "subject_for_ots": "sha256:79dd965fbfcd43776a9f760185b24e09fdcd3cf2a69065ac499f1944d1cd5831",
+  "standing": "temporal_unanchored",
+  "proof_complete": false
+}

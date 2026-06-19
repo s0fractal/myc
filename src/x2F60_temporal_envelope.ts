@@ -76,6 +76,21 @@ function stable(v: Json): string {
       .join(",")
   }}`;
 }
+
+/** Exact bytes whose sha256 is the envelope commitment. Persist these bytes
+ *  unchanged when preparing an artifact for `ots stamp`; stamping a pretty JSON
+ *  rendering or a file containing the digest would attest a different subject. */
+export function canonicalEnvelopePayload(
+  env: TemporalSignatureEnvelope,
+): string {
+  return stable({
+    descriptor_commitment: env.descriptor_commitment,
+    domain: env.domain,
+    key_timeline_root: env.key_timeline_root,
+    nonce: env.nonce,
+    signer: env.signer,
+  });
+}
 async function sha256(s: string): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return Array.from(new Uint8Array(d)).map((b) =>
@@ -91,13 +106,7 @@ async function sha256(s: string): Promise<string> {
 export async function envelopeCommitment(
   env: TemporalSignatureEnvelope,
 ): Promise<string> {
-  return await sha256(stable({
-    descriptor_commitment: env.descriptor_commitment,
-    domain: env.domain,
-    key_timeline_root: env.key_timeline_root,
-    nonce: env.nonce,
-    signer: env.signer,
-  }));
+  return await sha256(canonicalEnvelopePayload(env));
 }
 
 export function validateEnvelope(
