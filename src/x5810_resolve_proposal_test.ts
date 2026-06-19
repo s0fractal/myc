@@ -4,7 +4,7 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { propose } from "./x5800_propose.ts";
-import { resolveProposal } from "./x5810_resolve_proposal.ts";
+import { deriveEvidence, resolveProposal } from "./x5810_resolve_proposal.ts";
 import { lifecycle } from "./x3F00_lifecycle.ts";
 import { auditRoot } from "./x6C00_protocol_audit.ts";
 
@@ -518,6 +518,30 @@ Deno.test("finality — class policy FAILS CLOSED: an unclassified principal cou
   } finally {
     await Deno.remove(root, { recursive: true });
     await Deno.remove(sup, { recursive: true });
+  }
+});
+
+Deno.test("resolve — --from-receipt derives exactly the ref the verifier expects (no mistyped commitment)", async () => {
+  const root = await Deno.makeTempDir({ prefix: "derive_" });
+  try {
+    // the real apply receipt + the {kind,ref,commitment} x2A00 verifies
+    const expected = await applyEvidence(root);
+    const receiptPath = join(
+      root,
+      "substrates",
+      "spore",
+      "receipts",
+      expected.ref,
+    );
+    const derived = await deriveEvidence(receiptPath);
+    // derived FROM the receipt — commitment is read, never typed
+    assertEquals(derived?.kind, "apply");
+    assertEquals(derived?.ref, expected.ref);
+    assertEquals(derived?.commitment, expected.commitment);
+    // a nonexistent receipt derives nothing (no silent garbage)
+    assertEquals(await deriveEvidence(join(root, "nope.myc.md")), null);
+  } finally {
+    await Deno.remove(root, { recursive: true });
   }
 });
 

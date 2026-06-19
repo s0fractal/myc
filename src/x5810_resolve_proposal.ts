@@ -180,17 +180,59 @@ function parseArgs(
   return { pos, flags, refs };
 }
 
+/** Derive a canonical, verifiable evidence_ref from a real receipt/descriptor —
+ *  so a model points at the proof instead of hand-typing {kind, ref, commitment}
+ *  and CANNOT mistype the commitment (the failure codex caught in P1: an
+ *  abbreviated commit id and a literal "built"). The derived ref is exactly what
+ *  x2A00 will resolve, so a from-receipt evidence always verifies. */
+export async function deriveEvidence(
+  receiptPath: string,
+): Promise<{ kind: string; ref: string; commitment: string } | null> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(receiptPath);
+  } catch {
+    return null;
+  }
+  const base = receiptPath.replace(/^.*\//, "");
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
+  const field = (n: string) =>
+    fm.match(new RegExp(`${n}:\\s*"?([^"\\n]+)"?`))?.[1]?.trim();
+  const sporeId = field("spore_id");
+  if (sporeId) return { kind: "apply", ref: base, commitment: sporeId };
+  const intent = field("intent_hash");
+  if (intent) return { kind: "phase", ref: base, commitment: intent };
+  const m = text.match(/```json myc\s*\n([\s\S]*?)\n```/);
+  if (m) {
+    try {
+      const d = JSON.parse(m[1]);
+      const c = d?.commitment?.value;
+      if (c && d?.fqdn) {
+        const kind = /publish/i.test(d.type)
+          ? "publish"
+          : /review/i.test(d.type)
+          ? "review"
+          : "descriptor";
+        return { kind, ref: String(d.fqdn), commitment: String(c) };
+      }
+    } catch { /* not a descriptor receipt */ }
+  }
+  return null;
+}
+
 export async function runCli(args: string[] = Deno.args): Promise<void> {
   const { pos, flags: f, refs } = parseArgs(args);
   const root = f.root ?? Deno.env.get("MYC_ROOT") ?? Deno.cwd();
   if (!pos) {
     console.error(
-      "usage: resolve-proposal <proposal-fqdn> --outcome <implemented|rejected|superseded|withdrawn|expired> --evidence-ref <kind:ref:commitment> [--evidence-ref …] [--note <text>] [--actor a]\n  (then `t myc authenticate <resolution> --voice <resolver>` to count toward finality)",
+      "usage: resolve-proposal <proposal-fqdn> --outcome <implemented|…> [--evidence-ref <kind:ref:commitment>] [--from-receipt <path>] [--note <text>] [--actor a]\n  --from-receipt derives a canonical evidence_ref from a real receipt (you cannot mistype the commitment).\n  then `t myc authenticate <resolution> --voice <resolver>` to count toward finality",
     );
     Deno.exit(1);
   }
   // each --evidence-ref is "kind:ref:commitment"
-  const evidence_refs = refs.map((r) => {
+  const evidence_refs: Array<
+    { kind: string; ref: string; commitment: string }
+  > = refs.map((r) => {
     const [kind, ref, commitment] = r.split(":");
     return {
       kind: kind ?? "ref",
@@ -198,6 +240,16 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
       commitment: commitment ?? "",
     };
   });
+  // --from-receipt <path> (repeatable): derive the evidence_ref FROM the proof
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--from-receipt" && args[i + 1]) {
+      const derived = await deriveEvidence(args[++i]);
+      if (derived) evidence_refs.push(derived);
+      else {console.error(
+          `# warning: could not derive evidence from ${args[i]}`,
+        );}
+    }
+  }
   const result = await resolveProposal(root, {
     proposalFqdn: pos,
     outcome: (f.outcome ?? "") as Outcome,
