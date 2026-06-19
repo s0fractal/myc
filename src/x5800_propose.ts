@@ -171,13 +171,44 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
       if (cls && n && Number.isInteger(+n)) classes[cls] = +n;
     }
   }
-  // --action-grant <intent_commitment>: this proposal authorizes one concrete
-  // action. Compute the commitment with `t warrant intent <intent.json>` (one
-  // algorithm, trinity-side) and pass it here — never hand-type a guess.
-  const grant = f["action-grant"];
-  const action_grant = grant && grant !== "true"
-    ? { intent_commitment: grant }
-    : undefined;
+  // The proposal may authorize one concrete action. Preferred: --action-intent
+  // <intent.json> — read, VALIDATE the schema, and compute the grant internally,
+  // so no commitment is ever hand-carried (codex x6d00 P0.5). Advanced compat:
+  // --action-grant <64-hex> for a pre-computed commitment, strictly validated.
+  let action_grant: { intent_commitment: string } | undefined;
+  const intentPath = f["action-intent"];
+  if (intentPath && intentPath !== "true") {
+    const { intentCommitment, validateIntent } = await import(
+      "./x5820_action_intent.ts"
+    );
+    let raw: unknown;
+    try {
+      raw = JSON.parse(await Deno.readTextFile(intentPath));
+    } catch {
+      console.error(`# error: could not read action-intent from ${intentPath}`);
+      Deno.exitCode = 1;
+      return;
+    }
+    const v = validateIntent(raw);
+    if (!v.ok) {
+      console.error(`# error: invalid action-intent: ${v.error}`);
+      Deno.exitCode = 1;
+      return;
+    }
+    action_grant = { intent_commitment: await intentCommitment(v.intent) };
+  } else {
+    const grant = f["action-grant"];
+    if (grant && grant !== "true") {
+      if (!/^[0-9a-f]{64}$/.test(grant)) {
+        console.error(
+          "# error: --action-grant must be a 64-hex intent_commitment (or use --action-intent <intent.json>)",
+        );
+        Deno.exitCode = 1;
+        return;
+      }
+      action_grant = { intent_commitment: grant };
+    }
+  }
   const result = await propose(root, {
     proposal: f.text ?? f.proposal ?? "",
     requires: (f.requires ?? f.backend ?? "") as Backend,
