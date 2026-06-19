@@ -79,7 +79,8 @@ async function run(
  *  embedded (claimed) attestations are still reported from `ots info`. */
 export async function verifyOtsProof(
   otsPath: string,
-  opts: { verify?: boolean; expectedSubject?: string } = {},
+  opts: { verify?: boolean; expectedSubject?: string; bitcoinNode?: string } =
+    {},
 ): Promise<OtsVerdict> {
   const version = await run(["ots", "--version"]);
   if (!version) {
@@ -126,7 +127,12 @@ export async function verifyOtsProof(
   let reason =
     "embedded attestations read; on-chain header NOT verified (`ots info` only)";
   if (opts.verify) {
-    const v = await run(["ots", "verify", otsPath]);
+    // a Bitcoin source is required for the on-chain header check; pass an explicit
+    // node RPC if given (the caller's infrastructure), else `ots` tries a local node.
+    const verifyCmd = opts.bitcoinNode
+      ? ["ots", "verify", "--bitcoin-node", opts.bitcoinNode, otsPath]
+      : ["ots", "verify", otsPath];
+    const v = await run(verifyCmd);
     if (!v) {
       verify = "unavailable";
       reason = "ots verify could not run";
@@ -166,6 +172,8 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
   const expectedSubject = subjectIndex >= 0
     ? args[subjectIndex + 1]
     : undefined;
+  const nodeIndex = args.indexOf("--bitcoin-node");
+  const bitcoinNode = nodeIndex >= 0 ? args[nodeIndex + 1] : undefined;
   const path = args[0] && !args[0].startsWith("--") ? args[0] : undefined;
   if (!path) {
     console.log(JSON.stringify(
@@ -181,7 +189,11 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
     ));
     return;
   }
-  const verdict = await verifyOtsProof(path, { verify, expectedSubject });
+  const verdict = await verifyOtsProof(path, {
+    verify,
+    expectedSubject,
+    bitcoinNode,
+  });
   console.log(
     JSON.stringify(
       { type: "ots_adapter", position: "2/F8", ...verdict },

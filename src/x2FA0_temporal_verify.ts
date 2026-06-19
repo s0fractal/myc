@@ -56,6 +56,7 @@ export async function verifyTemporal(
   envelopePath: string,
   signature: string,
   anchorPath?: string,
+  bitcoinNode?: string,
 ): Promise<TemporalVerdict> {
   let envelopeBytes: Uint8Array;
   try {
@@ -103,6 +104,7 @@ export async function verifyTemporal(
     const ots = await verifyOtsProof(anchorPath, {
       verify: true,
       expectedSubject: `sha256:${commitment}`,
+      bitcoinNode,
     });
     const subject_matches = ots.subject_digest === commitment;
     anchor = {
@@ -158,6 +160,8 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
   const envelopePath = positional[0];
   const anchorIdx = args.indexOf("--anchor");
   const anchorPath = anchorIdx >= 0 ? args[anchorIdx + 1] : undefined;
+  const nodeIdx = args.indexOf("--bitcoin-node");
+  const bitcoinNode = nodeIdx >= 0 ? args[nodeIdx + 1] : undefined;
   const sigIdx = args.indexOf("--signature");
   // signature may be passed inline (--signature <b64>) or read from a sidecar file.
   let signature = sigIdx >= 0 ? args[sigIdx + 1] : undefined;
@@ -186,7 +190,12 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
     Deno.exitCode = 1;
     return;
   }
-  const v = await verifyTemporal(envelopePath, signature, anchorPath);
+  const v = await verifyTemporal(
+    envelopePath,
+    signature,
+    anchorPath,
+    bitcoinNode,
+  );
   console.log(
     JSON.stringify(
       { type: "temporal_verify", position: "2/FA", ...v },
