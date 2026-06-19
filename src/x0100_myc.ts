@@ -3085,6 +3085,22 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `temporal-sign` — emit a v1 Temporal Signature Envelope with the actor's OWN
+  // key (codex P3 step 1). Outputs subject_for_ots for the architect's anchor
+  // ceremony. Needs the private key (--allow-read + --allow-env HOME).
+  if (args[0] === "temporal-sign") {
+    const sp = new URL("./x2F90_temporal_sign.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", "--allow-env", sp, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `ots-verify` — read/verify an OpenTimestamps proof through the authoritative
   // `ots` tool (codex P2). Embedded attestations via `ots info`; --verify runs the
   // on-chain check (unavailable without a Bitcoin source). Needs --allow-run.
