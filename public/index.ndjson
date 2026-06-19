@@ -1,3 +1,4 @@
+{"fqdn":"h.0b8a898b6e57.resolution.myc.md","path":"public/resolutions/h.0b8a898b6e57.resolution.myc.md","type":"ProposalResolutionDescriptor","commitment":"0b8a898b6e5710d4f68c8ccef618f7aaf9e27b8394511fc1906baa9b86d91c71"}
 {"fqdn":"h.10c526338067.resolution.myc.md","path":"public/resolutions/h.10c526338067.resolution.myc.md","type":"ProposalResolutionDescriptor","commitment":"10c526338067f75494fafb760cad08d7444598da017f7c847c279370c5c907f1"}
 {"fqdn":"h.2a10699544f3.projection-descriptor.claude.raw.myc.md","path":"public/objects/h/2a10699544f3/h.2a10699544f3.projection-descriptor.claude.raw.myc.md","type":"RawDescriptor","commitment":"b482768e6960234ed20bb1eed3c2022bc2a9711036f49239feed9e4d143ecc91"}
 {"fqdn":"h.2a10699544f3.publish.myc.md","path":"public/consensus/publish/h/2a10699544f3/h.2a10699544f3.publish.myc.md","type":"PublishDescriptor","commitment":"43c60d62551e4a6c82645ea788d940726f7eaf767a327ef8b6c2d25b8a3ac447"}
