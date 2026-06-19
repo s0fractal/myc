@@ -12,7 +12,8 @@
 // (dormant + visible); the resolution is the immutable record of what became of it.
 
 import { ensureDir } from "jsr:@std/fs@1.0.23";
-import { join } from "jsr:@std/path@1.1.4";
+import { dirname, join } from "jsr:@std/path@1.1.4";
+import { verifyEvidence } from "./x2A00_evidence.ts";
 import { authenticateFile } from "./x2F50_voice_auth.ts";
 
 export const OUTCOMES = [
@@ -235,6 +236,11 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
     );
     Deno.exit(1);
   }
+  if ("sign" in f && f.sign !== "true") {
+    console.error("# error: --sign is a boolean flag and takes no value");
+    Deno.exitCode = 1;
+    return;
+  }
   // each --evidence-ref is "kind:ref:commitment"
   const evidence_refs: Array<
     { kind: string; ref: string; commitment: string }
@@ -246,15 +252,43 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
       commitment: commitment ?? "",
     };
   });
-  // --from-receipt <path> (repeatable): derive the evidence_ref FROM the proof
+  // --from-receipt <path> (repeatable): derive the evidence_ref FROM the proof,
+  // then pass it through the SAME verifier finality uses. Derivation failure is
+  // fatal: a proof-bearing convenience must never silently emit an evidence-less
+  // claim while returning success.
+  let receiptError = false;
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--from-receipt" && args[i + 1]) {
-      const derived = await deriveEvidence(args[++i]);
-      if (derived) evidence_refs.push(derived);
-      else {console.error(
-          `# warning: could not derive evidence from ${args[i]}`,
-        );}
+    if (args[i] === "--from-receipt") {
+      const path = args[i + 1];
+      if (!path || path.startsWith("--")) {
+        console.error("# error: --from-receipt requires a path");
+        receiptError = true;
+        continue;
+      }
+      i++;
+      const derived = await deriveEvidence(path);
+      if (!derived) {
+        console.error(`# error: could not derive evidence from ${path}`);
+        receiptError = true;
+        continue;
+      }
+      const verdict = await verifyEvidence(derived, {
+        root,
+        superproject: dirname(root),
+      });
+      if (!verdict.valid) {
+        console.error(
+          `# error: derived evidence does not verify: ${verdict.reason}`,
+        );
+        receiptError = true;
+        continue;
+      }
+      evidence_refs.push(derived);
     }
+  }
+  if (receiptError) {
+    Deno.exitCode = 1;
+    return;
   }
   const resolver = f.actor ?? f.resolver ?? "anonymous";
   const result = await resolveProposal(root, {
@@ -276,7 +310,7 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
     null,
     2,
   ));
-  if (!result.ok) Deno.exitCode = 1;
+  if (!result.ok || ("sign" in f && !signed?.ok)) Deno.exitCode = 1;
 }
 
 if (import.meta.main) await runCli();

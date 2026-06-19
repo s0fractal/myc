@@ -4,7 +4,11 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { propose } from "./x5800_propose.ts";
-import { deriveEvidence, resolveProposal } from "./x5810_resolve_proposal.ts";
+import {
+  deriveEvidence,
+  resolveProposal,
+  runCli,
+} from "./x5810_resolve_proposal.ts";
 import { lifecycle } from "./x3F00_lifecycle.ts";
 import { auditRoot } from "./x6C00_protocol_audit.ts";
 
@@ -541,6 +545,35 @@ Deno.test("resolve — --from-receipt derives exactly the ref the verifier expec
     // a nonexistent receipt derives nothing (no silent garbage)
     assertEquals(await deriveEvidence(join(root, "nope.myc.md")), null);
   } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("resolve CLI — an invalid --from-receipt fails before writing a claim", async () => {
+  const root = await Deno.makeTempDir({ prefix: "derive_fail_" });
+  try {
+    Deno.exitCode = 0;
+    await runCli([
+      "h.missing.proposal.myc.md",
+      "--outcome",
+      "implemented",
+      "--from-receipt",
+      join(root, "missing.receipt.myc.md"),
+      "--actor",
+      "claude",
+      "--root",
+      root,
+    ]);
+    assertEquals(Deno.exitCode, 1);
+    let resolutionsExist = true;
+    try {
+      await Deno.stat(join(root, "public", "resolutions"));
+    } catch {
+      resolutionsExist = false;
+    }
+    assertEquals(resolutionsExist, false);
+  } finally {
+    Deno.exitCode = 0;
     await Deno.remove(root, { recursive: true });
   }
 });
