@@ -18,6 +18,8 @@
 // timeline arrives when the pure timeline verifier becomes MYC-resident (codex
 // step 4). Minting, rotation, recovery and fork adjudication remain human custody.
 
+import { type KeyEvent, resolveKeyState } from "./x2F70_keytimeline.ts";
+
 export const ENVELOPE_DOMAIN = "myc.content-sig.v1";
 
 /** A signing anchor: an external time reference. It is historical proof ONLY with an
@@ -141,6 +143,9 @@ export function validateEnvelope(
 export interface TrustBundle {
   /** inclusion_receipt ids that have been INDEPENDENTLY verified. */
   verified_anchor_receipts?: string[];
+  /** the key-event timeline (the verified snapshot named by key_timeline_root), so
+   *  a historical signature can be resolved to valid_at_signing / trusted_now. */
+  timeline_events?: KeyEvent[];
 }
 
 export interface StandingVerdict {
@@ -148,6 +153,11 @@ export interface StandingVerdict {
   reason: string;
   signer?: string;
   envelope_commitment?: string;
+  /** present only for historical_v1 with a supplied timeline: was the signer's key
+   *  active at the bound anchor, and is it still trusted? (codex step 4) */
+  valid_at_signing?: boolean;
+  trusted_now?: boolean;
+  signing_key?: string | null;
 }
 
 /** Classify the standing a content_sig may honestly claim. Fail closed: a v1
@@ -195,11 +205,26 @@ export async function classifyStanding(
       envelope_commitment: commitment,
     };
   }
-  return {
+  // anchor independently verified → resolve the signer's key state AT the bound
+  // anchor against the supplied timeline (step 4: the verifier is MYC-resident).
+  const verdict: StandingVerdict = {
     standing: "historical_v1",
-    reason:
-      "anchor independently verified — eligible for valid_at_signing once the timeline verifier is MYC-resident (step 4)",
+    reason: "anchor independently verified",
     signer: env.signer,
     envelope_commitment: commitment,
   };
+  if (bundle.timeline_events) {
+    const ks = resolveKeyState(bundle.timeline_events, env.signer, {
+      kind: "bitcoin_block",
+      height: env.signing_anchor.height,
+    });
+    verdict.valid_at_signing = ks.valid_at_signing;
+    verdict.trusted_now = ks.trusted_now;
+    verdict.signing_key = ks.signing_key;
+    verdict.reason = `anchor verified; ${ks.reason}`;
+  } else {
+    verdict.reason =
+      "anchor verified, but no timeline supplied — valid_at_signing unresolved";
+  }
+  return verdict;
 }

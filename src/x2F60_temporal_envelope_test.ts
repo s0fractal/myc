@@ -94,3 +94,50 @@ Deno.test("temporal envelope — malformed v1 envelope fails closed to unavailab
   );
   assertEquals(v.standing, "unavailable");
 });
+
+Deno.test("temporal envelope — historical_v1 resolves valid_at_signing against the timeline (step 4)", async () => {
+  const events = [
+    {
+      principal: "codex",
+      event: "activate" as const,
+      signing_key: "K0",
+      sequence: 0,
+      predecessor_commitment: null,
+      valid_from: { kind: "bitcoin_block" as const, height: 954000 },
+    },
+    {
+      principal: "codex",
+      event: "revoke" as const,
+      signing_key: "K0",
+      sequence: 1,
+      predecessor_commitment: null,
+      valid_from: { kind: "bitcoin_block" as const, height: 955000 },
+      compromised_since: { kind: "bitcoin_block" as const, height: 954500 },
+    },
+  ];
+  // anchor at 954417: after activation, BEFORE the compromise point → trusted
+  const ok = await classifyStanding(
+    { covers: "envelope.v1", envelope: env({ signer: "codex" }) },
+    { verified_anchor_receipts: ["rcpt-1"], timeline_events: events },
+  );
+  assertEquals(ok.standing, "historical_v1");
+  assertEquals(ok.valid_at_signing, true);
+  assertEquals(ok.trusted_now, true);
+  // anchor after compromised_since → valid at signing, but trust withdrawn
+  const compromised = await classifyStanding(
+    {
+      covers: "envelope.v1",
+      envelope: env({
+        signer: "codex",
+        signing_anchor: {
+          kind: "bitcoin_block",
+          height: 954600,
+          inclusion_receipt: "rcpt-1",
+        },
+      }),
+    },
+    { verified_anchor_receipts: ["rcpt-1"], timeline_events: events },
+  );
+  assertEquals(compromised.valid_at_signing, true);
+  assertEquals(compromised.trusted_now, false);
+});
