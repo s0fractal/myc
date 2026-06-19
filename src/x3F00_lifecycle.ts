@@ -396,6 +396,9 @@ async function readProposals(
         id: String(d.fqdn ?? e.name).slice(0, 26),
         kind: "proposal",
         state: f.state,
+        // the verified body commitment, so a consumer (e.g. the Actuation Warrant)
+        // can join on the exact commitment, not a truncated display label.
+        key: claimed,
         detail: f.finality === "open"
           ? `requires=${b.requires_verification ?? "?"} proposer=${
             b.proposer ?? "?"
