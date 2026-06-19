@@ -497,13 +497,33 @@ export async function lifecycle(
     }
   }
 
-  const mutations = [...proposed, ...applied, ...consensus];
+  // Semantic Humus (antigravity x3300_954402): a TERMINAL mutation is archived
+  // FROM active attention — never deleted (it stays in `mutations`, fully
+  // preserved), but flagged so reconcile/daemon/models can focus the live
+  // horizon. Void = archive, not delete (the mandate's invariant).
+  const ARCHIVED = new Set([
+    "implemented",
+    "rejected",
+    "superseded",
+    "withdrawn",
+    "expired",
+    "invalid",
+  ]);
+  const rawMutations = [...proposed, ...applied, ...consensus];
+  const mutations = rawMutations.map((m) => ({
+    ...m,
+    active: !ARCHIVED.has(m.state),
+  }));
   const counts: Record<string, number> = {};
   for (const m of mutations) counts[m.state] = (counts[m.state] ?? 0) + 1;
+  const active_count = mutations.filter((m) => m.active).length;
+  const archived_count = mutations.length - active_count;
 
   return {
     type: "lifecycle",
     position: "3/F",
+    active_count,
+    archived_count,
     note: threads.length > 0
       ? "one vocabulary for a mutation's life (T3 + thread). apply→published is now threaded where PublishDescriptor.derived_from binds a consensus node to its apply receipt."
       : "one vocabulary for a mutation's life (T3). apply→published threads when a PublishDescriptor carries derived_from (publish --derived-from <apply-id>); none in the current data yet.",
@@ -552,6 +572,12 @@ function renderHuman(o: Record<string, unknown>): void {
 
 export async function runCli(args: string[] = Deno.args): Promise<void> {
   const o = await lifecycle();
+  // --active focuses the live horizon: terminal (archived) mutations drop from
+  // the view but stay in the full ledger (Void = archive from attention, not delete).
+  if (args.includes("--active")) {
+    const all = o.mutations as Array<{ active?: boolean }>;
+    o.mutations = all.filter((m) => m.active);
+  }
   if (!args.includes("--json") && Deno.stdout.isTerminal()) renderHuman(o);
   else console.log(JSON.stringify(o, null, 2));
 }

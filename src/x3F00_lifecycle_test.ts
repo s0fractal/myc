@@ -174,3 +174,26 @@ Deno.test("x3F00 lifecycle — consensus node carries a real trust state", async
     );
   }
 });
+
+Deno.test("x3F00 lifecycle — Semantic Humus: terminal mutations are archived from active attention, not deleted", async () => {
+  const o = await lifecycle();
+  const mutations = o.mutations as Array<Record<string, unknown>>;
+  const TERMINAL = new Set([
+    "implemented",
+    "rejected",
+    "superseded",
+    "withdrawn",
+    "expired",
+    "invalid",
+  ]);
+  // every mutation carries an `active` flag; terminal == archived, else active
+  for (const m of mutations) {
+    assertEquals(typeof m.active, "boolean");
+    assertEquals(m.active, !TERMINAL.has(String(m.state)));
+  }
+  // counts add up — nothing is deleted, only flagged
+  const ac = o.active_count as number;
+  const arc = o.archived_count as number;
+  assertEquals(ac + arc, mutations.length);
+  assertEquals(mutations.filter((m) => m.active).length, ac);
+});
