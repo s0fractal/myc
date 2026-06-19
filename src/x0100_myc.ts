@@ -3085,6 +3085,22 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `ots-verify` — read/verify an OpenTimestamps proof through the authoritative
+  // `ots` tool (codex P2). Embedded attestations via `ots info`; --verify runs the
+  // on-chain check (unavailable without a Bitcoin source). Needs --allow-run.
+  if (args[0] === "ots-verify") {
+    const sp = new URL("./x2F80_ots_adapter.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", "--allow-run", sp, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `lifecycle` — the canonical mutation lifecycle (T3): one vocabulary across
   // apply-receipts (applied) and the consensus graph. Read-only; shelled.
   if (args[0] === "lifecycle") {
