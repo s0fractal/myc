@@ -141,6 +141,27 @@ Deno.test("x3F00 lifecycle — threads apply→published via derived_from", asyn
   }
 });
 
+Deno.test("x3F00 lifecycle — live membrane carries a real SPORE publication thread", async () => {
+  const o = await lifecycle();
+  const threads = o.threads as Array<{ applied: string; published: string }>;
+  assert(
+    threads.some((t) =>
+      t.applied.startsWith("14b5a247729c690e") &&
+      t.published.startsWith("h.2b9fe46da984.publish")
+    ),
+    "the committed membrane must preserve its real receipt→publication thread",
+  );
+  const mutations = o.mutations as Array<Record<string, unknown>>;
+  const published = mutations.find((m) =>
+    String(m.id).startsWith("h.2b9fe46da984.publish")
+  );
+  assertEquals(published?.state, "resonant");
+  assertEquals(
+    published?.derived_from,
+    "14b5a247729c690e1d5a373bdfa30b6bf70ca4fa1d740470037db1d4ac8ec688",
+  );
+});
+
 Deno.test("x3F00 lifecycle — consensus node carries a real trust state", async () => {
   const o = await lifecycle();
   const mutations = o.mutations as Array<Record<string, unknown>>;
