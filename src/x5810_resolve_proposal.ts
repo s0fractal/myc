@@ -13,6 +13,7 @@
 
 import { ensureDir } from "jsr:@std/fs@1.0.23";
 import { join } from "jsr:@std/path@1.1.4";
+import { authenticateFile } from "./x2F50_voice_auth.ts";
 
 export const OUTCOMES = [
   "implemented",
@@ -172,7 +173,12 @@ function parseArgs(
     if (a.startsWith("--")) {
       const eq = a.indexOf("=");
       const key = eq >= 0 ? a.slice(2, eq) : a.slice(2);
-      const val = eq >= 0 ? a.slice(eq + 1) : (args[++i] ?? "true");
+      // a flag is boolean if its next token is absent or another --flag, so a
+      // valueless flag like --sign cannot swallow the following flag's value.
+      const next = args[i + 1];
+      const val = eq >= 0
+        ? a.slice(eq + 1)
+        : (next && !next.startsWith("--") ? args[++i] : "true");
       if (key === "evidence-ref") refs.push(val); // repeatable
       else flags[key] = val;
     } else if (!pos) pos = a;
@@ -250,15 +256,23 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
         );}
     }
   }
+  const resolver = f.actor ?? f.resolver ?? "anonymous";
   const result = await resolveProposal(root, {
     proposalFqdn: pos,
     outcome: (f.outcome ?? "") as Outcome,
     evidence_refs,
     evidence_note: f.note,
-    resolver: f.actor ?? f.resolver ?? "anonymous",
+    resolver,
   });
+  // --sign: resolve + authenticate as the resolver in one step, so the common
+  // case is correct-by-default (an unsigned resolution stays a mere claim). Signs
+  // ONLY as the resolver — signer must equal actor, never another voice.
+  let signed: { ok: boolean; voice: string; reason?: string } | undefined;
+  if (result.ok && result.path && "sign" in f) {
+    signed = await authenticateFile(result.path, resolver);
+  }
   console.log(JSON.stringify(
-    { type: "proposal_resolution", position: "5/8", ...result },
+    { type: "proposal_resolution", position: "5/8", ...result, signed },
     null,
     2,
   ));
