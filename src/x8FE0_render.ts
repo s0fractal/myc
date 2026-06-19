@@ -105,19 +105,37 @@ export async function renderHtml(): Promise<string> {
         ${provenance(n)}</details>`;
     }).join("\n");
 
-  const states = [
-    "proposed",
-    "applied",
-    "published",
-    "witnessed",
-    "reviewed",
-    "resonant",
+  // Two honest tracks. FINALITY: a proposal earns its terminal outcome only
+  // through authenticated, evidenced, quorum-satisfying resolutions (codex P0.3) —
+  // `final` lights up when any terminal outcome exists. CONSENSUS: an apply receipt
+  // accrues trust on the membrane surface.
+  const TERMINAL = [
+    "implemented",
+    "rejected",
+    "superseded",
+    "withdrawn",
+    "expired",
   ];
-  const flow = states.map((s) =>
-    `<span class="lstate${lc[s] ? " on" : ""}">${s}${
-      lc[s] ? ` <b>${lc[s]}</b>` : ""
-    }</span>`
-  ).join('<span class="arrow">→</span>');
+  const terminalCount = TERMINAL.reduce((s, k) => s + (lc[k] ?? 0), 0);
+  const renderFlow = (pairs: Array<[string, number]>) =>
+    pairs.map(([s, c]) =>
+      `<span class="lstate${c ? " on" : ""}">${s}${
+        c ? ` <b>${c}</b>` : ""
+      }</span>`
+    ).join('<span class="arrow">→</span>');
+  const finalityFlow = renderFlow([
+    ["proposed", lc.proposed ?? 0],
+    ["resolution_claimed", lc.resolution_claimed ?? 0],
+    ["evidence_verified", lc.evidence_verified ?? 0],
+    ["final", terminalCount],
+  ]);
+  const consensusFlow = renderFlow([
+    ["applied", lc.applied ?? 0],
+    ["published", lc.published ?? 0],
+    ["witnessed", lc.witnessed ?? 0],
+    ["reviewed", lc.reviewed ?? 0],
+    ["resonant", lc.resonant ?? 0],
+  ]);
 
   // the actual living mutations — so a person sees the membrane's own proposals
   // (✎ dormant), apply receipts (⟿), and consensus nodes (◆), not just counts.
@@ -172,6 +190,7 @@ export async function renderHtml(): Promise<string> {
   .flow { display:flex; flex-wrap:wrap; gap:.4rem; align-items:center;
     background:#21252b; padding:.8rem; border-radius:6px; }
   .lstate { color:#5c6370; } .lstate.on { color:#e5e9f0; }
+  .flabel { display:inline-block; width:5rem; color:#61afef; font-weight:700; }
   .lstate b { color:#61afef; } .arrow { color:#3a3f4b; }
   .muts { margin-top:.8rem; } .mut { display:flex; gap:.6rem; align-items:baseline;
     padding:.25rem 0; border-bottom:1px solid #23272e; font-size:.85rem; }
@@ -216,7 +235,13 @@ export async function renderHtml(): Promise<string> {
   ${trustRows}
 
   <h2>mutation lifecycle</h2>
-  <div class="flow">${flow}</div>
+  <div class="flow"><span class="flabel">finality</span> ${finalityFlow}</div>
+  <div class="flow"><span class="flabel">consensus</span> ${consensusFlow}</div>
+  ${
+    terminalCount
+      ? `<p class="legend">✓ ${terminalCount} proposal(s) reached a quorum-verified terminal outcome</p>`
+      : ""
+  }
   ${
     threads.length
       ? `<p class="legend">⛓ ${threads.length} apply→published thread(s) bound</p>`
