@@ -18,6 +18,7 @@
 // timeline arrives when the pure timeline verifier becomes MYC-resident (codex
 // step 4). Minting, rotation, recovery and fork adjudication remain human custody.
 
+import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { type KeyEvent, resolveKeyState } from "./x2F70_keytimeline.ts";
 
 export const ENVELOPE_DOMAIN = "myc.content-sig.v1";
@@ -228,3 +229,72 @@ export async function classifyStanding(
   }
   return verdict;
 }
+
+// ── CLI surface (read-only): make the verifier live + report the honest standing ──
+/** Pull the `covers` field of a descriptor's content_sig from its frontmatter. */
+function coversOf(text: string): string | null {
+  const fm = text.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
+  const sig = fm.match(/content_sig:\n((?: {2}.*\n?)+)/)?.[1];
+  if (!sig) return null;
+  return sig.match(/covers:\s*"?([^"\n]+)"?/)?.[1]?.trim() ?? "commitment";
+}
+
+async function* walk(dir: string): AsyncGenerator<string> {
+  let entries: Deno.DirEntry[];
+  try {
+    entries = [...Deno.readDirSync(dir)];
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    const p = join(dir, e.name);
+    if (e.isDirectory && !e.name.startsWith(".")) yield* walk(p);
+    else if (e.isFile && e.name.endsWith(".myc.md")) yield p;
+  }
+}
+
+export async function runCli(args: string[] = Deno.args): Promise<void> {
+  if (args[0] !== "standing") {
+    console.log(JSON.stringify(
+      {
+        type: "temporal_envelope",
+        position: "2/F6",
+        usage:
+          "standing [dir]   classify the temporal standing of signed descriptors",
+        note:
+          "v0 signatures bind no time → current_registry_only; v1 envelopes can be historically verified",
+      },
+      null,
+      2,
+    ));
+    return;
+  }
+  // default scope: the superproject src/ (where the signed chords live).
+  const root = dirname(dirname(fromFileUrl(import.meta.url))); // …/myc
+  const dir = args[1] ?? join(dirname(root), "src");
+  const tally: Record<string, number> = {};
+  let signed = 0;
+  for await (const path of walk(dir)) {
+    const covers = coversOf(await Deno.readTextFile(path));
+    if (covers === null) continue;
+    signed++;
+    const v = await classifyStanding({ covers });
+    tally[v.standing] = (tally[v.standing] ?? 0) + 1;
+  }
+  console.log(JSON.stringify(
+    {
+      type: "temporal_standing",
+      position: "2/F6",
+      scope: dir,
+      signed,
+      standing: tally,
+      note: (tally.current_registry_only ?? 0) === signed && signed > 0
+        ? "ALL current signatures are v0 (current_registry_only): valid against the current registry, but NONE are historically verified. Historical verification requires v1 temporal envelopes, whose emission binds a verified anchor receipt (architect custody)."
+        : "mixed standing — see counts",
+    },
+    null,
+    2,
+  ));
+}
+
+if (import.meta.main) await runCli();

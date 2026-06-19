@@ -3069,6 +3069,22 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `standing` — the temporal standing of signed descriptors (v0 current_registry_only
+  // vs v1 historically verifiable). Makes the Temporal Trust Envelope verifier live.
+  if (args[0] === "standing") {
+    const sp =
+      new URL("./x2F60_temporal_envelope.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", sp, ...args],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `lifecycle` — the canonical mutation lifecycle (T3): one vocabulary across
   // apply-receipts (applied) and the consensus graph. Read-only; shelled.
   if (args[0] === "lifecycle") {
