@@ -3088,6 +3088,26 @@ export async function main(args: string[]): Promise<void> {
   // `temporal-sign` — emit a v1 Temporal Signature Envelope with the actor's OWN
   // key (codex P3 step 1). Outputs subject_for_ots for the architect's anchor
   // ceremony. Needs the private key (--allow-read + --allow-env HOME).
+  if (args[0] === "temporal-verify") {
+    const sp = new URL("./x2FA0_temporal_verify.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-run",
+        "--allow-env",
+        sp,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   if (args[0] === "temporal-sign") {
     const sp = new URL("./x2F90_temporal_sign.ts", import.meta.url).pathname;
     const proc = new Deno.Command("deno", {
