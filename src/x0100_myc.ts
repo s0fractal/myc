@@ -3306,6 +3306,25 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `verify-snapshot <file>` — Resonant Resolution: verify a snapshot (e.g. one
+  // received from a peer) with myc's canonical verifier — trust the hash, not the
+  // host. Rehydrates to a temp root + verifyPath per record. Read-only to your tree.
+  // (chord x6000_954726)
+  if (args[0] === "verify-snapshot") {
+    const vsPath =
+      new URL("../sites/myc.md/verify_snapshot.ts", import.meta.url)
+        .pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-read", "--allow-write", vsPath, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `resolve-proposal` — record a terminal, commitment-bound outcome for a
   // dormant proposal (codex x6300_954228 P1). Effect class; rebuilds the index.
   if (args[0] === "resolve-proposal") {
@@ -3634,6 +3653,8 @@ function helpText(): string {
     "                                        local-source bytes — trust the hash)",
     "  snapshot [--write path]              (portable content-addressed export of",
     "                                        the public network — fallback/peer feed)",
+    "  verify-snapshot <file>               (verify a peer's snapshot by hash with",
+    "                                        myc's canonical verifier — trust the hash)",
     "  authenticate <descriptor> [--voice claude]",
     "                                       (sign a witness — integrity → authenticity)",
     "  resolve-proposal <proposal> --outcome <implemented|rejected|…>",
