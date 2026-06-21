@@ -43,11 +43,21 @@ export async function buildSnapshot(root: string): Promise<Snapshot> {
   const indexText = await Deno.readTextFile(
     join(root, "public", "index.ndjson"),
   );
-  const entries = indexText
+  const parsed = indexText
     .split("\n")
     .filter((l) => l.trim())
     .map((l) => JSON.parse(l) as Omit<SnapshotRecord, "descriptor" | "rawText">)
     .sort((a, b) => (a.fqdn < b.fqdn ? -1 : a.fqdn > b.fqdn ? 1 : 0));
+
+  // Dedupe by PATH: a file is one content. The index may carry several fqdn aliases
+  // for one file (e.g. naming proofs); the snapshot carries each file once (rebuild
+  // on import regenerates names). Path is the unique unit for verify + merge.
+  const seenPaths = new Set<string>();
+  const entries = parsed.filter((e) => {
+    if (seenPaths.has(e.path)) return false;
+    seenPaths.add(e.path);
+    return true;
+  });
 
   const records: SnapshotRecord[] = [];
   for (const e of entries) {

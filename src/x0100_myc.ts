@@ -3325,6 +3325,32 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `import-snapshot <file> [--write]` — Resonant Resolution: receive a peer's
+  // network export, verify it by hash, and merge the NEW verified records into your
+  // local network. Dry-run unless --write; never overwrites; conflicts reported.
+  // (chord x6000_954726)
+  if (args[0] === "import-snapshot") {
+    const isPath =
+      new URL("../sites/myc.md/import_snapshot.ts", import.meta.url)
+        .pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        isPath,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `resolve-proposal` — record a terminal, commitment-bound outcome for a
   // dormant proposal (codex x6300_954228 P1). Effect class; rebuilds the index.
   if (args[0] === "resolve-proposal") {
@@ -3655,6 +3681,8 @@ function helpText(): string {
     "                                        the public network — fallback/peer feed)",
     "  verify-snapshot <file>               (verify a peer's snapshot by hash with",
     "                                        myc's canonical verifier — trust the hash)",
+    "  import-snapshot <file> [--write]     (verify then merge a peer's new records",
+    "                                        into your network; dry-run by default)",
     "  authenticate <descriptor> [--voice claude]",
     "                                       (sign a witness — integrity → authenticity)",
     "  resolve-proposal <proposal> --outcome <implemented|rejected|…>",
