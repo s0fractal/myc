@@ -24,6 +24,21 @@ const HTML = `<!doctype html>
         </div>
       </div>
 
+      <section class="join" aria-label="Join the mycelium">
+        <p>
+          This page is a thin UI. The substrate is an <strong>organism you run
+          locally</strong>, not a hosted service. To join the mycelium, clone it:
+        </p>
+        <pre class="join-cmd"><code>curl -fsSL https://raw.githubusercontent.com/s0fractal/trinity/main/install.sh | sh</code></pre>
+        <p class="join-note">
+          Clones <a href="https://github.com/s0fractal/trinity">trinity</a> (the
+          organism) to <code>~/trinity</code> and the public organ
+          <a href="https://github.com/s0fractal/myc">myc</a>; the private organs
+          (omega, liquid) stay present by reference. Reading is open; writing carries
+          provenance. Then: <code>cd ~/trinity &amp;&amp; ./t self</code>.
+        </p>
+      </section>
+
       <div class="resolver-bar">
         <label for="resolver-url">local resolver</label>
         <input id="resolver-url" spellcheck="false" autocomplete="off">
