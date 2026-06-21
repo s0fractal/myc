@@ -3281,6 +3281,31 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `snapshot [--write path]` — Resonant Resolution: build a portable,
+  // content-addressed export of the public network (index + descriptors + raw
+  // source) — the content a fallback would serve + peers would exchange.
+  // Read-only unless --write. (chord x6000_954726)
+  if (args[0] === "snapshot") {
+    const sPath =
+      new URL("../sites/myc.md/snapshot.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        sPath,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `resolve-proposal` — record a terminal, commitment-bound outcome for a
   // dormant proposal (codex x6300_954228 P1). Effect class; rebuilds the index.
   if (args[0] === "resolve-proposal") {
@@ -3607,6 +3632,8 @@ function helpText(): string {
     "                                       (propose a DORMANT mutation; writes)",
     "  verify-deployment [url]              (verify a deployed myc.md serves only",
     "                                        local-source bytes — trust the hash)",
+    "  snapshot [--write path]              (portable content-addressed export of",
+    "                                        the public network — fallback/peer feed)",
     "  authenticate <descriptor> [--voice claude]",
     "                                       (sign a witness — integrity → authenticity)",
     "  resolve-proposal <proposal> --outcome <implemented|rejected|…>",
