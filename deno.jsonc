@@ -16,7 +16,8 @@
     "capabilities": "deno run --allow-read src/x4A00_capabilities.ts",
     "check": "deno task fmt:check && deno task typecheck && deno task lint && deno task test && deno task myc verify-projections && deno task audit",
     "precommit": "deno task check",
-    "site:deploy": "npx wrangler deploy",
+    "snapshot:publish": "deno run --allow-read --allow-write --allow-env sites/myc.md/snapshot.ts --write sites/myc.md/snapshot.gen.json",
+    "site:deploy": "deno task snapshot:publish && npx wrangler deploy",
     "site:dry-run": "npx wrangler deploy --dry-run",
     "site:dev": "npx wrangler dev --local --port 8788"
   },

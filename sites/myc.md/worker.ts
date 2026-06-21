@@ -1,3 +1,9 @@
+// The published network snapshot, bundled so the deployed myc.md can SERVE the
+// content-addressed network (the tier-2 fallback). Regenerated at deploy
+// (`deno task site:deploy`); a stranger can pull + verify it by hash:
+//   t myc import-snapshot https://myc.md/snapshot.json --write
+import SNAPSHOT from "./snapshot.gen.json" with { type: "json" };
+
 const RESOLVER_DEFAULT = "http://127.0.0.1:8787";
 const CACHE_NAME = "myc-local-first-v0";
 
@@ -1939,6 +1945,8 @@ async function attestSha256(text: string): Promise<string> {
     );
 }
 
+const SNAPSHOT_JSON = JSON.stringify(SNAPSHOT);
+
 export const SERVED_ASSETS: Record<string, string> = {
   "/": HTML,
   "/styles.css": CSS,
@@ -1946,6 +1954,8 @@ export const SERVED_ASSETS: Record<string, string> = {
   "/manifest.webmanifest": MANIFEST,
   "/sw.js": SERVICE_WORKER,
   "/icon.svg": ICON,
+  // The published network — verifiable by hash, covered by /attestation for free.
+  "/snapshot.json": SNAPSHOT_JSON,
 };
 
 export interface DeploymentAttestation {
@@ -1977,6 +1987,10 @@ export default {
     const url = new URL(request.url);
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("method not allowed", { status: 405 });
+    }
+
+    if (url.pathname === "/snapshot.json") {
+      return response(SNAPSHOT_JSON, "application/json; charset=utf-8");
     }
 
     if (url.pathname === "/attestation") {
