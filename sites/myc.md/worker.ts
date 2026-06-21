@@ -1923,11 +1923,64 @@ function response(body: string, contentType: string): Response {
   });
 }
 
+// --- Deployment attestation (Resonant Resolution, tier-2 transparency) ---
+// The deployed fallback proves it serves ONLY auditable bytes: it hashes its own
+// served assets. A local `verify-deployment` recomputes the same from source and
+// compares — so the central tier is VERIFIED, not trusted. Trust the hash, not the
+// host. (chord x6000_954726, step 1)
+async function attestSha256(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  );
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0"))
+    .join(
+      "",
+    );
+}
+
+export const SERVED_ASSETS: Record<string, string> = {
+  "/": HTML,
+  "/styles.css": CSS,
+  "/app.js": JS,
+  "/manifest.webmanifest": MANIFEST,
+  "/sw.js": SERVICE_WORKER,
+  "/icon.svg": ICON,
+};
+
+export interface DeploymentAttestation {
+  schema: "myc.deployment-attestation.v0.1";
+  assets: Record<string, string>;
+  digest: string;
+}
+
+export async function attestation(): Promise<DeploymentAttestation> {
+  const assets: Record<string, string> = {};
+  for (const path of Object.keys(SERVED_ASSETS).sort()) {
+    assets[path] = "sha256:" + (await attestSha256(SERVED_ASSETS[path]));
+  }
+  const canonical = Object.keys(assets).sort().map((p) => `${p} ${assets[p]}`)
+    .join(
+      "\n",
+    );
+  return {
+    schema: "myc.deployment-attestation.v0.1",
+    assets,
+    digest: "sha256:" + (await attestSha256(canonical)),
+  };
+}
+
+const ATTESTATION_JSON = JSON.stringify(await attestation(), null, 2);
+
 export default {
   fetch(request: Request): Response {
     const url = new URL(request.url);
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("method not allowed", { status: 405 });
+    }
+
+    if (url.pathname === "/attestation") {
+      return response(ATTESTATION_JSON, "application/json; charset=utf-8");
     }
 
     if (url.pathname === "/styles.css") {

@@ -3263,6 +3263,24 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `verify-deployment [url]` — Resonant Resolution step 1: verify a deployed
+  // myc.md fallback serves ONLY what local source attests, by content hash
+  // (trust the hash, not the host). Read-only; network. (chord x6000_954726)
+  if (args[0] === "verify-deployment") {
+    const vPath =
+      new URL("../sites/myc.md/verify_deployment.ts", import.meta.url)
+        .pathname;
+    const proc = new Deno.Command("deno", {
+      args: ["run", "--allow-net", "--allow-read", vPath, ...args.slice(1)],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `resolve-proposal` — record a terminal, commitment-bound outcome for a
   // dormant proposal (codex x6300_954228 P1). Effect class; rebuilds the index.
   if (args[0] === "resolve-proposal") {
@@ -3587,6 +3605,8 @@ function helpText(): string {
     "  render                               (the membrane as HTML — for human eyes)",
     "  propose --text <t> --requires <omega|liquid|trinity|spore> [--actor a]",
     "                                       (propose a DORMANT mutation; writes)",
+    "  verify-deployment [url]              (verify a deployed myc.md serves only",
+    "                                        local-source bytes — trust the hash)",
     "  authenticate <descriptor> [--voice claude]",
     "                                       (sign a witness — integrity → authenticity)",
     "  resolve-proposal <proposal> --outcome <implemented|rejected|…>",
