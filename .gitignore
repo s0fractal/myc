@@ -16,3 +16,6 @@
 
 # Local operating noise.
 .DS_Store
+
+# Wrangler local dev cache/state.
+.wrangler/
