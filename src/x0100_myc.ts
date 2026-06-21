@@ -575,6 +575,16 @@ export async function captureText(
   const storePayload = options.storePayload ?? true;
   const direction = options.direction ?? "forward";
   const rawText = await readInputText(options);
+  // An empty thought addresses nothing: sha256("") is a degenerate identity that
+  // pollutes the graph with a contentless artifact. A no-arg `capture` reads empty
+  // stdin and silently ingests "" (the `e3b0c44…` footgun, found by dogfooding the
+  // contribute path). Reject at the source so every afferent caller is protected;
+  // the HTTP /propose passage already guards separately.
+  if (rawText.trim() === "") {
+    throw new Error(
+      "capture: empty content — pipe text in, or pass --text <text> / --file <path>",
+    );
+  }
   const rawHash = await sha256Hex(rawText);
   const shortHash = rawHash.slice(0, 12);
   const objectDir = joinPath(root, "public", "objects", "h", shortHash);
