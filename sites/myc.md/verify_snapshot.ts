@@ -8,7 +8,7 @@
 // Usage: deno run --allow-read --allow-write verify_snapshot.ts <snapshot.json>
 //        ./t myc verify-snapshot <snapshot.json>
 import { dirname, join } from "jsr:@std/path@1.1.4";
-import type { Snapshot } from "./snapshot.ts";
+import { loadSnapshot, type Snapshot } from "./snapshot.ts";
 import { verifyPath } from "../../src/x0100_myc.ts";
 
 export interface SnapshotVerification {
@@ -54,15 +54,17 @@ export async function verifySnapshot(
 }
 
 async function main() {
-  const file = Deno.args[0];
-  if (!file) {
-    console.error("usage: verify_snapshot.ts <snapshot.json>");
+  const source = Deno.args[0];
+  if (!source) {
+    console.error(
+      "usage: verify_snapshot.ts <snapshot.json | https://…/snapshot.json>",
+    );
     Deno.exitCode = 2;
     return;
   }
   let snapshot: Snapshot;
   try {
-    snapshot = JSON.parse(await Deno.readTextFile(file));
+    snapshot = await loadSnapshot(source);
   } catch (e) {
     console.log(JSON.stringify(
       {

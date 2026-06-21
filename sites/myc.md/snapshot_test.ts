@@ -1,9 +1,51 @@
 import { join } from "jsr:@std/path@1.1.4";
-import { buildSnapshot, parseDescriptorBlock } from "./snapshot.ts";
+import {
+  buildSnapshot,
+  loadSnapshot,
+  parseDescriptorBlock,
+} from "./snapshot.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
+
+Deno.test("loadSnapshot reads from a file and from an http url (transport)", async () => {
+  const snap = {
+    schema: "myc.public-snapshot.v0.1",
+    record_count: 0,
+    records: [],
+  };
+
+  // local file source
+  const f = await Deno.makeTempFile({ suffix: ".json" });
+  await Deno.writeTextFile(f, JSON.stringify(snap));
+  const fromFile = await loadSnapshot(f);
+  assert(fromFile.schema === snap.schema, "loads a snapshot from a file");
+
+  // url source — fetch is injected, so no real network in the test
+  const okFetch = ((_u: string | URL) =>
+    Promise.resolve(
+      new Response(JSON.stringify(snap), { status: 200 }),
+    )) as unknown as typeof fetch;
+  const fromUrl = await loadSnapshot(
+    "https://peer.example/snapshot.json",
+    okFetch,
+  );
+  assert(fromUrl.schema === snap.schema, "loads a snapshot from an http url");
+
+  // a non-ok http response throws (never silently returns junk)
+  const badFetch = ((_u: string | URL) =>
+    Promise.resolve(
+      new Response("nope", { status: 404 }),
+    )) as unknown as typeof fetch;
+  let threw = false;
+  try {
+    await loadSnapshot("https://peer.example/missing.json", badFetch);
+  } catch {
+    threw = true;
+  }
+  assert(threw, "an http error is surfaced, not swallowed");
+});
 
 Deno.test("buildSnapshot: deterministic, matches index, preserves raw + parses descriptor", async () => {
   const root = await Deno.makeTempDir({ prefix: "myc-snap-" });

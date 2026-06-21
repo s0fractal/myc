@@ -10,7 +10,7 @@
 //   - dry-run by default — nothing is written without --write.
 // (chord x6000_954726)
 import { dirname, join } from "jsr:@std/path@1.1.4";
-import type { Snapshot } from "./snapshot.ts";
+import { loadSnapshot, type Snapshot } from "./snapshot.ts";
 import { verifySnapshot } from "./verify_snapshot.ts";
 import { rebuildIndex } from "../../src/x0100_myc.ts";
 
@@ -79,17 +79,19 @@ export async function applyImport(
 }
 
 async function main() {
-  const file = Deno.args[0];
+  const source = Deno.args[0];
   const write = Deno.args.includes("--write");
-  if (!file || file.startsWith("--")) {
-    console.error("usage: import_snapshot.ts <snapshot.json> [--write]");
+  if (!source || source.startsWith("--")) {
+    console.error(
+      "usage: import_snapshot.ts <snapshot.json | https://…/snapshot.json> [--write]",
+    );
     Deno.exitCode = 2;
     return;
   }
   const root = Deno.env.get("MYC_ROOT") ?? Deno.cwd();
   let snapshot: Snapshot;
   try {
-    snapshot = JSON.parse(await Deno.readTextFile(file));
+    snapshot = await loadSnapshot(source);
   } catch (e) {
     console.log(JSON.stringify(
       {

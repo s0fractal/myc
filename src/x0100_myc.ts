@@ -3315,7 +3315,14 @@ export async function main(args: string[]): Promise<void> {
       new URL("../sites/myc.md/verify_snapshot.ts", import.meta.url)
         .pathname;
     const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", "--allow-write", vsPath, ...args.slice(1)],
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-net",
+        vsPath,
+        ...args.slice(1),
+      ],
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
@@ -3339,6 +3346,7 @@ export async function main(args: string[]): Promise<void> {
         "--allow-read",
         "--allow-write",
         "--allow-env",
+        "--allow-net",
         isPath,
         ...args.slice(1),
       ],
@@ -3679,9 +3687,9 @@ function helpText(): string {
     "                                        local-source bytes — trust the hash)",
     "  snapshot [--write path]              (portable content-addressed export of",
     "                                        the public network — fallback/peer feed)",
-    "  verify-snapshot <file>               (verify a peer's snapshot by hash with",
+    "  verify-snapshot <file|url>           (verify a peer's snapshot by hash with",
     "                                        myc's canonical verifier — trust the hash)",
-    "  import-snapshot <file> [--write]     (verify then merge a peer's new records",
+    "  import-snapshot <file|url> [--write] (verify then merge a peer's new records",
     "                                        into your network; dry-run by default)",
     "  authenticate <descriptor> [--voice claude]",
     "                                       (sign a witness — integrity → authenticity)",

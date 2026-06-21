@@ -83,6 +83,22 @@ export async function buildSnapshot(root: string): Promise<Snapshot> {
   };
 }
 
+/** Load a snapshot from a local file path or an http(s) URL — the transport layer of
+ *  resonant exchange. A peer's network can arrive from a file, a peer's resolver, a
+ *  plain file host, or the myc.md fallback; verification (verify_snapshot) is what
+ *  makes any source safe. `fetchImpl` is injectable for tests (no real net needed). */
+export async function loadSnapshot(
+  source: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<Snapshot> {
+  if (/^https?:\/\//.test(source)) {
+    const r = await fetchImpl(source);
+    if (!r.ok) throw new Error(`fetch ${source}: HTTP ${r.status}`);
+    return await r.json() as Snapshot;
+  }
+  return JSON.parse(await Deno.readTextFile(source)) as Snapshot;
+}
+
 async function main() {
   const args = Deno.args;
   const root = Deno.env.get("MYC_ROOT") ?? Deno.cwd();
