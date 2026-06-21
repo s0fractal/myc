@@ -1306,3 +1306,65 @@ Deno.test("parseDescriptorFile resolves dynamic YAML frontmatter for coordinate 
   assert(resolved !== null, "Should resolve by FQDN");
   assert(resolved!.descriptor.fqdn === "x1234_test_doc.myc.md", "FQDN matches");
 });
+
+Deno.test("POST /propose is the keyless afferent passage (dormant + indexed)", async () => {
+  const root = await Deno.makeTempDir({ prefix: "myc-test-" });
+
+  // a newcomer contributes a thought through the membrane, no key
+  const res = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/propose", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        proposal: "a newcomer thought from the membrane",
+        requires: "trinity",
+        proposer: "newcomer",
+      }),
+    }),
+  );
+  assert(res.status === 201, "propose should return 201");
+  const body = await res.json();
+  assert(body.ok === true, "propose should be ok");
+  assert(
+    body.state === "dormant",
+    "proposal must be dormant — carries no trust",
+  );
+  assert(
+    typeof body.fqdn === "string" && body.fqdn.endsWith(".proposal.myc.md"),
+    "propose returns a content-addressed proposal fqdn",
+  );
+
+  // it is written to the resolver's root (not cwd) and indexed
+  const stat = await Deno.stat(`${root}/public/proposals/${body.fqdn}`);
+  assert(stat.isFile, "proposal descriptor written under the resolver root");
+  const index = await Deno.readTextFile(`${root}/public/index.ndjson`);
+  assert(index.includes(body.fqdn), "new proposal is indexed (reindexed)");
+
+  // empty text is rejected
+  const empty = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/propose", {
+      method: "POST",
+      body: JSON.stringify({ proposal: "  ", requires: "trinity" }),
+    }),
+  );
+  assert(empty.status === 400, "empty proposal is rejected");
+
+  // an invalid substrate is rejected (x5800 validates BACKENDS)
+  const badReq = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/propose", {
+      method: "POST",
+      body: JSON.stringify({ proposal: "x", requires: "banana" }),
+    }),
+  );
+  assert(badReq.status === 400, "invalid requires is rejected");
+
+  // GET /propose does not contribute — the write surface is POST-only
+  const get = await handleRequest(
+    root,
+    new Request("http://127.0.0.1/propose"),
+  );
+  assert(get.status >= 400, "GET /propose does not contribute");
+});

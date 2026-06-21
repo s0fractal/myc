@@ -1894,6 +1894,68 @@ export async function handleRequest(
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(request) });
   }
+
+  // POST /propose — the afferent passage: a newcomer contributes a thought into
+  // the local membrane, KEYLESS. Writes a content-addressed DORMANT proposal
+  // (same safety invariant as the CLI `myc propose`); never signs/witnesses/
+  // germinates. Composed by subprocess (x0100 stays import-free) + reindex.
+  if (request.method === "POST" && url.pathname === "/propose") {
+    let payload: { proposal?: unknown; requires?: unknown; proposer?: unknown };
+    try {
+      payload = await request.json();
+    } catch {
+      return errorResponse("invalid-json", 400, request);
+    }
+    const proposal = typeof payload.proposal === "string"
+      ? payload.proposal.trim()
+      : "";
+    const requires = typeof payload.requires === "string"
+      ? payload.requires
+      : "";
+    const proposer =
+      typeof payload.proposer === "string" && payload.proposer.trim()
+        ? payload.proposer.trim()
+        : "anon";
+    if (!proposal) {
+      return errorResponse("proposal text is required", 400, request);
+    }
+    const propPath = new URL("./x5800_propose.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        propPath,
+        "--root",
+        root,
+        "--text",
+        proposal,
+        "--requires",
+        requires,
+        "--actor",
+        proposer,
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { stdout } = await proc.output();
+    const out = new TextDecoder().decode(stdout).trim();
+    let result: Record<string, unknown> | null = null;
+    try {
+      result = JSON.parse(out);
+    } catch { /* non-JSON output → fall through to 502 */ }
+    if (result && typeof result.ok === "boolean") {
+      if (result.ok) await rebuildIndex(root);
+      return jsonResponse(result, result.ok ? 201 : 400, request);
+    }
+    return jsonResponse(
+      { ok: false, error: out || "propose subprocess produced no result" },
+      502,
+      request,
+    );
+  }
+
   if (request.method !== "GET") {
     return errorResponse("method-not-allowed", 405, request);
   }

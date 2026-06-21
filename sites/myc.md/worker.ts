@@ -101,6 +101,18 @@ const HTML = `<!doctype html>
         <button id="install-btn" type="button" hidden>Install</button>
       </div>
 
+      <div class="contribute-row">
+        <textarea id="contribute-text" rows="2" spellcheck="false" placeholder="contribute a thought — keyless, content-addressed, dormant until a voice witnesses it"></textarea>
+        <select id="contribute-requires" title="which organ this thought concerns">
+          <option value="trinity">trinity</option>
+          <option value="omega">omega</option>
+          <option value="liquid">liquid</option>
+          <option value="spore">spore</option>
+        </select>
+        <input id="contribute-proposer" spellcheck="false" autocomplete="off" placeholder="handle (optional)">
+        <button id="contribute-btn" type="button">Propose</button>
+      </div>
+
       <div class="workspace-grid">
         <section class="panel" aria-label="Descriptor output">
           <div class="panel-header">
@@ -320,6 +332,20 @@ h2 {
 .action-row {
   display: grid;
   gap: 10px;
+}
+
+.contribute-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 10px;
+  align-items: start;
+  margin-top: 10px;
+}
+
+.contribute-row textarea {
+  resize: vertical;
+  min-height: 2.4em;
+  font: inherit;
 }
 
 .resolver-bar {
@@ -772,6 +798,49 @@ async function api(path) {
     throw error;
   }
   return body;
+}
+
+// The afferent passage: contribute a thought through the membrane, keyless.
+// Writes a dormant, content-addressed proposal via the local resolver's POST
+// /propose. Carries no trust until a voice witnesses it.
+async function contribute() {
+  if (state.dirHandle) {
+    write(
+      "Contributing writes through a local resolver. Use Connect (not Open " +
+        "Directory) so the proposal is content-addressed and indexed.",
+    );
+    return;
+  }
+  const proposal = $("contribute-text").value.trim();
+  if (!proposal) {
+    write("Write a thought to contribute first.");
+    return;
+  }
+  const requires = $("contribute-requires").value;
+  const proposer = ($("contribute-proposer").value || "").trim() || "anon";
+  const response = await fetch(resolverBase() + "/propose", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ proposal, requires, proposer }),
+  });
+  const text = await response.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = { ok: false, raw: text };
+  }
+  if (!response.ok || !body.ok) {
+    write("Contribution failed: " + (body.error || response.statusText));
+    return;
+  }
+  $("contribute-text").value = "";
+  write(
+    "✓ Contributed (keyless, dormant) — " + body.fqdn + "\n\n" +
+      JSON.stringify(body, null, 2) +
+      "\n\nIt carries no trust until a voice witnesses it. Load Index to see it.",
+  );
+  loadIndex().catch(() => {});
 }
 
 // --- Browser Local File System Mode Support ---
@@ -1729,6 +1798,7 @@ $("load-index-btn").addEventListener("click", () => loadIndex().catch((error) =>
 $("verification-btn").addEventListener("click", () => loadVerification().catch((error) => write(error.body || error.message)));
 $("adapter-dry-run-btn").addEventListener("click", () => adapterDryRunTarget().catch((error) => write(error.body || error.message)));
 $("recipe-dry-run-btn").addEventListener("click", () => recipeDryRunTarget().catch((error) => write(error.body || error.message)));
+$("contribute-btn").addEventListener("click", () => contribute().catch((error) => write(error.body || error.message)));
 $("publish-btn").addEventListener("click", () => publishTarget().catch((error) => write(error.body || error.message)));
 $("resolve-btn").addEventListener("click", () => resolveTarget().catch((error) => write(error.body || error.message)));
 $("explain-btn").addEventListener("click", () => {
