@@ -213,7 +213,18 @@ export function defaultRoot(): string {
     // Fall back to the local operator convention below.
   }
   const home = Deno.env.get("HOME") ?? Deno.cwd();
-  return joinPath(home, "myc");
+  // Canonical install is "join the mycelium": clone trinity to ~/trinity, myc is
+  // its submodule at ~/trinity/myc. Prefer that; fall back to a standalone ~/myc
+  // clone (myc is also published on its own); default to the mycelium location.
+  const mycelium = joinPath(home, "trinity", "myc");
+  const standalone = joinPath(home, "myc");
+  try {
+    if (Deno.statSync(mycelium).isDirectory) return mycelium;
+  } catch { /* mycelium clone not present */ }
+  try {
+    if (Deno.statSync(standalone).isDirectory) return standalone;
+  } catch { /* standalone clone not present */ }
+  return mycelium;
 }
 
 export function joinPath(...parts: string[]): string {
@@ -3538,7 +3549,8 @@ function helpText(): string {
     "  demo",
     "",
     "Environment:",
-    "  MYC_ROOT=~/myc   (defaults to $HOME/myc, or the repo root if run inside it)",
+    "  MYC_ROOT=~/trinity/myc   (mycelium install; falls back to ~/myc standalone,",
+    "                            or the repo root when run inside it)",
   ].join("\n");
 }
 
