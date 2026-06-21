@@ -34,8 +34,14 @@ const HTML = `<!doctype html>
           Clones <a href="https://github.com/s0fractal/trinity">trinity</a> (the
           organism) to <code>~/trinity</code> and the public organ
           <a href="https://github.com/s0fractal/myc">myc</a>; the private organs
-          (omega, liquid) stay present by reference. Reading is open; writing carries
-          provenance. Then: <code>cd ~/trinity &amp;&amp; ./t self</code>.
+          (omega, liquid) stay present by reference. Then:
+          <code>cd ~/trinity &amp;&amp; ./t self</code>.
+        </p>
+        <p class="join-note">
+          You're a participant, not a spectator. Contribute a thought with no key:
+          <code>./t myc propose --text "…" --requires trinity</code> records a
+          content-addressed, dormant proposal. Reading is open; trust is
+          <strong>earned through witnessing</strong>, not granted by a key.
         </p>
       </section>
 
