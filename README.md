@@ -297,3 +297,16 @@ h.<finalHash>.review.codex.h.<targetHash>.jazz.protocol.myc.md
 
 Short human-readable names are allowed, but immutable claims should be backed by
 hashes and naming proofs.
+
+## License & attribution
+
+**Licence**: GNU Affero General Public License v3.0 or later
+(`SPDX-License-Identifier: AGPL-3.0-or-later`). See [LICENSE](LICENSE) for the full
+text and [NOTICE](NOTICE) for the copyright header.
+
+This is an **interim stopgap**. myc is one substrate in a federated mycelium
+(`omega`, `liquid`, `myc`, coordinated through `trinity`); the licence aims to
+protect the federation from extractive forks while permitting study, modification,
+and independent audit. A bespoke mycelium-aware licence is on the roadmap; the
+reasoning is recorded in [LICENSE-INTENT.md](LICENSE-INTENT.md). `private/**` and
+sealed payloads are kept out of the repository by `.gitignore`.

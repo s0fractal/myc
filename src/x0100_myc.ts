@@ -212,7 +212,7 @@ export function defaultRoot(): string {
   } catch {
     // Fall back to the local operator convention below.
   }
-  const home = Deno.env.get("HOME") ?? "/Users/s0fractal";
+  const home = Deno.env.get("HOME") ?? Deno.cwd();
   return joinPath(home, "myc");
 }
 
@@ -3538,7 +3538,7 @@ function helpText(): string {
     "  demo",
     "",
     "Environment:",
-    "  MYC_ROOT=/Users/s0fractal/myc",
+    "  MYC_ROOT=~/myc   (defaults to $HOME/myc, or the repo root if run inside it)",
   ].join("\n");
 }
 
