@@ -305,8 +305,18 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
   if (result.ok && result.path && "sign" in f) {
     signed = await authenticateFile(result.path, resolver);
   }
+  // Friction found walking the loop as a user: an unsigned resolution silently
+  // stalls at "no authenticated resolver", and an `implemented` outcome with no
+  // evidence stalls at "evidence did not resolve". The CLI gave no next step.
+  const next = result.ok && !("sign" in f)
+    ? `UNSIGNED — run \`t myc authenticate ${result.fqdn} --voice ${resolver}\`` +
+      ` (or re-run with --sign) so it counts toward finality` +
+      (evidence_refs.length === 0 && f.outcome === "implemented"
+        ? `; an "implemented" outcome also needs evidence (--evidence-ref / --from-receipt), or it stalls on "evidence did not resolve"`
+        : "")
+    : undefined;
   console.log(JSON.stringify(
-    { type: "proposal_resolution", position: "5/8", ...result, signed },
+    { type: "proposal_resolution", position: "5/8", ...result, signed, next },
     null,
     2,
   ));

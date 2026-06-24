@@ -2744,10 +2744,15 @@ export async function witnessTarget(
   const record = await resolveFqdn(root, target);
   if (!record) return { ok: false, errors: [`target not found: ${target}`] };
   if (record.descriptor.type !== "PublishDescriptor") {
+    // Friction found walking the loop as a user: the instinct is to witness the
+    // proposal directly, but a witness targets the PUBLISH. Guide, don't just deny.
+    const hint = record.descriptor.type === "ProposedMutationDescriptor"
+      ? ` — publish it first: \`t myc publish ${target}\`, then witness the resulting *.publish.myc.md`
+      : "";
     return {
       ok: false,
       errors: [
-        `WitnessDescriptor must target a PublishDescriptor, got ${record.descriptor.type}`,
+        `WitnessDescriptor must target a PublishDescriptor, got ${record.descriptor.type}${hint}`,
       ],
     };
   }

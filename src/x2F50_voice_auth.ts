@@ -127,12 +127,51 @@ export async function verifyCommitment(
   return await ed25519Verify(commitment, sig, pub);
 }
 
+/** Resolve the CLI arg to a descriptor file: try it as a literal path first, then
+ *  as a descriptor fqdn looked up by basename under the membrane's public/ tree.
+ *  Returns null if neither finds a file — so callers fail cleanly instead of
+ *  crashing on a missing read. (Friction found walking the loop as a user:
+ *  `resolve-proposal` tells you to run `authenticate <resolution-fqdn>`, but a
+ *  fqdn is not a path → an uncaught NotFound crash. This makes it actually work.) */
+async function resolveDescriptorPath(arg: string): Promise<string | null> {
+  try {
+    if ((await Deno.stat(arg)).isFile) return arg;
+  } catch { /* not a direct path — fall through to a fqdn lookup */ }
+  const base = arg.split("/").pop() ?? arg;
+  const stack = [join(MYC_ROOT, "public")];
+  while (stack.length) {
+    const dir = stack.pop()!;
+    let entries: Deno.DirEntry[];
+    try {
+      entries = [...Deno.readDirSync(dir)];
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      const p = join(dir, e.name);
+      if (e.isDirectory) stack.push(p);
+      else if (e.isFile && e.name === base) return p;
+    }
+  }
+  return null;
+}
+
 /** Add a frontmatter content_sig to a descriptor file, signing its body
- *  commitment with the voice's key. The body (and its commitment) are untouched. */
+ *  commitment with the voice's key. The body (and its commitment) are untouched.
+ *  `arg` may be a path OR a descriptor fqdn (resolved under public/). */
 export async function authenticateFile(
-  path: string,
+  arg: string,
   voice: string,
-): Promise<{ ok: boolean; voice: string; reason?: string }> {
+): Promise<{ ok: boolean; voice: string; reason?: string; path?: string }> {
+  const path = await resolveDescriptorPath(arg);
+  if (!path) {
+    return {
+      ok: false,
+      voice,
+      reason:
+        `descriptor not found: "${arg}" — pass a path, or the fqdn of a descriptor under public/`,
+    };
+  }
   const text = await Deno.readTextFile(path);
   const m = text.match(/```json myc\s*\n([\s\S]*?)\n```/);
   if (!m) return { ok: false, voice, reason: "no descriptor block" };
@@ -157,7 +196,7 @@ export async function authenticateFile(
   head = head + block;
   const updated = head + "---" + text.slice(fm[0].length);
   await Deno.writeTextFile(path, updated);
-  return { ok: true, voice: voiceFamily(voice) };
+  return { ok: true, voice: voiceFamily(voice), path };
 }
 
 /** Parse `<path> --voice claude` or `--voice=claude` — the first non-flag,
@@ -191,7 +230,6 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
     {
       type: "voice_authentication",
       position: "2/F",
-      path,
       ...result,
       note: result.ok
         ? "frontmatter content_sig added; the body commitment is unchanged. Verify via `t myc trust`."

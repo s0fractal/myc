@@ -60,3 +60,16 @@ Deno.test("x2F50 — authenticateFile adds frontmatter sig, body commitment unch
     await Deno.remove(dir, { recursive: true });
   }
 });
+
+Deno.test("x2F50 — authenticateFile fails cleanly on a missing descriptor (no uncaught crash)", async () => {
+  // Friction #3, found walking the loop as a user: `t myc authenticate <fqdn>`
+  // (the step resolve-proposal tells you to run) used to crash with an uncaught
+  // NotFound, because a fqdn is not a path. A missing arg must now resolve to a
+  // clean {ok:false} — never throw — and the message must point the user back.
+  const r = await authenticateFile(
+    "h.definitely-not-here-0000.resolution.myc.md",
+    "claude",
+  );
+  assertEquals(r.ok, false);
+  assertStringIncludes(r.reason ?? "", "descriptor not found");
+});
