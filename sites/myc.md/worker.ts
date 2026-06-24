@@ -886,17 +886,17 @@ async function walkDirHandle(dirHandle, pathParts = []) {
 }
 
 function parseFrontmatterJS(text) {
-  const match = text.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---/);
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return {};
   const obj = {};
-  const lines = match[1].split(/\\r?\\n/);
+  const lines = match[1].split(/\r?\n/);
   let currentKey = null;
   let currentList = null;
 
   for (const line of lines) {
     if (line.trim().startsWith("#") || !line.trim()) continue;
 
-    const listItemMatch = line.match(/^\\s*-\\s*(.*)$/);
+    const listItemMatch = line.match(/^\s*-\s*(.*)$/);
     if (listItemMatch && currentKey) {
       if (!currentList) {
         currentList = [];
@@ -909,7 +909,7 @@ function parseFrontmatterJS(text) {
       continue;
     }
 
-    const keyValueMatch = line.match(/^([^:]+):\\s*(.*)$/);
+    const keyValueMatch = line.match(/^([^:]+):\s*(.*)$/);
     if (keyValueMatch) {
       currentKey = keyValueMatch[1].trim();
       currentList = null;
@@ -932,7 +932,7 @@ async function fileToDescriptorRecord(fileEntry) {
   const file = await fileEntry.handle.getFile();
   const text = await file.text();
 
-  const jsonMatch = text.match(/\`\`\`json myc\\n([\\s\\S]*?)\\n\`\`\`/);
+  const jsonMatch = text.match(/\`\`\`json myc\n([\s\S]*?)\n\`\`\`/);
   if (jsonMatch) {
     try {
       const descriptor = JSON.parse(jsonMatch[1]);
@@ -971,11 +971,11 @@ async function fileToDescriptorRecord(fileEntry) {
     // match the CLI resolver (src/x0200_resolve.ts canonicalCommitment); the
     // conformance vector x0000_conformance.myc.md hashes to
     // 0cd0ac37654f234bde63ddb72ca3ff3920ed0fa5d2602d07221528b7b2a0d875.
-    const fmMatch = text.match(/^---\\r?\\n[\\s\\S]*?\\r?\\n---\\r?\\n?([\\s\\S]*)$/);
+    const fmMatch = text.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/);
     const contentBody = fmMatch ? fmMatch[1] : text;
 
     const encoder = new TextEncoder();
-    const data = encoder.encode(fqdn + "\\n" + contentBody.trimEnd());
+    const data = encoder.encode(fqdn + "\n" + contentBody.trimEnd());
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
@@ -1183,7 +1183,7 @@ async function mockLocalApi(path) {
 // --- Dynamic Rendering & Lens Overrides ---
 
 function renderMarkdown(text) {
-  let body = text.replace(/^---[\\s\\S]*?---\\r?\\n/, "");
+  let body = text.replace(/^---[\s\S]*?---\r?\n/, "");
   
   body = body
     .replace(/&/g, "&amp;")
@@ -1195,17 +1195,17 @@ function renderMarkdown(text) {
   body = body.replace(/^### (.*)$/gm, "<h3>$1</h3>");
   body = body.replace(/^#### (.*)$/gm, "<h4>$1</h4>");
   
-  body = body.replace(/\\*\\*(.*?)\\*\\*/g, "<strong>$1</strong>");
-  body = body.replace(/\\*(.*?)\\*/g, "<em>$1</em>");
+  body = body.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  body = body.replace(/\*(.*?)\*/g, "<em>$1</em>");
   
-  body = body.replace(/\`\`\`(.*?)\\n([\\s\\S]*?)\`\`\`/g, "<pre class='code-block'><code class='language-$1'>$2</code></pre>");
+  body = body.replace(/\`\`\`(.*?)\n([\s\S]*?)\`\`\`/g, "<pre class='code-block'><code class='language-$1'>$2</code></pre>");
   body = body.replace(/\`(.*?)\`/g, "<code>$1</code>");
   
-  body = body.replace(/\\s*\\[(.*?)\\]\\((.*?)\\)/g, " <a href='$2' class='myc-link'>$1</a>");
-  body = body.replace(/\\[(.*?)\\]\\((.*?)\\)/g, "<a href='$2' class='myc-link'>$1</a>");
-  body = body.replace(/^\\s*[-*]\\s+(.*)$/gm, "<li>$1</li>");
+  body = body.replace(/\s*\[(.*?)\]\((.*?)\)/g, " <a href='$2' class='myc-link'>$1</a>");
+  body = body.replace(/\[(.*?)\]\((.*?)\)/g, "<a href='$2' class='myc-link'>$1</a>");
+  body = body.replace(/^\s*[-*]\s+(.*)$/gm, "<li>$1</li>");
   
-  const blocks = body.split(/\\n\\n+/);
+  const blocks = body.split(/\n\n+/);
   body = blocks.map(block => {
     block = block.trim();
     if (block.startsWith("<h") || block.startsWith("<li") || block.startsWith("<pre") || block.startsWith("<ul") || block.startsWith("<ol") || block.startsWith("<div")) {
@@ -1214,7 +1214,7 @@ function renderMarkdown(text) {
     if (block.startsWith("<li>")) {
       return "<ul>" + block + "</ul>";
     }
-    return "<p>" + block.replace(/\\n/g, "<br>") + "</p>";
+    return "<p>" + block.replace(/\n/g, "<br>") + "</p>";
   }).join("\n");
   
   return body;
@@ -1259,7 +1259,7 @@ async function renderDocument(target, depth = 0) {
         const styleText = styleRes.source;
         if (styleText) {
           let css = styleText;
-          const cssMatch = styleText.match(/\`\`\`css\\n([\\s\\S]*?)\`\`\`/);
+          const cssMatch = styleText.match(/\`\`\`css\n([\s\S]*?)\`\`\`/);
           if (cssMatch) css = cssMatch[1];
           html = \`<style id="lens-stylesheet">\${css}</style>\` + html;
         }
@@ -1277,7 +1277,7 @@ async function renderDocument(target, depth = 0) {
 function initialTarget() {
   const host = location.hostname;
   if (host !== "myc.md" && !host.endsWith(".workers.dev")) return host;
-  const path = decodeURIComponent(location.pathname.replace(/^\\/+/, ""));
+  const path = decodeURIComponent(location.pathname.replace(/^\/+/, ""));
   return path && !["index.html", "manifest.webmanifest", "sw.js"].includes(path)
     ? path
     : "task.s0fractal.h.38bfd1d80cb9.myc.md";
@@ -1434,7 +1434,7 @@ async function resolveTarget() {
     })
     .catch((error) => {
       renderAvailabilityBadge(null);
-      $("availability-output").textContent = "Access unavailable.\\n\\nReason: " + (error.body?.error || error.message);
+      $("availability-output").textContent = "Access unavailable.\n\nReason: " + (error.body?.error || error.message);
     });
 
   write(result.descriptor || result);
@@ -1473,7 +1473,7 @@ async function availabilityTarget() {
     $("availability-output").textContent = JSON.stringify(result, null, 2);
   } catch (error) {
     renderAvailabilityBadge(null);
-    $("availability-output").textContent = "Access unavailable.\\n\\nReason: " + (error.body?.error || error.message);
+    $("availability-output").textContent = "Access unavailable.\n\nReason: " + (error.body?.error || error.message);
   }
 }
 
@@ -1485,7 +1485,7 @@ async function sourceTarget() {
     const result = await api("/source?target=" + encodeURIComponent(target));
     $("source-output").textContent = result.source;
   } catch (error) {
-    $("source-output").textContent = "Descriptor source unavailable.\\n\\nReason: " + (error.body?.error || error.message);
+    $("source-output").textContent = "Descriptor source unavailable.\n\nReason: " + (error.body?.error || error.message);
   }
 }
 
@@ -1497,7 +1497,7 @@ async function summaryTarget() {
     const result = await api("/summary?target=" + encodeURIComponent(target));
     $("summary-output").textContent = JSON.stringify(result.summary, null, 2);
   } catch (error) {
-    $("summary-output").textContent = "Summary unavailable.\\n\\nReason: " + (error.body?.error || error.message);
+    $("summary-output").textContent = "Summary unavailable.\n\nReason: " + (error.body?.error || error.message);
   }
 }
 

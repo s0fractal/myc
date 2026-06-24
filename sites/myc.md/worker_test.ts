@@ -100,3 +100,29 @@ Deno.test("myc.md worker falls back to shell for FQDN routes", async () => {
   const body = await response.text();
   assert(body.includes("graph-canvas"), "shell should include graph canvas");
 });
+
+// --- provenance-corruption guard (GOAL: adversary / notary) ---
+// This worker was found SYSTEMATICALLY escape-corrupted: every regex and the
+// commitment separator carried a DOUBLE backslash, so the frontmatter regexes
+// matched a literal "\r\n" (never real newlines) and the commitment hashed
+// `fqdn + "\\n" + body` — diverging from the CLI's canonicalCommitment. The
+// public PWA computed WRONG commitments and could not parse frontmatter at all.
+// Fixed; these red the instant the corruption returns.
+const WORKER_SRC = Deno.readTextFileSync(
+  new URL("./worker.ts", import.meta.url),
+);
+
+Deno.test("worker.ts is not escape-corrupted (zero double-backslashes)", () => {
+  const doubles = WORKER_SRC.match(/\\\\/g)?.length ?? 0;
+  assert(
+    doubles === 0,
+    `worker.ts has ${doubles} double-backslash sequence(s) — its markdown/frontmatter regexes and the provenance-commitment separator would be broken, so the deployed PWA would compute wrong commitments.`,
+  );
+});
+
+Deno.test("worker.ts commitment uses the canonical formula (fqdn + real newline + body.trimEnd)", () => {
+  assert(
+    WORKER_SRC.includes('fqdn + "\\n" + contentBody.trimEnd()'),
+    "the PWA commitment must hash fqdn + a real newline + body.trimEnd(), matching src/x0200_resolve.ts canonicalCommitment (conformance vector 0cd0ac37…)",
+  );
+});
