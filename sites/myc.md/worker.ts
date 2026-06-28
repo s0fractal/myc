@@ -1947,6 +1947,13 @@ async function attestSha256(text: string): Promise<string> {
 
 const SNAPSHOT_JSON = JSON.stringify(SNAPSHOT);
 
+// The omega mesh relay (CONNECT to the membrane's SEE): a stranger who pulls the
+// membrane discovers where to dial the libp2p mesh. One domain, two surfaces.
+// (chord x3300_955776; relay lives on relay.myc.md, carved out of this worker's
+// route so its wss reaches the libp2p circuit-relay.)
+const RELAY_MULTIADDR =
+  "/dns4/relay.myc.md/tcp/443/wss/p2p/12D3KooWRd5JMPNTBfpAAyG4bs3V9VhiM7CvgHotdQx5UNCRLsDN";
+
 export const SERVED_ASSETS: Record<string, string> = {
   "/": HTML,
   "/styles.css": CSS,
@@ -1956,6 +1963,8 @@ export const SERVED_ASSETS: Record<string, string> = {
   "/icon.svg": ICON,
   // The published network — verifiable by hash, covered by /attestation for free.
   "/snapshot.json": SNAPSHOT_JSON,
+  // Mesh bootstrap discovery — the relay multiaddr, attested like everything else.
+  "/.well-known/omega-relay": RELAY_MULTIADDR,
 };
 
 export interface DeploymentAttestation {
@@ -1995,6 +2004,10 @@ export default {
 
     if (url.pathname === "/attestation") {
       return response(ATTESTATION_JSON, "application/json; charset=utf-8");
+    }
+
+    if (url.pathname === "/.well-known/omega-relay") {
+      return response(RELAY_MULTIADDR, "text/plain; charset=utf-8");
     }
 
     if (url.pathname === "/styles.css") {

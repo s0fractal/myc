@@ -126,3 +126,15 @@ Deno.test("worker.ts commitment uses the canonical formula (fqdn + real newline 
     "the PWA commitment must hash fqdn + a real newline + body.trimEnd(), matching src/x0200_resolve.ts canonicalCommitment (conformance vector 0cd0ac37…)",
   );
 });
+
+Deno.test("myc.md worker publishes the omega mesh relay multiaddr (CONNECT resonance)", async () => {
+  const response = await worker.fetch(
+    new Request("https://myc.md/.well-known/omega-relay"),
+  );
+  assert(response.status === 200, "relay endpoint should return 200");
+  const body = await response.text();
+  assert(
+    body.startsWith("/dns4/relay.myc.md/tcp/443/wss/p2p/"),
+    "should serve the relay wss multiaddr (the mesh bootstrap)",
+  );
+});
