@@ -49,6 +49,11 @@ const HTML = `<!doctype html>
           content-addressed, dormant proposal. Reading is open; trust is
           <strong>earned through witnessing</strong>, not granted by a key.
         </p>
+        <p class="join-note">
+          Or just <a href="https://relay.myc.md/mesh/">browse the live mesh</a> —
+          read signed chords and watch your own browser verify each Ed25519
+          signature. No install, no account. Trust the hash, not the host.
+        </p>
       </section>
 
       <div class="resolver-bar">
