@@ -3109,6 +3109,24 @@ function flagBoolean(
   return defaultValue;
 }
 
+/** Human-friendly capture summary (the TTY default). `t myc capture` is the
+ *  newcomer's CONTRIBUTE doorway; a person should see what happened and what it
+ *  means — not a wall of hashes. Raw JSON is still emitted with --json or when
+ *  piped (scripts/callers). Dogfood 2026-07-01. */
+export function renderCaptureHuman(r: CaptureResult): string {
+  return [
+    "✓ your thought is in the network — keyless and content-addressed.",
+    "",
+    `  address:  ${r.rawFqdn}`,
+    `  content:  ${r.artifactFqdn}`,
+    `  hash:     ${r.rawHash}`,
+    "",
+    "  Its identity IS its hash — anyone can verify it by that hash. It carries NO",
+    "  trust yet: a voice must witness it to give it standing (open contribution,",
+    "  earned trust). Run again with --json for the full descriptor + transform set.",
+  ].join("\n");
+}
+
 export async function main(args: string[]): Promise<void> {
   // `coord <coordinate> [--graph|--lattice|--why|--stamp <signer>|--cat|--json]`
   // reaches the coordinate/provenance resolver (x0200_resolve.ts) through this
@@ -3525,7 +3543,11 @@ export async function main(args: string[]): Promise<void> {
       storePayload: flagBoolean(flags, "store-payload", true),
       dryRun: flagBoolean(flags, "dry-run", false),
     });
-    console.log(JSON.stringify(result, null, 2));
+    const wantJson = flagBoolean(flags, "json", false) ||
+      !Deno.stdout.isTerminal();
+    console.log(
+      wantJson ? JSON.stringify(result, null, 2) : renderCaptureHuman(result),
+    );
     return;
   }
 
