@@ -7,3 +7,7 @@ routes = [
   { pattern = "myc.md/*", zone_name = "myc.md" },
   { pattern = "*.myc.md/*", zone_name = "myc.md" }
 ]
+
+[[kv_namespaces]]
+binding = "MYC_PUBLISHED"
+id = "cafe147ea7694d1db6e7d86f076ee0ff"

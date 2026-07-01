@@ -145,3 +145,54 @@ Deno.test("myc.md worker publishes the omega mesh relay multiaddr (CONNECT reson
     "should serve the relay wss multiaddr (the mesh bootstrap)",
   );
 });
+
+// --- witness→publish gate (structural). The full signature gate (valid witness
+// accepted, bad-sig + unknown-voice rejected) is validated live end-to-end; here
+// we lock the non-network structural guards. ---
+const mockEnv = () => {
+  const m = new Map<string, string>();
+  return {
+    MYC_PUBLISHED: {
+      get: (k: string) => Promise.resolve(m.get(k) ?? null),
+      put: (k: string, v: string) => {
+        m.set(k, v);
+        return Promise.resolve();
+      },
+    },
+  };
+};
+
+Deno.test("/publish requires a store, valid json, and a witness", async () => {
+  // no KV store bound → 503 (never silently drops a publish)
+  let r = await worker.fetch(
+    new Request("https://myc.md/publish", { method: "POST", body: "{}" }),
+    {},
+  );
+  assert(r.status === 503, "no store → 503");
+  // malformed json → 400
+  r = await worker.fetch(
+    new Request("https://myc.md/publish", { method: "POST", body: "nope" }),
+    mockEnv(),
+  );
+  assert(r.status === 400, "bad json → 400");
+  // records without a witness → 400 (the gate is mandatory)
+  r = await worker.fetch(
+    new Request("https://myc.md/publish", {
+      method: "POST",
+      body: JSON.stringify({ records: [{ fqdn: "x", rawText: "y" }] }),
+    }),
+    mockEnv(),
+  );
+  assert(r.status === 400, "missing witness → 400");
+});
+
+Deno.test("GET requests are never treated as a publish", async () => {
+  const r = await worker.fetch(
+    new Request("https://myc.md/publish"),
+    mockEnv(),
+  );
+  assert(
+    r.status !== 200 || !(await r.text()).includes('"ok":true'),
+    "GET /publish must not publish",
+  );
+});

@@ -3347,6 +3347,32 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `publish --witness <voice> --content <hash>` — witness→publish: a keyed voice
+  // signs captured content and posts it to the membrane's /publish, so strangers
+  // resolve it on myc.md with NO CF creds and NO maintainer deploy. Pre-verifies
+  // every record with the canonical verifier before publishing.
+  if (args[0] === "publish") {
+    const pPath =
+      new URL("../sites/myc.md/publish.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-run",
+        "--allow-net",
+        "--allow-env",
+        pPath,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) Deno.exitCode = code;
+    return;
+  }
+
   // `import-snapshot <file> [--write]` — Resonant Resolution: receive a peer's
   // network export, verify it by hash, and merge the NEW verified records into your
   // local network. Dry-run unless --write; never overwrites; conflicts reported.

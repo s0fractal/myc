@@ -967,15 +967,168 @@ export async function attestation(): Promise<DeploymentAttestation> {
 
 const ATTESTATION_JSON = JSON.stringify(await attestation(), null, 2);
 
+// ── witness→publish contour (chord: keyless capture reaches strangers) ────────
+// A keyed voice witnesses content by signing it; this endpoint verifies the
+// witness and writes the records to a live KV store the resolver reads. No CF
+// creds, no maintainer deploy — a voice publishes from anywhere with its key.
+// The worker verifies the WITNESS (a voice vouched); the CLIENT pre-verifies the
+// content with myc's canonical verifier; the world audits via verify-snapshot
+// (accountable witnessing — bad publishes are detectable + attributable).
+interface Env {
+  MYC_PUBLISHED?: {
+    get(key: string): Promise<string | null>;
+    put(key: string, value: string): Promise<void>;
+  };
+}
+const REGISTRY_URL =
+  "https://raw.githubusercontent.com/s0fractal/trinity/main/src/x2F38_voice_pubkeys.json";
+const _utf8 = (s: string) => new TextEncoder().encode(s);
+const _unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const _hex = (b: ArrayBuffer) =>
+  Array.from(new Uint8Array(b)).map((x) => x.toString(16).padStart(2, "0"))
+    .join("");
+
+// deno-lint-ignore no-explicit-any
+async function ed25519Verify(
+  sig: Uint8Array,
+  msg: Uint8Array,
+  pub: Uint8Array,
+) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    pub as unknown as BufferSource,
+    "Ed25519",
+    false,
+    ["verify"],
+  );
+  return await crypto.subtle.verify(
+    "Ed25519",
+    key,
+    sig as unknown as BufferSource,
+    msg as unknown as BufferSource,
+  );
+}
+
+// The digest a witness signs — binds each record's fqdn + exact bytes. The CLI
+// computes the same string and signs utf8(it) with the voice key (x2F37).
+// deno-lint-ignore no-explicit-any
+async function batchDigest(records: any[]): Promise<string> {
+  const canonical = JSON.stringify(
+    records.map((r) => ({ fqdn: r.fqdn, rawText: r.rawText }))
+      .sort((a, b) => a.fqdn < b.fqdn ? -1 : 1),
+  );
+  return "sha256:" +
+    _hex(await crypto.subtle.digest("SHA-256", _utf8(canonical)));
+}
+
+// deno-lint-ignore no-explicit-any
+async function readPublished(env: Env): Promise<any[]> {
+  try {
+    const raw = await env.MYC_PUBLISHED?.get("records");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+const jsonResp = (obj: unknown, status = 200) =>
+  new Response(JSON.stringify(obj, null, 2), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+
+async function handlePublish(request: Request, env: Env): Promise<Response> {
+  if (!env.MYC_PUBLISHED) {
+    return jsonResp({ ok: false, error: "no store" }, 503);
+  }
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResp({ ok: false, error: "bad json" }, 400);
+  }
+  const records = body?.records, witness = body?.witness;
+  if (
+    !Array.isArray(records) || !records.length || !witness?.voice ||
+    !witness?.sig
+  ) {
+    return jsonResp({
+      ok: false,
+      error: "need {records[], witness{voice,sig}}",
+    }, 400);
+  }
+  // verify the WITNESS: a keyed voice signed this exact batch
+  const digest = await batchDigest(records);
+  let reg;
+  try {
+    reg = await (await fetch(REGISTRY_URL)).json();
+  } catch {
+    return jsonResp({ ok: false, error: "registry unreachable" }, 502);
+  }
+  const pub = reg?.keys?.[witness.voice]?.pubkey;
+  if (!pub) {
+    return jsonResp(
+      { ok: false, error: `unknown voice ${witness.voice}` },
+      403,
+    );
+  }
+  let ok = false;
+  try {
+    ok = await ed25519Verify(_unb64(witness.sig), _utf8(digest), _unb64(pub));
+  } catch (e) {
+    return jsonResp({ ok: false, error: "verify error: " + e }, 500);
+  }
+  if (!ok) {
+    return jsonResp({ ok: false, error: "bad witness signature", digest }, 403);
+  }
+  // merge into the live store (last-write-wins by fqdn)
+  const existing = await readPublished(env);
+  const byFqdn = new Map(existing.map((r) => [r.fqdn, r]));
+  for (const r of records) byFqdn.set(r.fqdn, r);
+  const merged = [...byFqdn.values()];
+  await env.MYC_PUBLISHED!.put("records", JSON.stringify(merged));
+  await env.MYC_PUBLISHED!.put(
+    "witness:" + digest,
+    JSON.stringify({
+      voice: witness.voice,
+      sig: witness.sig,
+      count: records.length,
+    }),
+  );
+  return jsonResp({
+    ok: true,
+    published: records.length,
+    total: merged.length + SNAPSHOT.records.length,
+    witness: witness.voice,
+    digest,
+  });
+}
+
 export default {
-  fetch(request: Request): Response {
+  async fetch(
+    request: Request,
+    env: Env = {},
+    _ctx?: unknown,
+  ): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/publish" && request.method === "POST") {
+      return await handlePublish(request, env);
+    }
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("method not allowed", { status: 405 });
     }
+    // Live records = baked snapshot + witnessed KV publishes. Read once, lazily.
+    // deno-lint-ignore no-explicit-any
+    let _rec: any[] | null = null;
+    // deno-lint-ignore no-explicit-any
+    const allRecords = async (): Promise<any[]> =>
+      _rec ??= SNAPSHOT.records.concat(await readPublished(env));
 
     if (url.pathname === "/snapshot.json") {
-      return response(SNAPSHOT_JSON, "application/json; charset=utf-8");
+      return response(
+        JSON.stringify({ ...SNAPSHOT, records: await allRecords() }),
+        "application/json; charset=utf-8",
+      );
     }
 
     if (url.pathname === "/attestation") {
@@ -1025,8 +1178,8 @@ export default {
         JSON.stringify(
           {
             ok: true,
-            count: SNAPSHOT.records.length,
-            records: SNAPSHOT.records.map((r) => ({
+            count: (await allRecords()).length,
+            records: (await allRecords()).map((r) => ({
               fqdn: r.fqdn,
               path: includePaths ? r.path : undefined,
               type: r.type,
@@ -1042,7 +1195,7 @@ export default {
 
     if (url.pathname === "/descriptor") {
       const target = url.searchParams.get("target") || "";
-      const record = SNAPSHOT.records.find((r) =>
+      const record = (await allRecords()).find((r) =>
         r.fqdn === target || r.path === target
       );
       if (!record) {
@@ -1065,7 +1218,7 @@ export default {
 
     if (url.pathname === "/resolve") {
       const fqdn = url.searchParams.get("fqdn") || "";
-      const record = SNAPSHOT.records.find((r) => r.fqdn === fqdn);
+      const record = (await allRecords()).find((r) => r.fqdn === fqdn);
       if (!record) {
         return new Response(
           JSON.stringify({ ok: false, error: "not-found", fqdn }),
@@ -1083,7 +1236,7 @@ export default {
 
     if (url.pathname === "/source") {
       const target = url.searchParams.get("target") || "";
-      const record = SNAPSHOT.records.find((r) =>
+      const record = (await allRecords()).find((r) =>
         r.fqdn === target || r.path === target
       );
       if (!record) {
@@ -1103,7 +1256,7 @@ export default {
 
     if (url.pathname === "/explain") {
       const target = url.searchParams.get("target") || "";
-      const record = SNAPSHOT.records.find((r) =>
+      const record = (await allRecords()).find((r) =>
         r.fqdn === target || r.path === target
       );
       if (!record) {
@@ -1141,8 +1294,8 @@ export default {
             ok: true,
             index_synced: true,
             graph_synced: true,
-            descriptor_count: SNAPSHOT.records.length,
-            index_record_count: SNAPSHOT.records.length,
+            descriptor_count: (await allRecords()).length,
+            index_record_count: (await allRecords()).length,
             errors: [],
             warnings: [],
           },
@@ -1155,7 +1308,7 @@ export default {
 
     if (url.pathname === "/graph") {
       const edges: Record<string, unknown>[] = [];
-      for (const record of SNAPSHOT.records) {
+      for (const record of (await allRecords())) {
         if (record.type === "TransformationDescriptor") {
           const desc = record.descriptor as Record<string, unknown>;
           const body = desc?.body as Record<string, unknown>;
@@ -1199,7 +1352,7 @@ export default {
     if (url.pathname === "/lineage") {
       const target = url.searchParams.get("target") || "";
       const edges: Record<string, unknown>[] = [];
-      for (const record of SNAPSHOT.records) {
+      for (const record of (await allRecords())) {
         if (record.type === "TransformationDescriptor") {
           const desc = record.descriptor as Record<string, unknown>;
           const body = desc?.body as Record<string, unknown>;
@@ -1247,7 +1400,7 @@ export default {
     }
 
     if (url.pathname === "/verification") {
-      const receipts = SNAPSHOT.records
+      const receipts = (await allRecords())
         .filter((r) =>
           r.path.startsWith("public/verification/") ||
           r.type === "VerificationReceipt"
@@ -1264,7 +1417,7 @@ export default {
 
     if (url.pathname === "/verification-source") {
       const name = url.searchParams.get("name") || "";
-      const record = SNAPSHOT.records.find((r) => r.path.endsWith(name));
+      const record = (await allRecords()).find((r) => r.path.endsWith(name));
       if (!record) {
         return new Response(
           JSON.stringify({ ok: false, error: "not-found", name }),
@@ -1282,7 +1435,7 @@ export default {
 
     if (url.pathname === "/nutrition") {
       const target = url.searchParams.get("target") || "";
-      const record = SNAPSHOT.records.find((r) =>
+      const record = (await allRecords()).find((r) =>
         r.fqdn === target || r.path === target
       );
       if (!record) {
@@ -1313,7 +1466,7 @@ export default {
 
     if (url.pathname === "/availability") {
       const target = url.searchParams.get("target") || "";
-      const record = SNAPSHOT.records.find((r) =>
+      const record = (await allRecords()).find((r) =>
         r.fqdn === target || r.path === target
       );
       return response(
