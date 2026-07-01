@@ -65,27 +65,29 @@ export async function verifyAttestation(
     fetch(REGISTRY_URL).then((r) => r.json()),
     fetch(url).then((r) => r.json()),
   ]);
-  const { signed_payload, attestation } = artifact;
+  const { signed_payload } = artifact;
+  // attestations is a QUORUM (a list of voice signatures); back-compat with `attestation`.
+  const attestations: { voice: string; payload: string; sig: string }[] =
+    artifact.attestations ??
+      (artifact.attestation ? [artifact.attestation] : []);
   const checks: Check[] = [];
 
   const digest = await sha256Prefixed(signed_payload);
-  checks.push({
-    name: "the signed bundle was not altered after signing",
-    ok: digest === attestation.payload,
-  });
-
-  const pub = registry.keys?.[attestation.voice]?.pubkey;
-  const sigOk = pub
-    ? await ed25519Verify(
-      unb64(pub),
-      encU(attestation.payload),
-      unb64(attestation.sig),
-    )
-    : false;
+  const attestingVoices: string[] = [];
+  for (const a of attestations) {
+    const pub = registry.keys?.[a.voice]?.pubkey;
+    if (
+      a.payload === digest && pub &&
+      await ed25519Verify(unb64(pub), encU(a.payload), unb64(a.sig))
+    ) {
+      if (!attestingVoices.includes(a.voice)) attestingVoices.push(a.voice);
+    }
+  }
   checks.push({
     name:
-      `signed by "${attestation.voice}" — a voice in the public key registry`,
-    ok: sigOk,
+      "signed by distinct registered voices (the more, the less any one is trusted)",
+    ok: attestingVoices.length >= 1,
+    detail: `${attestingVoices.length}: ${attestingVoices.join(", ")}`,
   });
 
   const { verdict, envelopes, attested_at } = JSON.parse(signed_payload);
