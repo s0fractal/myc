@@ -1610,6 +1610,54 @@ function verifyGraphReference(
   return 1;
 }
 
+export interface PublishedRecord {
+  fqdn?: string;
+  path?: string;
+  rawText?: string;
+  descriptor?: {
+    body: Json;
+    commitment?: { algorithm?: string; covers?: string; value?: string };
+  };
+}
+
+/** Fold KV-published records into the DURABLE git tree (audit A11). Records
+ *  published to the live membrane live only in Cloudflare KV until reconciled;
+ *  this writes each verified record's rawText to its committed path under public/
+ *  so the content survives KV eviction. Forged records (commitment ≠ body) are
+ *  REFUSED — durability must never fossilize a forgery. The caller rebakes the
+ *  snapshot + commits; a record already on disk is skipped (idempotent). */
+export async function reconcilePublished(
+  root: string,
+  records: PublishedRecord[],
+): Promise<{ reconciled: string[]; skipped: string[]; rejected: string[] }> {
+  const reconciled: string[] = [];
+  const skipped: string[] = [];
+  const rejected: string[] = [];
+  for (const r of records) {
+    if (!r.path || !r.rawText) {
+      rejected.push(`${r.fqdn ?? "?"}: missing path/rawText`);
+      continue;
+    }
+    const v = r.descriptor
+      ? await verifyCommitment(r.descriptor)
+      : { ok: false, errors: ["no descriptor"] };
+    if (!v.ok) {
+      rejected.push(`${r.fqdn ?? r.path}: ${v.errors.join("; ")}`);
+      continue;
+    }
+    const abs = joinPath(root, r.path);
+    if (await exists(abs)) {
+      skipped.push(r.path);
+      continue;
+    }
+    await ensureDir(dirname(abs));
+    await Deno.writeTextFile(abs, r.rawText);
+    reconciled.push(r.path);
+  }
+  if (reconciled.length > 0) await rebuildIndex(root);
+  return { reconciled, skipped, rejected };
+}
+
 export async function rebuildIndex(root: string): Promise<string> {
   const records = await scanDescriptors(root);
   const lines = indexLines(root, records);
@@ -3545,6 +3593,38 @@ export async function main(args: string[]): Promise<void> {
   if (command === "index") {
     const path = await rebuildIndex(root);
     console.log(JSON.stringify({ ok: true, path }, null, 2));
+    return;
+  }
+
+  // `reconcile-published [--source=URL|FILE]` (audit A11) — fold the live
+  // membrane's KV-published records into the DURABLE git tree so they survive KV
+  // eviction. Verifies each record's commitment (a forgery is refused, never
+  // fossilized). Default source is the live /published endpoint.
+  if (command === "reconcile-published") {
+    const source = (flags.source as string) ?? "https://myc.md/published";
+    const text = source.startsWith("http")
+      ? await (await fetch(source)).text()
+      : await Deno.readTextFile(source);
+    const records = JSON.parse(text);
+    if (!Array.isArray(records)) {
+      throw new Error(
+        "reconcile-published: source must be a JSON array of published records",
+      );
+    }
+    const result = await reconcilePublished(root, records);
+    console.log(JSON.stringify(
+      {
+        ok: result.rejected.length === 0,
+        source,
+        ...result,
+        next: result.reconciled.length > 0
+          ? "content is now in public/ (durable); run `deno task snapshot:publish` + commit to serve it from the baked snapshot"
+          : "nothing new to reconcile",
+      },
+      null,
+      2,
+    ));
+    if (result.rejected.length > 0) Deno.exitCode = 1;
     return;
   }
 

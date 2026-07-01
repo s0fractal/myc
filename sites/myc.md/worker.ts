@@ -1304,6 +1304,16 @@ export default {
       );
     }
 
+    if (url.pathname === "/published") {
+      // AUDIT A11 — expose the KV-published records (not yet in the committed
+      // snapshot) so `t myc reconcile-published` can fold them into the durable
+      // git tree, and so anyone can see what is live-but-not-yet-durable.
+      return response(
+        JSON.stringify(await readPublished(env), null, 2),
+        "application/json; charset=utf-8",
+      );
+    }
+
     if (url.pathname === "/verify-projections") {
       // AUDIT A7 — was a hardcoded `ok:true` stub (verified nothing). Now it
       // actually re-verifies every served record's commitment BY HASH using the
