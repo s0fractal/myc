@@ -29,16 +29,26 @@ export async function verifySnapshot(
     const failed: Array<{ fqdn: string; errors: string[] }> = [];
     let verified = 0;
     for (const r of snapshot.records ?? []) {
-      const full = join(root, r.path);
-      await Deno.mkdir(dirname(full), { recursive: true });
-      await Deno.writeTextFile(full, r.rawText);
-      const v = await verifyPath(full);
-      if (v.ok) {
-        verified++;
-      } else {
+      // A malformed record must be reported as FAILED, never crash the whole
+      // verification — otherwise one bad record (e.g. a careless witnessed
+      // publish) would make the snapshot unverifiable for everyone.
+      try {
+        const full = join(root, r.path);
+        await Deno.mkdir(dirname(full), { recursive: true });
+        await Deno.writeTextFile(full, r.rawText);
+        const v = await verifyPath(full);
+        if (v.ok) {
+          verified++;
+        } else {
+          failed.push({
+            fqdn: r.fqdn,
+            errors: v.errors ?? ["verification failed"],
+          });
+        }
+      } catch (e) {
         failed.push({
-          fqdn: r.fqdn,
-          errors: v.errors ?? ["verification failed"],
+          fqdn: r.fqdn ?? "(unknown)",
+          errors: ["unparseable/invalid record: " + (e as Error).message],
         });
       }
     }
