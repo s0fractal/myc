@@ -175,10 +175,19 @@ async function sha256Prefixed(s) {
 }
 async function ed25519Verify(pub, msg, sig) {
   try {
-    const key = await crypto.subtle.importKey("raw", pub, "Ed25519", false, [
-      "verify"
-    ]);
-    return await crypto.subtle.verify("Ed25519", key, sig, msg);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      pub,
+      "Ed25519",
+      false,
+      ["verify"]
+    );
+    return await crypto.subtle.verify(
+      "Ed25519",
+      key,
+      sig,
+      msg
+    );
   } catch {
     const noble = await import("https://esm.sh/@noble/ed25519@2.1.0");
     return await noble.verifyAsync(sig, msg, pub);
@@ -206,7 +215,7 @@ async function verifyAttestation(url) {
     name: `signed by "${attestation.voice}" \u2014 a voice in the public key registry`,
     ok: sigOk
   });
-  const { verdict, envelopes } = JSON.parse(signed_payload);
+  const { verdict, envelopes, attested_at } = JSON.parse(signed_payload);
   let recomputed = 0;
   const laws = [];
   for (const e of envelopes) {
@@ -233,7 +242,11 @@ async function verifyAttestation(url) {
     ok: ourAgreement === verdict?.court?.agreement,
     detail: `re-derived ${ourAgreement}`
   });
-  return { checks, allOk: checks.every((c) => c.ok) };
+  return {
+    checks,
+    allOk: checks.every((c) => c.ok),
+    attestedAt: attested_at
+  };
 }
 var doc = globalThis.document;
 if (doc) {
@@ -243,7 +256,8 @@ if (doc) {
     const rows = r.checks.map(
       (c) => `<li class="${c.ok ? "ok" : "bad"}">${c.ok ? "\u2713" : "\u2717"} ${c.name}${c.detail ? ` <span class="d">(${c.detail})</span>` : ""}</li>`
     ).join("");
-    out.innerHTML = `<h2 class="${r.allOk ? "ok" : "bad"}">${title}: ${r.allOk ? "CONFIRMED \u2014 verified in your browser, trusting no one" : "REJECTED"}</h2><ul>${rows}</ul>`;
+    const asOf = r.attestedAt ? `<p class="d">court verdict as of ${r.attestedAt} \u2014 a receipt of that moment, not a live feed</p>` : "";
+    out.innerHTML = `<h2 class="${r.allOk ? "ok" : "bad"}">${title}: ${r.allOk ? "CONFIRMED \u2014 verified in your browser, trusting no one" : "REJECTED"}</h2>${asOf}<ul>${rows}</ul>`;
   };
   const btn = doc.getElementById("verify");
   if (btn) {

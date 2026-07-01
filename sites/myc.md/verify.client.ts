@@ -21,7 +21,7 @@ const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 const encU = (s: string) => new TextEncoder().encode(s);
 
 async function sha256Prefixed(s: string): Promise<string> {
-  const d = await crypto.subtle.digest("SHA-256", encU(s));
+  const d = await crypto.subtle.digest("SHA-256", encU(s) as BufferSource);
   return "sha256:" + toHex(new Uint8Array(d));
 }
 
@@ -33,10 +33,19 @@ async function ed25519Verify(
   sig: Uint8Array,
 ): Promise<boolean> {
   try {
-    const key = await crypto.subtle.importKey("raw", pub, "Ed25519", false, [
-      "verify",
-    ]);
-    return await crypto.subtle.verify("Ed25519", key, sig, msg);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      pub as BufferSource,
+      "Ed25519",
+      false,
+      ["verify"],
+    );
+    return await crypto.subtle.verify(
+      "Ed25519",
+      key,
+      sig as BufferSource,
+      msg as BufferSource,
+    );
   } catch {
     const noble = await import("https://esm.sh/@noble/ed25519@2.1.0");
     return await noble.verifyAsync(sig, msg, pub);
@@ -51,7 +60,7 @@ export interface Check {
 
 export async function verifyAttestation(
   url: string,
-): Promise<{ checks: Check[]; allOk: boolean }> {
+): Promise<{ checks: Check[]; allOk: boolean; attestedAt?: string }> {
   const [registry, artifact] = await Promise.all([
     fetch(REGISTRY_URL).then((r) => r.json()),
     fetch(url).then((r) => r.json()),
@@ -79,7 +88,7 @@ export async function verifyAttestation(
     ok: sigOk,
   });
 
-  const { verdict, envelopes } = JSON.parse(signed_payload);
+  const { verdict, envelopes, attested_at } = JSON.parse(signed_payload);
   let recomputed = 0;
   const laws: string[] = [];
   for (const e of envelopes) {
@@ -112,7 +121,11 @@ export async function verifyAttestation(
     detail: `re-derived ${ourAgreement}`,
   });
 
-  return { checks, allOk: checks.every((c) => c.ok) };
+  return {
+    checks,
+    allOk: checks.every((c) => c.ok),
+    attestedAt: attested_at as string | undefined,
+  };
 }
 
 // ── DOM wiring (only runs in a browser) ──────────────────────────────────────
@@ -120,18 +133,24 @@ export async function verifyAttestation(
 const doc = (globalThis as any).document;
 if (doc) {
   const out = doc.getElementById("result");
-  const render = (title: string, r: { checks: Check[]; allOk: boolean }) => {
+  const render = (
+    title: string,
+    r: { checks: Check[]; allOk: boolean; attestedAt?: string },
+  ) => {
     if (!out) return;
     const rows = r.checks.map((c: Check) =>
       `<li class="${c.ok ? "ok" : "bad"}">${c.ok ? "✓" : "✗"} ${c.name}${
         c.detail ? ` <span class="d">(${c.detail})</span>` : ""
       }</li>`
     ).join("");
+    const asOf = r.attestedAt
+      ? `<p class="d">court verdict as of ${r.attestedAt} — a receipt of that moment, not a live feed</p>`
+      : "";
     out.innerHTML = `<h2 class="${r.allOk ? "ok" : "bad"}">${title}: ${
       r.allOk
         ? "CONFIRMED — verified in your browser, trusting no one"
         : "REJECTED"
-    }</h2><ul>${rows}</ul>`;
+    }</h2>${asOf}<ul>${rows}</ul>`;
   };
   const btn = doc.getElementById("verify");
   if (btn) {
