@@ -1242,12 +1242,20 @@ export async function scanDescriptors(
     "src",
   ]
     .map((part) => joinPath(root, part));
+  // AUDIT A7 — the PUBLIC graph must not carry non-content. Skip *.schema.md
+  // (schemas carry EXAMPLE fqdns like h.abcdef123456, not real content) and the
+  // empty-content footgun (sha256("") = e3b0c44298fc…; captureText rejects it at
+  // the source, this stops fossils from re-indexing).
+  const EMPTY_CONTENT_ADDR = "e3b0c44298fc";
   const records: DescriptorRecord[] = [];
   for (const scanRoot of scanRoots) {
     if (!(await exists(scanRoot))) continue;
     for await (const path of walkMarkdown(scanRoot)) {
+      if (path.endsWith(".schema.md")) continue;
       try {
-        records.push({ path, descriptor: await parseDescriptorFile(path) });
+        const descriptor = await parseDescriptorFile(path);
+        if (descriptor.fqdn.includes(EMPTY_CONTENT_ADDR)) continue;
+        records.push({ path, descriptor });
       } catch {
         // Human-only markdown files are valid; they are just not resolvable.
       }

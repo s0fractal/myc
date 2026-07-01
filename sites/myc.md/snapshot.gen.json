@@ -1,6 +1,6 @@
 {
   "schema": "myc.public-snapshot.v0.1",
-  "record_count": 82,
+  "record_count": 86,
   "records": [
     {
       "fqdn": "h.0b8a898b6e57.resolution.myc.md",
@@ -96,6 +96,102 @@
         }
       },
       "rawText": "---\nchord:\n  primary: \"oct:5.action\"\n  secondary: [\"oct:7.completion\"]\nmode: \"RESOLVE\"\ntension: \"terminal resolution of a proposed mutation\"\nreceipt: \"file\"\ncontent_sig:\n  voice: claude\n  alg: ed25519\n  covers: \"commitment\"\n  sig: \"1IZlgPLfE6mI9MOR2x/4CCiHesi7Bz6R8WAZHEEaxKMyxAPM9Gf5Gf0cnIQgX+yRde7IT8wEU1tZVLWeVig9Bg==\"\n---\n\n# Proposal Resolution (v0.2) — implemented\n\nA CLAIM about what became of a proposed mutation. It binds to the proposal's\ncommitment. It becomes FINAL only when its resolver is authenticated\n(`t myc authenticate` as the resolver) and its structured evidence_refs resolve\nby commitment — until then the lifecycle shows it as `resolution_claimed`, never\nas truth. Human commentary lives in evidence_note and is never authority.\n\n- **outcome**: `implemented`\n- **proposal**: `h.9068b4888a6f.proposal.myc.md`\n- **resolver**: `claude` (sign to make it count toward finality)\n- **evidence**: 2 structured ref(s)\n\n```json myc\n{\n  \"type\": \"ProposalResolutionDescriptor\",\n  \"schema_version\": \"myc.proposal-resolution.v0.2\",\n  \"fqdn\": \"h.10c526338067.resolution.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"10c526338067f75494fafb760cad08d7444598da017f7c847c279370c5c907f1\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"evidence_refs\": [\n      {\n        \"commitment\": \"40b667f\",\n        \"kind\": \"commit\",\n        \"ref\": \"40b667f\"\n      },\n      {\n        \"commitment\": \"built\",\n        \"kind\": \"chord\",\n        \"ref\": \"x7300_954214_claude_membrane-implements-its-own-first-proposal-apply-p\"\n      }\n    ],\n    \"outcome\": \"implemented\",\n    \"proposal_commitment\": \"9068b4888a6f5101778e9491364ac6627ca61a9cb3219d9ab0278ef98a329f28\",\n    \"proposal_fqdn\": \"h.9068b4888a6f.proposal.myc.md\",\n    \"resolver\": \"claude\"\n  }\n}\n```\n"
+    },
+    {
+      "fqdn": "h.192e2cad69a1.task.claude.h.f24c45208983.myc.md",
+      "path": "public/objects/h/f24c45208983/task.claude.h.f24c45208983.myc.md",
+      "type": "ArtifactDescriptor",
+      "commitment": "acfdc17f7458d39cd603bad14912d2905e767119e592d449c43d4c5f3287a1b7",
+      "descriptor": {
+        "type": "ArtifactDescriptor",
+        "schema_version": "myc.artifact.v0.1",
+        "fqdn": "task.claude.h.f24c45208983.myc.md",
+        "commitment": {
+          "algorithm": "sha256",
+          "value": "acfdc17f7458d39cd603bad14912d2905e767119e592d449c43d4c5f3287a1b7",
+          "covers": "descriptor.body"
+        },
+        "body": {
+          "immutable_fqdn": "h.192e2cad69a1.task.claude.h.f24c45208983.myc.md",
+          "relation": "intent-projection",
+          "target": "h.f24c45208983.knowledge.claude.raw.myc.md",
+          "raw_hash": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea",
+          "artifact_hash": "192e2cad69a1800f3f6dd134170918002628ab5d7604ba3df21b998e66ba4aad",
+          "formula": {
+            "expression": "artifact = function_hash(input_commitment, context_commitment, params_commitment)",
+            "input": {
+              "function_hash": "849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e",
+              "input_commitment": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea",
+              "context_commitment": "fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b",
+              "params_commitment": "7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f"
+            }
+          },
+          "proof_mode": "deterministic",
+          "payload_state": "private-local",
+          "intent": "intent.task.claude.h.f24c45208983.myc.md",
+          "naming_proof": "naming-proof.claude.h.f24c45208983.myc.md",
+          "oct": "oct:5.1",
+          "classification": {
+            "kind": "task",
+            "actionability": "patch",
+            "oct": "oct:5.1",
+            "confidence": "medium",
+            "signals": [
+              "task:write",
+              "task:run",
+              "task:verify"
+            ]
+          }
+        }
+      },
+      "rawText": "---\nchord:\n  primary: \"oct:5.1\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"artifactdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# task.claude.h.f24c45208983.myc.md\n\nProduced projection descriptor.\n\n```json myc\n{\n  \"type\": \"ArtifactDescriptor\",\n  \"schema_version\": \"myc.artifact.v0.1\",\n  \"fqdn\": \"task.claude.h.f24c45208983.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"acfdc17f7458d39cd603bad14912d2905e767119e592d449c43d4c5f3287a1b7\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"immutable_fqdn\": \"h.192e2cad69a1.task.claude.h.f24c45208983.myc.md\",\n    \"relation\": \"intent-projection\",\n    \"target\": \"h.f24c45208983.knowledge.claude.raw.myc.md\",\n    \"raw_hash\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\",\n    \"artifact_hash\": \"192e2cad69a1800f3f6dd134170918002628ab5d7604ba3df21b998e66ba4aad\",\n    \"formula\": {\n      \"expression\": \"artifact = function_hash(input_commitment, context_commitment, params_commitment)\",\n      \"input\": {\n        \"function_hash\": \"849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e\",\n        \"input_commitment\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\",\n        \"context_commitment\": \"fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b\",\n        \"params_commitment\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\"\n      }\n    },\n    \"proof_mode\": \"deterministic\",\n    \"payload_state\": \"private-local\",\n    \"intent\": \"intent.task.claude.h.f24c45208983.myc.md\",\n    \"naming_proof\": \"naming-proof.claude.h.f24c45208983.myc.md\",\n    \"oct\": \"oct:5.1\",\n    \"classification\": {\n      \"kind\": \"task\",\n      \"actionability\": \"patch\",\n      \"oct\": \"oct:5.1\",\n      \"confidence\": \"medium\",\n      \"signals\": [\n        \"task:write\",\n        \"task:run\",\n        \"task:verify\"\n      ]\n    }\n  }\n}\n```\n"
+    },
+    {
+      "fqdn": "h.192e2cad69a1.task.claude.h.f24c45208983.myc.md",
+      "path": "public/objects/h/f24c45208983/naming-proof.claude.h.f24c45208983.myc.md",
+      "type": "NamingProofDescriptor",
+      "commitment": "05ec81a52b7bb93545867f26038b52d47e9c314beeb45a29bc42178487e7274c",
+      "descriptor": {
+        "type": "NamingProofDescriptor",
+        "schema_version": "myc.naming-proof.v0.1",
+        "fqdn": "naming-proof.claude.h.f24c45208983.myc.md",
+        "commitment": {
+          "algorithm": "sha256",
+          "value": "05ec81a52b7bb93545867f26038b52d47e9c314beeb45a29bc42178487e7274c",
+          "covers": "descriptor.body"
+        },
+        "body": {
+          "input_commitment": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea",
+          "proof_mode": "deterministic",
+          "oct": "oct:6.4",
+          "chain": [
+            {
+              "step": "canonicalize",
+              "function": "h.4f76fd8466bc.myc-raw-bytes-sha256.function.myc.md",
+              "params": "none",
+              "output": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea"
+            },
+            {
+              "step": "classify",
+              "function": "h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md",
+              "params": "7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f",
+              "output": "intent.task.claude.h.f24c45208983.myc.md"
+            },
+            {
+              "step": "render_fqdn",
+              "function": "h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md",
+              "params": "7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f",
+              "output": "task.claude.h.f24c45208983.myc.md"
+            }
+          ],
+          "output": {
+            "fqdn": "task.claude.h.f24c45208983.myc.md",
+            "immutable_fqdn": "h.192e2cad69a1.task.claude.h.f24c45208983.myc.md",
+            "artifact_hash": "192e2cad69a1800f3f6dd134170918002628ab5d7604ba3df21b998e66ba4aad"
+          }
+        }
+      },
+      "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"namingproofdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# naming-proof.claude.h.f24c45208983.myc.md\n\nDeterministic proof for the computed human-readable FQDN.\n\n```json myc\n{\n  \"type\": \"NamingProofDescriptor\",\n  \"schema_version\": \"myc.naming-proof.v0.1\",\n  \"fqdn\": \"naming-proof.claude.h.f24c45208983.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"05ec81a52b7bb93545867f26038b52d47e9c314beeb45a29bc42178487e7274c\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"input_commitment\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\",\n    \"proof_mode\": \"deterministic\",\n    \"oct\": \"oct:6.4\",\n    \"chain\": [\n      {\n        \"step\": \"canonicalize\",\n        \"function\": \"h.4f76fd8466bc.myc-raw-bytes-sha256.function.myc.md\",\n        \"params\": \"none\",\n        \"output\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\"\n      },\n      {\n        \"step\": \"classify\",\n        \"function\": \"h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md\",\n        \"params\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\",\n        \"output\": \"intent.task.claude.h.f24c45208983.myc.md\"\n      },\n      {\n        \"step\": \"render_fqdn\",\n        \"function\": \"h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md\",\n        \"params\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\",\n        \"output\": \"task.claude.h.f24c45208983.myc.md\"\n      }\n    ],\n    \"output\": {\n      \"fqdn\": \"task.claude.h.f24c45208983.myc.md\",\n      \"immutable_fqdn\": \"h.192e2cad69a1.task.claude.h.f24c45208983.myc.md\",\n      \"artifact_hash\": \"192e2cad69a1800f3f6dd134170918002628ab5d7604ba3df21b998e66ba4aad\"\n    }\n  }\n}\n```\n"
     },
     {
       "fqdn": "h.1bd456e1f3be.proposal.myc.md",
@@ -696,57 +792,6 @@
       "rawText": "---\nchord:\n  primary: \"oct:3.7\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"witnessdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# Witness Descriptor\n\nGenerated locally to prove receipt and structural validity.\n\n```json myc\n{\n  \"type\": \"WitnessDescriptor\",\n  \"schema_version\": \"myc.witness.v0.1\",\n  \"fqdn\": \"h.5d38d071151e.witness.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"5d38d071151e790bfc8a745c2500349ba45073f8b12aeefa124c472c53f83013\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"target_fqdn\": \"h.9e34ae8336bc.publish.myc.md\",\n    \"target_commitment\": \"d60d3f6ba22331f1559e6005ac4e52e568b2983707f3ff03fa93115574538d79\",\n    \"witness_actor\": \"claude\",\n    \"timestamp\": \"2026-06-24T16:05:49.927Z\",\n    \"verification_status\": \"structurally_valid\"\n  }\n}\n```\n"
     },
     {
-      "fqdn": "h.60a2cbc240cf.message.s0fractal.h.e3b0c44298fc.myc.md",
-      "path": "public/objects/h/e3b0c44298fc/naming-proof.s0fractal.h.e3b0c44298fc.myc.md",
-      "type": "NamingProofDescriptor",
-      "commitment": "d5ce0605a366ba11542adf21686207c3ee633237058c38da5215c4296704ecf8",
-      "descriptor": {
-        "type": "NamingProofDescriptor",
-        "schema_version": "myc.naming-proof.v0.1",
-        "fqdn": "naming-proof.s0fractal.h.e3b0c44298fc.myc.md",
-        "commitment": {
-          "algorithm": "sha256",
-          "value": "d5ce0605a366ba11542adf21686207c3ee633237058c38da5215c4296704ecf8",
-          "covers": "descriptor.body"
-        },
-        "body": {
-          "input_commitment": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-          "proof_mode": "deterministic",
-          "oct": "oct:6.4",
-          "nutrition": {
-            "status": "verified",
-            "proof_mode": "deterministic"
-          },
-          "chain": [
-            {
-              "step": "canonicalize",
-              "function": "h.4c2a6b73a2aa.myc-raw-bytes-sha256.function.myc.md",
-              "params": "none",
-              "output": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-            },
-            {
-              "step": "classify",
-              "function": "h.a408768e4531.myc-intent-rules-classifier.function.myc.md",
-              "params": "9f6f214cdaf4722fed14d56381a5db57f648a0f6e8563329ce8d69681f70957a",
-              "output": "intent.message.s0fractal.h.e3b0c44298fc.myc.md"
-            },
-            {
-              "step": "render_fqdn",
-              "function": "h.cf5e1004e22d.myc-fqdn-naming-policy.function.myc.md",
-              "params": "9f6f214cdaf4722fed14d56381a5db57f648a0f6e8563329ce8d69681f70957a",
-              "output": "message.s0fractal.h.e3b0c44298fc.myc.md"
-            }
-          ],
-          "output": {
-            "fqdn": "message.s0fractal.h.e3b0c44298fc.myc.md",
-            "immutable_fqdn": "h.60a2cbc240cf.message.s0fractal.h.e3b0c44298fc.myc.md",
-            "artifact_hash": "60a2cbc240cf613f85b9544de64b816f6b0d5e0f9418b411d28270fdaefd7ac3"
-          }
-        }
-      },
-      "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"namingproofdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# naming-proof.s0fractal.h.e3b0c44298fc.myc.md\n\nDeterministic proof for the computed human-readable FQDN.\n\n```json myc\n{\n  \"type\": \"NamingProofDescriptor\",\n  \"schema_version\": \"myc.naming-proof.v0.1\",\n  \"fqdn\": \"naming-proof.s0fractal.h.e3b0c44298fc.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"d5ce0605a366ba11542adf21686207c3ee633237058c38da5215c4296704ecf8\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"input_commitment\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\n    \"proof_mode\": \"deterministic\",\n    \"oct\": \"oct:6.4\",\n    \"nutrition\": {\n      \"status\": \"verified\",\n      \"proof_mode\": \"deterministic\"\n    },\n    \"chain\": [\n      {\n        \"step\": \"canonicalize\",\n        \"function\": \"h.4c2a6b73a2aa.myc-raw-bytes-sha256.function.myc.md\",\n        \"params\": \"none\",\n        \"output\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"\n      },\n      {\n        \"step\": \"classify\",\n        \"function\": \"h.a408768e4531.myc-intent-rules-classifier.function.myc.md\",\n        \"params\": \"9f6f214cdaf4722fed14d56381a5db57f648a0f6e8563329ce8d69681f70957a\",\n        \"output\": \"intent.message.s0fractal.h.e3b0c44298fc.myc.md\"\n      },\n      {\n        \"step\": \"render_fqdn\",\n        \"function\": \"h.cf5e1004e22d.myc-fqdn-naming-policy.function.myc.md\",\n        \"params\": \"9f6f214cdaf4722fed14d56381a5db57f648a0f6e8563329ce8d69681f70957a\",\n        \"output\": \"message.s0fractal.h.e3b0c44298fc.myc.md\"\n      }\n    ],\n    \"output\": {\n      \"fqdn\": \"message.s0fractal.h.e3b0c44298fc.myc.md\",\n      \"immutable_fqdn\": \"h.60a2cbc240cf.message.s0fractal.h.e3b0c44298fc.myc.md\",\n      \"artifact_hash\": \"60a2cbc240cf613f85b9544de64b816f6b0d5e0f9418b411d28270fdaefd7ac3\"\n    }\n  }\n}\n```\n"
-    },
-    {
       "fqdn": "h.68b7cd17ffc6.task.claude.h.2a10699544f3.myc.md",
       "path": "public/objects/h/2a10699544f3/task.claude.h.2a10699544f3.myc.md",
       "type": "ArtifactDescriptor",
@@ -1120,30 +1165,6 @@
       "rawText": "---\nchord:\n  primary: \"oct:3.7\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"publishdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# Publish Descriptor\n\nPublication clearance for the target closure; witnessable consensus node.\n\n```json myc\n{\n  \"type\": \"PublishDescriptor\",\n  \"schema_version\": \"myc.publish.v0.1\",\n  \"fqdn\": \"h.9e34ae8336bc.publish.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"d60d3f6ba22331f1559e6005ac4e52e568b2983707f3ff03fa93115574538d79\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"publish_clearance\": {\n      \"target_fqdn\": \"h.9e34ae8336bc.proposal.myc.md\",\n      \"target_commitment\": \"9e34ae8336bc3eae567376d350a1edfb5db92d8569c0407b96da0ea4c6fbb5c4\",\n      \"export_scope\": \"closure\"\n    },\n    \"publication_gates\": {\n      \"naming_proof_verified\": true,\n      \"graph_verified\": true,\n      \"payload_scrubbed\": true\n    },\n    \"destinations\": []\n  }\n}\n```\n"
     },
     {
-      "fqdn": "h.abcdef123456.witness.myc.md",
-      "path": "protocols/consensus/schemas/witness-descriptor.schema.md",
-      "type": "WitnessDescriptor",
-      "commitment": "f846d9f5f7790641f1c06cef725ca5d6765afb9ca6d9eaa2c7eb7b5bfac4f873",
-      "descriptor": {
-        "type": "WitnessDescriptor",
-        "schema_version": "myc.witness.v0.1",
-        "fqdn": "h.abcdef123456.witness.myc.md",
-        "commitment": {
-          "algorithm": "sha256",
-          "value": "f846d9f5f7790641f1c06cef725ca5d6765afb9ca6d9eaa2c7eb7b5bfac4f873",
-          "covers": "descriptor.body"
-        },
-        "body": {
-          "target_fqdn": "h.9876543210ab.publish.myc.md",
-          "target_commitment": "<publish_descriptor_hash>",
-          "witness_actor": "s0fractal",
-          "timestamp": "2026-05-08T01:50:00.000Z",
-          "verification_status": "structurally_valid"
-        }
-      },
-      "rawText": "# WitnessDescriptor Schema\n\n**Version:** `myc.witness.v0.1`\n\nA `WitnessDescriptor` provides cryptographic proof that an actor has received,\nimported, and structurally verified a `PublishDescriptor`.\n\n```json myc\n{\n  \"type\": \"WitnessDescriptor\",\n  \"schema_version\": \"myc.witness.v0.1\",\n  \"fqdn\": \"h.abcdef123456.witness.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"f846d9f5f7790641f1c06cef725ca5d6765afb9ca6d9eaa2c7eb7b5bfac4f873\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"target_fqdn\": \"h.9876543210ab.publish.myc.md\",\n    \"target_commitment\": \"<publish_descriptor_hash>\",\n    \"witness_actor\": \"s0fractal\",\n    \"timestamp\": \"2026-05-08T01:50:00.000Z\",\n    \"verification_status\": \"structurally_valid\"\n  }\n}\n```\n\n## Fields\n\n- `target_fqdn`: FQDN of the `PublishDescriptor` being witnessed. Must be a\n  publish descriptor.\n- `target_commitment`: SHA256 hash of the `PublishDescriptor`'s body.\n- `witness_actor`: The actor/node that performed the verification.\n- `timestamp`: ISO-8601 UTC timestamp of the witnessing event.\n- `verification_status`: Must be `\"structurally_valid\"` indicating the graph\n  projections were successfully built.\n"
-    },
-    {
       "fqdn": "h.bc02df4d8069.resolution.myc.md",
       "path": "public/resolutions/h.bc02df4d8069.resolution.myc.md",
       "type": "ProposalResolutionDescriptor",
@@ -1387,42 +1408,6 @@
       "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"rawdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# h.d76cf81167fc.knowledge.claude.raw.myc.md\n\nRaw commitment descriptor. Payload bytes are not embedded here.\n\n```json myc\n{\n  \"type\": \"RawDescriptor\",\n  \"schema_version\": \"myc.raw.v0.1\",\n  \"fqdn\": \"h.d76cf81167fc.knowledge.claude.raw.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"65cc894880d9ca798114b62802483262c3fe401698151ae852dd836ae7807100\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"hash\": \"d76cf81167fc861661b9e2c8ea9e6ed1d470b1c830924af25f4d0733ecda06bf\",\n    \"hash_short\": \"d76cf81167fc\",\n    \"kind\": \"knowledge\",\n    \"actor\": \"claude\",\n    \"visibility\": \"descriptor-public-payload-private\",\n    \"oct\": \"oct:6.4\",\n    \"payload\": {\n      \"state\": \"private-local\",\n      \"contains_payload\": false,\n      \"locator_hint\": \"myc-private-payload:d76cf81167fc861661b9e2c8ea9e6ed1d470b1c830924af25f4d0733ecda06bf\",\n      \"retention_policy\": \"do-not-copy-by-default\"\n    },\n    \"note\": \"This descriptor commits to raw payload. It does not contain payload bytes.\"\n  }\n}\n```\n"
     },
     {
-      "fqdn": "h.e3b0c44298fc.message.s0fractal.raw.myc.md",
-      "path": "public/objects/h/e3b0c44298fc/h.e3b0c44298fc.message.s0fractal.raw.myc.md",
-      "type": "RawDescriptor",
-      "commitment": "84750cace99a496923f0191ffca10bafd5e13224151dab9f6e5845e05db26992",
-      "descriptor": {
-        "type": "RawDescriptor",
-        "schema_version": "myc.raw.v0.1",
-        "fqdn": "h.e3b0c44298fc.message.s0fractal.raw.myc.md",
-        "commitment": {
-          "algorithm": "sha256",
-          "value": "84750cace99a496923f0191ffca10bafd5e13224151dab9f6e5845e05db26992",
-          "covers": "descriptor.body"
-        },
-        "body": {
-          "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-          "hash_short": "e3b0c44298fc",
-          "kind": "message",
-          "actor": "s0fractal",
-          "visibility": "descriptor-public-payload-private",
-          "oct": "oct:6.4",
-          "nutrition": {
-            "status": "raw",
-            "proof_mode": "sealed"
-          },
-          "payload": {
-            "state": "private-local",
-            "contains_payload": false,
-            "locator_hint": "myc-private-payload:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "retention_policy": "do-not-copy-by-default"
-          },
-          "note": "This descriptor commits to raw payload. It does not contain payload bytes."
-        }
-      },
-      "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"rawdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# h.e3b0c44298fc.message.s0fractal.raw.myc.md\n\nRaw commitment descriptor. Payload bytes are not embedded here.\n\n```json myc\n{\n  \"type\": \"RawDescriptor\",\n  \"schema_version\": \"myc.raw.v0.1\",\n  \"fqdn\": \"h.e3b0c44298fc.message.s0fractal.raw.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"84750cace99a496923f0191ffca10bafd5e13224151dab9f6e5845e05db26992\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"hash\": \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\n    \"hash_short\": \"e3b0c44298fc\",\n    \"kind\": \"message\",\n    \"actor\": \"s0fractal\",\n    \"visibility\": \"descriptor-public-payload-private\",\n    \"oct\": \"oct:6.4\",\n    \"nutrition\": {\n      \"status\": \"raw\",\n      \"proof_mode\": \"sealed\"\n    },\n    \"payload\": {\n      \"state\": \"private-local\",\n      \"contains_payload\": false,\n      \"locator_hint\": \"myc-private-payload:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\n      \"retention_policy\": \"do-not-copy-by-default\"\n    },\n    \"note\": \"This descriptor commits to raw payload. It does not contain payload bytes.\"\n  }\n}\n```\n"
-    },
-    {
       "fqdn": "h.eca8f9641a66.task.claude.h.d76cf81167fc.myc.md",
       "path": "public/objects/h/d76cf81167fc/naming-proof.claude.h.d76cf81167fc.myc.md",
       "type": "NamingProofDescriptor",
@@ -1578,6 +1563,38 @@
         }
       },
       "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"rawdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# h.f1b9f8142d5f.plan.s0fractal.raw.myc.md\n\nRaw commitment descriptor. Payload bytes are not embedded here.\n\n```json myc\n{\n  \"type\": \"RawDescriptor\",\n  \"schema_version\": \"myc.raw.v0.1\",\n  \"fqdn\": \"h.f1b9f8142d5f.plan.s0fractal.raw.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"7f86113cc4e924b558ac16baeaf547bf0c95a0bc51f7badec7921a46954f52c8\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"hash\": \"f1b9f8142d5f6a522c2e66766aa2e46203a63734fc583a0ecbad3d0d3826c06f\",\n    \"hash_short\": \"f1b9f8142d5f\",\n    \"kind\": \"plan\",\n    \"actor\": \"s0fractal\",\n    \"visibility\": \"descriptor-public-payload-private\",\n    \"oct\": \"oct:6.4\",\n    \"payload\": {\n      \"state\": \"private-local\",\n      \"contains_payload\": false,\n      \"locator_hint\": \"myc-private-payload:f1b9f8142d5f6a522c2e66766aa2e46203a63734fc583a0ecbad3d0d3826c06f\",\n      \"retention_policy\": \"do-not-copy-by-default\"\n    },\n    \"note\": \"This descriptor commits to raw payload. It does not contain payload bytes.\"\n  }\n}\n```\n"
+    },
+    {
+      "fqdn": "h.f24c45208983.knowledge.claude.raw.myc.md",
+      "path": "public/objects/h/f24c45208983/h.f24c45208983.knowledge.claude.raw.myc.md",
+      "type": "RawDescriptor",
+      "commitment": "ed013574f7ef7639643b68ff3fec70287e195cd4b2e753eb425757c0508350f6",
+      "descriptor": {
+        "type": "RawDescriptor",
+        "schema_version": "myc.raw.v0.1",
+        "fqdn": "h.f24c45208983.knowledge.claude.raw.myc.md",
+        "commitment": {
+          "algorithm": "sha256",
+          "value": "ed013574f7ef7639643b68ff3fec70287e195cd4b2e753eb425757c0508350f6",
+          "covers": "descriptor.body"
+        },
+        "body": {
+          "hash": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea",
+          "hash_short": "f24c45208983",
+          "kind": "knowledge",
+          "actor": "claude",
+          "visibility": "descriptor-public-payload-private",
+          "oct": "oct:6.4",
+          "payload": {
+            "state": "private-local",
+            "contains_payload": false,
+            "locator_hint": "myc-private-payload:f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea",
+            "retention_policy": "do-not-copy-by-default"
+          },
+          "note": "This descriptor commits to raw payload. It does not contain payload bytes."
+        }
+      },
+      "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"rawdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# h.f24c45208983.knowledge.claude.raw.myc.md\n\nRaw commitment descriptor. Payload bytes are not embedded here.\n\n```json myc\n{\n  \"type\": \"RawDescriptor\",\n  \"schema_version\": \"myc.raw.v0.1\",\n  \"fqdn\": \"h.f24c45208983.knowledge.claude.raw.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"ed013574f7ef7639643b68ff3fec70287e195cd4b2e753eb425757c0508350f6\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"hash\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\",\n    \"hash_short\": \"f24c45208983\",\n    \"kind\": \"knowledge\",\n    \"actor\": \"claude\",\n    \"visibility\": \"descriptor-public-payload-private\",\n    \"oct\": \"oct:6.4\",\n    \"payload\": {\n      \"state\": \"private-local\",\n      \"contains_payload\": false,\n      \"locator_hint\": \"myc-private-payload:f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\",\n      \"retention_policy\": \"do-not-copy-by-default\"\n    },\n    \"note\": \"This descriptor commits to raw payload. It does not contain payload bytes.\"\n  }\n}\n```\n"
     },
     {
       "fqdn": "h.fc2538969707.task.s0fractal.h.f1b9f8142d5f.myc.md",
@@ -1747,31 +1764,6 @@
         }
       },
       "rawText": "---\nchord:\n  primary: \"oct:5.action\"\n  secondary: [\"oct:7.completion\"]\nmode: \"RESOLVE\"\ntension: \"terminal resolution of a proposed mutation\"\nreceipt: \"file\"\ncontent_sig:\n  voice: claude\n  alg: ed25519\n  covers: \"commitment\"\n  sig: \"KaTD6EobygoeNUcnJ03J4apXeTz5KiYs1xnGPaA/JwHHQdtYmoMzxkAgac83Xc/gof8Jur9MBVR6GM+yHerECQ==\"\n---\n\n# Proposal Resolution (v0.2) — superseded\n\nA CLAIM about what became of a proposed mutation. It binds to the proposal's\ncommitment. It becomes FINAL only when its resolver is authenticated\n(`t myc authenticate` as the resolver) and its structured evidence_refs resolve\nby commitment — until then the lifecycle shows it as `resolution_claimed`, never\nas truth. Human commentary lives in evidence_note and is never authority.\n\n- **outcome**: `superseded`\n- **proposal**: `h.84f9442519c6.proposal.myc.md`\n- **resolver**: `claude` (sign to make it count toward finality)\n- **evidence**: 1 structured ref(s)\n\n```json myc\n{\n  \"type\": \"ProposalResolutionDescriptor\",\n  \"schema_version\": \"myc.proposal-resolution.v0.2\",\n  \"fqdn\": \"h.fd048ff9c8a6.resolution.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"fd048ff9c8a673cbd10b7d835d6f232fa9c4177ed205eae0f1c94d9281b2eaa8\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"evidence_refs\": [\n      {\n        \"commitment\": \"534023858af12c516a9144882b04f17a15efccdfd3acedf18fa0193a96379f50\",\n        \"kind\": \"proposal\",\n        \"ref\": \"h.534023858af1.proposal.myc.md\"\n      }\n    ],\n    \"outcome\": \"superseded\",\n    \"proposal_commitment\": \"84f9442519c6d1cf3f4aadc1be014fa9d3c4dbb51895dc2f19764dc0ccacfbca\",\n    \"proposal_fqdn\": \"h.84f9442519c6.proposal.myc.md\",\n    \"resolver\": \"claude\",\n    \"evidence_note\": \"superseded by the policy-bearing h.534023858af1, which reached final by human+model quorum (x5300_954749)\"\n  }\n}\n```\n"
-    },
-    {
-      "fqdn": "h.fedcba654321.review.myc.md",
-      "path": "protocols/consensus/schemas/review-descriptor.schema.md",
-      "type": "ReviewDescriptor",
-      "commitment": "8a38795c6ae257fa7493f26f39bad4af1742b98ce61e861f1ffdf9a2aa44d826",
-      "descriptor": {
-        "type": "ReviewDescriptor",
-        "schema_version": "myc.review.v0.1",
-        "fqdn": "h.fedcba654321.review.myc.md",
-        "commitment": {
-          "algorithm": "sha256",
-          "value": "8a38795c6ae257fa7493f26f39bad4af1742b98ce61e861f1ffdf9a2aa44d826",
-          "covers": "descriptor.body"
-        },
-        "body": {
-          "target_fqdn": "intent.message.s0fractal.h.abcdef.myc.md",
-          "target_commitment": "<target_hash>",
-          "reviewer": "s0fractal",
-          "rating": "approve",
-          "comment": "Solid implementation of the PWA lens.",
-          "timestamp": "2026-05-08T02:00:00.000Z"
-        }
-      },
-      "rawText": "# ReviewDescriptor Schema\n\n**Version:** `myc.review.v0.1`\n\nA `ReviewDescriptor` represents a semantic evaluation of an `IntentDescriptor`\nor `PublishDescriptor`. It is the primitive for subjective reputation\n(Resonance).\n\n```json myc\n{\n  \"type\": \"ReviewDescriptor\",\n  \"schema_version\": \"myc.review.v0.1\",\n  \"fqdn\": \"h.fedcba654321.review.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"8a38795c6ae257fa7493f26f39bad4af1742b98ce61e861f1ffdf9a2aa44d826\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"target_fqdn\": \"intent.message.s0fractal.h.abcdef.myc.md\",\n    \"target_commitment\": \"<target_hash>\",\n    \"reviewer\": \"s0fractal\",\n    \"rating\": \"approve\",\n    \"comment\": \"Solid implementation of the PWA lens.\",\n    \"timestamp\": \"2026-05-08T02:00:00.000Z\"\n  }\n}\n```\n\n## Fields\n\n- `target_fqdn`: FQDN of the descriptor being reviewed.\n- `target_commitment`: SHA256 hash of the target descriptor's body.\n- `reviewer`: The actor providing the review.\n- `rating`: Semantic rating. Must be one of: `\"approve\"`, `\"reject\"`,\n  `\"neutral\"`.\n- `comment`: (Optional) Textual context for the review.\n- `timestamp`: ISO-8601 UTC timestamp of the review.\n"
     },
     {
       "fqdn": "intent.message.codex.h.2b9fe46da984.myc.md",
@@ -1988,6 +1980,61 @@
       "rawText": "---\nchord:\n  primary: \"oct:3.7\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"intentdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# intent.task.claude.h.d76cf81167fc.myc.md\n\nDeterministic intent classification descriptor.\n\n```json myc\n{\n  \"type\": \"IntentDescriptor\",\n  \"schema_version\": \"myc.intent.v0.2\",\n  \"fqdn\": \"intent.task.claude.h.d76cf81167fc.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"072f43eddfe760ea75b5e2da5b3e924a48cda6d156c567bc238cc8a4beda1158\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"intent\": {\n      \"id\": \"intent.task.claude.h.d76cf81167fc.myc.md\",\n      \"raw\": \"h.d76cf81167fc.knowledge.claude.raw.myc.md\",\n      \"actor\": \"claude\",\n      \"kind\": \"task\",\n      \"actionability\": \"patch\",\n      \"language\": \"unknown\"\n    },\n    \"address\": {\n      \"fqdn\": \"intent.task.claude.h.d76cf81167fc.myc.md\",\n      \"oct\": \"oct:5.1\",\n      \"local_path\": null,\n      \"cid\": null\n    },\n    \"context_chain\": {\n      \"session_id\": \"none\",\n      \"thread_id\": \"none\",\n      \"parent_ids\": [],\n      \"target_ids\": []\n    },\n    \"materialization\": {\n      \"requested\": true,\n      \"policy\": \"proposal\",\n      \"allowed_paths\": [],\n      \"forbidden_paths\": []\n    },\n    \"legacy_meta\": {\n      \"raw_hash\": \"d76cf81167fc861661b9e2c8ea9e6ed1d470b1c830924af25f4d0733ecda06bf\",\n      \"confidence\": \"medium\",\n      \"classifier\": \"h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md\",\n      \"signals\": [\n        \"task:verify\"\n      ]\n    }\n  }\n}\n```\n"
     },
     {
+      "fqdn": "intent.task.claude.h.f24c45208983.myc.md",
+      "path": "public/objects/h/f24c45208983/intent.task.claude.h.f24c45208983.myc.md",
+      "type": "IntentDescriptor",
+      "commitment": "8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c",
+      "descriptor": {
+        "type": "IntentDescriptor",
+        "schema_version": "myc.intent.v0.2",
+        "fqdn": "intent.task.claude.h.f24c45208983.myc.md",
+        "commitment": {
+          "algorithm": "sha256",
+          "value": "8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c",
+          "covers": "descriptor.body"
+        },
+        "body": {
+          "intent": {
+            "id": "intent.task.claude.h.f24c45208983.myc.md",
+            "raw": "h.f24c45208983.knowledge.claude.raw.myc.md",
+            "actor": "claude",
+            "kind": "task",
+            "actionability": "patch",
+            "language": "unknown"
+          },
+          "address": {
+            "fqdn": "intent.task.claude.h.f24c45208983.myc.md",
+            "oct": "oct:5.1",
+            "local_path": null,
+            "cid": null
+          },
+          "context_chain": {
+            "session_id": "none",
+            "thread_id": "none",
+            "parent_ids": [],
+            "target_ids": []
+          },
+          "materialization": {
+            "requested": true,
+            "policy": "proposal",
+            "allowed_paths": [],
+            "forbidden_paths": []
+          },
+          "legacy_meta": {
+            "raw_hash": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea",
+            "confidence": "medium",
+            "classifier": "h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md",
+            "signals": [
+              "task:write",
+              "task:run",
+              "task:verify"
+            ]
+          }
+        }
+      },
+      "rawText": "---\nchord:\n  primary: \"oct:3.7\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"intentdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# intent.task.claude.h.f24c45208983.myc.md\n\nDeterministic intent classification descriptor.\n\n```json myc\n{\n  \"type\": \"IntentDescriptor\",\n  \"schema_version\": \"myc.intent.v0.2\",\n  \"fqdn\": \"intent.task.claude.h.f24c45208983.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"intent\": {\n      \"id\": \"intent.task.claude.h.f24c45208983.myc.md\",\n      \"raw\": \"h.f24c45208983.knowledge.claude.raw.myc.md\",\n      \"actor\": \"claude\",\n      \"kind\": \"task\",\n      \"actionability\": \"patch\",\n      \"language\": \"unknown\"\n    },\n    \"address\": {\n      \"fqdn\": \"intent.task.claude.h.f24c45208983.myc.md\",\n      \"oct\": \"oct:5.1\",\n      \"local_path\": null,\n      \"cid\": null\n    },\n    \"context_chain\": {\n      \"session_id\": \"none\",\n      \"thread_id\": \"none\",\n      \"parent_ids\": [],\n      \"target_ids\": []\n    },\n    \"materialization\": {\n      \"requested\": true,\n      \"policy\": \"proposal\",\n      \"allowed_paths\": [],\n      \"forbidden_paths\": []\n    },\n    \"legacy_meta\": {\n      \"raw_hash\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\",\n      \"confidence\": \"medium\",\n      \"classifier\": \"h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md\",\n      \"signals\": [\n        \"task:write\",\n        \"task:run\",\n        \"task:verify\"\n      ]\n    }\n  }\n}\n```\n"
+    },
+    {
       "fqdn": "intent.task.s0fractal.h.f1b9f8142d5f.myc.md",
       "path": "public/objects/h/f1b9f8142d5f/intent.task.s0fractal.h.f1b9f8142d5f.myc.md",
       "type": "IntentDescriptor",
@@ -2189,6 +2236,53 @@
         }
       },
       "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"transformationdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# transform.forward.canonicalize.claude.h.d76cf81167fc.myc.md\n\nFirst-class transformation edge. This file describes a verified knowledge transformation.\n\n```json myc\n{\n  \"type\": \"TransformationDescriptor\",\n  \"schema_version\": \"myc.transform.v0.1\",\n  \"fqdn\": \"transform.forward.canonicalize.claude.h.d76cf81167fc.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"99b935fc3a3a631540a22cd118d3b854e816919e0cec496d1ef8202dba003df3\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"step\": \"canonicalize\",\n    \"direction\": \"forward\",\n    \"proof_mode\": \"deterministic\",\n    \"actor\": \"claude\",\n    \"input\": [\n      {\n        \"role\": \"payload\",\n        \"commitment\": \"d76cf81167fc861661b9e2c8ea9e6ed1d470b1c830924af25f4d0733ecda06bf\",\n        \"payload_state\": \"private-local\"\n      }\n    ],\n    \"function\": {\n      \"fqdn\": \"h.4f76fd8466bc.myc-raw-bytes-sha256.function.myc.md\",\n      \"commitment\": \"4f76fd8466bc993d2bf033bebcc9cf9481e863a16f43f0a6c9db4862ac8aa8d1\",\n      \"determinism\": \"deterministic\"\n    },\n    \"context_commitment\": \"140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe\",\n    \"params_commitment\": \"140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe\",\n    \"output\": [\n      {\n        \"role\": \"raw\",\n        \"fqdn\": \"h.d76cf81167fc.knowledge.claude.raw.myc.md\",\n        \"commitment\": \"d76cf81167fc861661b9e2c8ea9e6ed1d470b1c830924af25f4d0733ecda06bf\"\n      }\n    ],\n    \"oct\": \"oct:6.4\",\n    \"note\": \"Hash raw payload bytes and produce a raw descriptor commitment.\",\n    \"receipts\": []\n  }\n}\n```\n"
+    },
+    {
+      "fqdn": "transform.forward.canonicalize.claude.h.f24c45208983.myc.md",
+      "path": "public/transforms/h/f24c45208983/transform.forward.canonicalize.claude.h.f24c45208983.myc.md",
+      "type": "TransformationDescriptor",
+      "commitment": "161be80f091b7fbcc1cfe742e59b342891857c43b4ef1bf1b202bd897f3a4d69",
+      "descriptor": {
+        "type": "TransformationDescriptor",
+        "schema_version": "myc.transform.v0.1",
+        "fqdn": "transform.forward.canonicalize.claude.h.f24c45208983.myc.md",
+        "commitment": {
+          "algorithm": "sha256",
+          "value": "161be80f091b7fbcc1cfe742e59b342891857c43b4ef1bf1b202bd897f3a4d69",
+          "covers": "descriptor.body"
+        },
+        "body": {
+          "step": "canonicalize",
+          "direction": "forward",
+          "proof_mode": "deterministic",
+          "actor": "claude",
+          "input": [
+            {
+              "role": "payload",
+              "commitment": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea",
+              "payload_state": "private-local"
+            }
+          ],
+          "function": {
+            "fqdn": "h.4f76fd8466bc.myc-raw-bytes-sha256.function.myc.md",
+            "commitment": "4f76fd8466bc993d2bf033bebcc9cf9481e863a16f43f0a6c9db4862ac8aa8d1",
+            "determinism": "deterministic"
+          },
+          "context_commitment": "140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe",
+          "params_commitment": "140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe",
+          "output": [
+            {
+              "role": "raw",
+              "fqdn": "h.f24c45208983.knowledge.claude.raw.myc.md",
+              "commitment": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea"
+            }
+          ],
+          "oct": "oct:6.4",
+          "note": "Hash raw payload bytes and produce a raw descriptor commitment.",
+          "receipts": []
+        }
+      },
+      "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"transformationdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# transform.forward.canonicalize.claude.h.f24c45208983.myc.md\n\nFirst-class transformation edge. This file describes a verified knowledge transformation.\n\n```json myc\n{\n  \"type\": \"TransformationDescriptor\",\n  \"schema_version\": \"myc.transform.v0.1\",\n  \"fqdn\": \"transform.forward.canonicalize.claude.h.f24c45208983.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"161be80f091b7fbcc1cfe742e59b342891857c43b4ef1bf1b202bd897f3a4d69\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"step\": \"canonicalize\",\n    \"direction\": \"forward\",\n    \"proof_mode\": \"deterministic\",\n    \"actor\": \"claude\",\n    \"input\": [\n      {\n        \"role\": \"payload\",\n        \"commitment\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\",\n        \"payload_state\": \"private-local\"\n      }\n    ],\n    \"function\": {\n      \"fqdn\": \"h.4f76fd8466bc.myc-raw-bytes-sha256.function.myc.md\",\n      \"commitment\": \"4f76fd8466bc993d2bf033bebcc9cf9481e863a16f43f0a6c9db4862ac8aa8d1\",\n      \"determinism\": \"deterministic\"\n    },\n    \"context_commitment\": \"140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe\",\n    \"params_commitment\": \"140bedbf9c3f6d56a9846d2ba7088798683f4da0c248231336e6a05679e4fdfe\",\n    \"output\": [\n      {\n        \"role\": \"raw\",\n        \"fqdn\": \"h.f24c45208983.knowledge.claude.raw.myc.md\",\n        \"commitment\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\"\n      }\n    ],\n    \"oct\": \"oct:6.4\",\n    \"note\": \"Hash raw payload bytes and produce a raw descriptor commitment.\",\n    \"receipts\": []\n  }\n}\n```\n"
     },
     {
       "fqdn": "transform.forward.canonicalize.codex.h.2b9fe46da984.myc.md",
@@ -2424,6 +2518,53 @@
         }
       },
       "rawText": "---\nchord:\n  primary: \"oct:5.1\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"transformationdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# transform.forward.classify.claude.h.d76cf81167fc.myc.md\n\nFirst-class transformation edge. This file describes a verified knowledge transformation.\n\n```json myc\n{\n  \"type\": \"TransformationDescriptor\",\n  \"schema_version\": \"myc.transform.v0.1\",\n  \"fqdn\": \"transform.forward.classify.claude.h.d76cf81167fc.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"2d44481de361eb4b959f6c3e65aeab81027979213f546792281308e794261f63\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"step\": \"classify\",\n    \"direction\": \"forward\",\n    \"proof_mode\": \"deterministic\",\n    \"actor\": \"claude\",\n    \"input\": [\n      {\n        \"role\": \"raw\",\n        \"fqdn\": \"h.d76cf81167fc.knowledge.claude.raw.myc.md\",\n        \"commitment\": \"d76cf81167fc861661b9e2c8ea9e6ed1d470b1c830924af25f4d0733ecda06bf\"\n      }\n    ],\n    \"function\": {\n      \"fqdn\": \"h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md\",\n      \"commitment\": \"340cb8baf52e2dadc024ad00c21a639fbeff0763916138054dc5891d3128ef6d\",\n      \"determinism\": \"deterministic\"\n    },\n    \"context_commitment\": \"fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b\",\n    \"params_commitment\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\",\n    \"output\": [\n      {\n        \"role\": \"intent\",\n        \"fqdn\": \"intent.task.claude.h.d76cf81167fc.myc.md\",\n        \"commitment\": \"072f43eddfe760ea75b5e2da5b3e924a48cda6d156c567bc238cc8a4beda1158\"\n      }\n    ],\n    \"oct\": \"oct:5.1\",\n    \"note\": \"Classify raw descriptor into a conservative intent projection.\",\n    \"receipts\": []\n  }\n}\n```\n"
+    },
+    {
+      "fqdn": "transform.forward.classify.claude.h.f24c45208983.myc.md",
+      "path": "public/transforms/h/f24c45208983/transform.forward.classify.claude.h.f24c45208983.myc.md",
+      "type": "TransformationDescriptor",
+      "commitment": "9898c46f51f97879742ed91b1107afa3644bc137a720f910744ff75b3dffb5da",
+      "descriptor": {
+        "type": "TransformationDescriptor",
+        "schema_version": "myc.transform.v0.1",
+        "fqdn": "transform.forward.classify.claude.h.f24c45208983.myc.md",
+        "commitment": {
+          "algorithm": "sha256",
+          "value": "9898c46f51f97879742ed91b1107afa3644bc137a720f910744ff75b3dffb5da",
+          "covers": "descriptor.body"
+        },
+        "body": {
+          "step": "classify",
+          "direction": "forward",
+          "proof_mode": "deterministic",
+          "actor": "claude",
+          "input": [
+            {
+              "role": "raw",
+              "fqdn": "h.f24c45208983.knowledge.claude.raw.myc.md",
+              "commitment": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea"
+            }
+          ],
+          "function": {
+            "fqdn": "h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md",
+            "commitment": "340cb8baf52e2dadc024ad00c21a639fbeff0763916138054dc5891d3128ef6d",
+            "determinism": "deterministic"
+          },
+          "context_commitment": "fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b",
+          "params_commitment": "7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f",
+          "output": [
+            {
+              "role": "intent",
+              "fqdn": "intent.task.claude.h.f24c45208983.myc.md",
+              "commitment": "8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c"
+            }
+          ],
+          "oct": "oct:5.1",
+          "note": "Classify raw descriptor into a conservative intent projection.",
+          "receipts": []
+        }
+      },
+      "rawText": "---\nchord:\n  primary: \"oct:5.1\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"transformationdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# transform.forward.classify.claude.h.f24c45208983.myc.md\n\nFirst-class transformation edge. This file describes a verified knowledge transformation.\n\n```json myc\n{\n  \"type\": \"TransformationDescriptor\",\n  \"schema_version\": \"myc.transform.v0.1\",\n  \"fqdn\": \"transform.forward.classify.claude.h.f24c45208983.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"9898c46f51f97879742ed91b1107afa3644bc137a720f910744ff75b3dffb5da\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"step\": \"classify\",\n    \"direction\": \"forward\",\n    \"proof_mode\": \"deterministic\",\n    \"actor\": \"claude\",\n    \"input\": [\n      {\n        \"role\": \"raw\",\n        \"fqdn\": \"h.f24c45208983.knowledge.claude.raw.myc.md\",\n        \"commitment\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\"\n      }\n    ],\n    \"function\": {\n      \"fqdn\": \"h.340cb8baf52e.myc-intent-rules-classifier.function.myc.md\",\n      \"commitment\": \"340cb8baf52e2dadc024ad00c21a639fbeff0763916138054dc5891d3128ef6d\",\n      \"determinism\": \"deterministic\"\n    },\n    \"context_commitment\": \"fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b\",\n    \"params_commitment\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\",\n    \"output\": [\n      {\n        \"role\": \"intent\",\n        \"fqdn\": \"intent.task.claude.h.f24c45208983.myc.md\",\n        \"commitment\": \"8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c\"\n      }\n    ],\n    \"oct\": \"oct:5.1\",\n    \"note\": \"Classify raw descriptor into a conservative intent projection.\",\n    \"receipts\": []\n  }\n}\n```\n"
     },
     {
       "fqdn": "transform.forward.classify.codex.h.2b9fe46da984.myc.md",
@@ -2674,6 +2815,58 @@
         }
       },
       "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"transformationdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# transform.forward.name.claude.h.d76cf81167fc.myc.md\n\nFirst-class transformation edge. This file describes a verified knowledge transformation.\n\n```json myc\n{\n  \"type\": \"TransformationDescriptor\",\n  \"schema_version\": \"myc.transform.v0.1\",\n  \"fqdn\": \"transform.forward.name.claude.h.d76cf81167fc.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"2510b494198fca4e8025633969b32404ed6018c78b8e2829c29edaaf649f9bbb\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"step\": \"name\",\n    \"direction\": \"forward\",\n    \"proof_mode\": \"deterministic\",\n    \"actor\": \"claude\",\n    \"input\": [\n      {\n        \"role\": \"intent\",\n        \"fqdn\": \"intent.task.claude.h.d76cf81167fc.myc.md\",\n        \"commitment\": \"072f43eddfe760ea75b5e2da5b3e924a48cda6d156c567bc238cc8a4beda1158\"\n      }\n    ],\n    \"function\": {\n      \"fqdn\": \"h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md\",\n      \"commitment\": \"849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e\",\n      \"determinism\": \"deterministic\"\n    },\n    \"context_commitment\": \"fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b\",\n    \"params_commitment\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\",\n    \"output\": [\n      {\n        \"role\": \"naming-proof\",\n        \"fqdn\": \"naming-proof.claude.h.d76cf81167fc.myc.md\",\n        \"commitment\": \"0bb3db48c5a647b35527f005edc9f06d16c14be0601547a07a266dcacb8b90f3\"\n      },\n      {\n        \"role\": \"artifact-address\",\n        \"fqdn\": \"task.claude.h.d76cf81167fc.myc.md\",\n        \"commitment\": \"eca8f9641a660fab1464ee5a73c0bbfee33377126f559a052ceda2a3fdfa0fb0\"\n      }\n    ],\n    \"oct\": \"oct:6.4\",\n    \"note\": \"Render a human-readable FQDN and record its naming proof.\",\n    \"receipts\": []\n  }\n}\n```\n"
+    },
+    {
+      "fqdn": "transform.forward.name.claude.h.f24c45208983.myc.md",
+      "path": "public/transforms/h/f24c45208983/transform.forward.name.claude.h.f24c45208983.myc.md",
+      "type": "TransformationDescriptor",
+      "commitment": "529e5467d8ab62ec98cfce00151673de7c65aefe064f0038e387b988e0865092",
+      "descriptor": {
+        "type": "TransformationDescriptor",
+        "schema_version": "myc.transform.v0.1",
+        "fqdn": "transform.forward.name.claude.h.f24c45208983.myc.md",
+        "commitment": {
+          "algorithm": "sha256",
+          "value": "529e5467d8ab62ec98cfce00151673de7c65aefe064f0038e387b988e0865092",
+          "covers": "descriptor.body"
+        },
+        "body": {
+          "step": "name",
+          "direction": "forward",
+          "proof_mode": "deterministic",
+          "actor": "claude",
+          "input": [
+            {
+              "role": "intent",
+              "fqdn": "intent.task.claude.h.f24c45208983.myc.md",
+              "commitment": "8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c"
+            }
+          ],
+          "function": {
+            "fqdn": "h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md",
+            "commitment": "849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e",
+            "determinism": "deterministic"
+          },
+          "context_commitment": "fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b",
+          "params_commitment": "7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f",
+          "output": [
+            {
+              "role": "naming-proof",
+              "fqdn": "naming-proof.claude.h.f24c45208983.myc.md",
+              "commitment": "05ec81a52b7bb93545867f26038b52d47e9c314beeb45a29bc42178487e7274c"
+            },
+            {
+              "role": "artifact-address",
+              "fqdn": "task.claude.h.f24c45208983.myc.md",
+              "commitment": "192e2cad69a1800f3f6dd134170918002628ab5d7604ba3df21b998e66ba4aad"
+            }
+          ],
+          "oct": "oct:6.4",
+          "note": "Render a human-readable FQDN and record its naming proof.",
+          "receipts": []
+        }
+      },
+      "rawText": "---\nchord:\n  primary: \"oct:6.4\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"transformationdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# transform.forward.name.claude.h.f24c45208983.myc.md\n\nFirst-class transformation edge. This file describes a verified knowledge transformation.\n\n```json myc\n{\n  \"type\": \"TransformationDescriptor\",\n  \"schema_version\": \"myc.transform.v0.1\",\n  \"fqdn\": \"transform.forward.name.claude.h.f24c45208983.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"529e5467d8ab62ec98cfce00151673de7c65aefe064f0038e387b988e0865092\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"step\": \"name\",\n    \"direction\": \"forward\",\n    \"proof_mode\": \"deterministic\",\n    \"actor\": \"claude\",\n    \"input\": [\n      {\n        \"role\": \"intent\",\n        \"fqdn\": \"intent.task.claude.h.f24c45208983.myc.md\",\n        \"commitment\": \"8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c\"\n      }\n    ],\n    \"function\": {\n      \"fqdn\": \"h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md\",\n      \"commitment\": \"849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e\",\n      \"determinism\": \"deterministic\"\n    },\n    \"context_commitment\": \"fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b\",\n    \"params_commitment\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\",\n    \"output\": [\n      {\n        \"role\": \"naming-proof\",\n        \"fqdn\": \"naming-proof.claude.h.f24c45208983.myc.md\",\n        \"commitment\": \"05ec81a52b7bb93545867f26038b52d47e9c314beeb45a29bc42178487e7274c\"\n      },\n      {\n        \"role\": \"artifact-address\",\n        \"fqdn\": \"task.claude.h.f24c45208983.myc.md\",\n        \"commitment\": \"192e2cad69a1800f3f6dd134170918002628ab5d7604ba3df21b998e66ba4aad\"\n      }\n    ],\n    \"oct\": \"oct:6.4\",\n    \"note\": \"Render a human-readable FQDN and record its naming proof.\",\n    \"receipts\": []\n  }\n}\n```\n"
     },
     {
       "fqdn": "transform.forward.name.codex.h.2b9fe46da984.myc.md",
@@ -2952,6 +3145,64 @@
         }
       },
       "rawText": "---\nchord:\n  primary: \"oct:5.1\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"transformationdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# transform.forward.project.claude.h.d76cf81167fc.myc.md\n\nFirst-class transformation edge. This file describes a verified knowledge transformation.\n\n```json myc\n{\n  \"type\": \"TransformationDescriptor\",\n  \"schema_version\": \"myc.transform.v0.1\",\n  \"fqdn\": \"transform.forward.project.claude.h.d76cf81167fc.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"79fa82eea40df6b891dc7234ab0706d235ad8f9967973ee44fcbb7e94e901352\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"step\": \"project\",\n    \"direction\": \"forward\",\n    \"proof_mode\": \"deterministic\",\n    \"actor\": \"claude\",\n    \"input\": [\n      {\n        \"role\": \"raw\",\n        \"fqdn\": \"h.d76cf81167fc.knowledge.claude.raw.myc.md\",\n        \"commitment\": \"d76cf81167fc861661b9e2c8ea9e6ed1d470b1c830924af25f4d0733ecda06bf\"\n      },\n      {\n        \"role\": \"intent\",\n        \"fqdn\": \"intent.task.claude.h.d76cf81167fc.myc.md\",\n        \"commitment\": \"072f43eddfe760ea75b5e2da5b3e924a48cda6d156c567bc238cc8a4beda1158\"\n      },\n      {\n        \"role\": \"naming-proof\",\n        \"fqdn\": \"naming-proof.claude.h.d76cf81167fc.myc.md\",\n        \"commitment\": \"0bb3db48c5a647b35527f005edc9f06d16c14be0601547a07a266dcacb8b90f3\"\n      }\n    ],\n    \"function\": {\n      \"fqdn\": \"h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md\",\n      \"commitment\": \"849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e\",\n      \"determinism\": \"deterministic\"\n    },\n    \"context_commitment\": \"fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b\",\n    \"params_commitment\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\",\n    \"output\": [\n      {\n        \"role\": \"artifact\",\n        \"fqdn\": \"task.claude.h.d76cf81167fc.myc.md\",\n        \"commitment\": \"0ed8f2e71c26737675a304ba398960b222d3f4520324a6f0cfcf7c56191a80b8\",\n        \"artifact_hash\": \"eca8f9641a660fab1464ee5a73c0bbfee33377126f559a052ceda2a3fdfa0fb0\"\n      }\n    ],\n    \"oct\": \"oct:5.1\",\n    \"note\": \"Produce the final artifact descriptor from raw, intent, and naming proof.\",\n    \"receipts\": []\n  }\n}\n```\n"
+    },
+    {
+      "fqdn": "transform.forward.project.claude.h.f24c45208983.myc.md",
+      "path": "public/transforms/h/f24c45208983/transform.forward.project.claude.h.f24c45208983.myc.md",
+      "type": "TransformationDescriptor",
+      "commitment": "688c9fa58ce8f937930fe3dbbdfbc1a5e5d5d8527f355f494040107a69b003f9",
+      "descriptor": {
+        "type": "TransformationDescriptor",
+        "schema_version": "myc.transform.v0.1",
+        "fqdn": "transform.forward.project.claude.h.f24c45208983.myc.md",
+        "commitment": {
+          "algorithm": "sha256",
+          "value": "688c9fa58ce8f937930fe3dbbdfbc1a5e5d5d8527f355f494040107a69b003f9",
+          "covers": "descriptor.body"
+        },
+        "body": {
+          "step": "project",
+          "direction": "forward",
+          "proof_mode": "deterministic",
+          "actor": "claude",
+          "input": [
+            {
+              "role": "raw",
+              "fqdn": "h.f24c45208983.knowledge.claude.raw.myc.md",
+              "commitment": "f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea"
+            },
+            {
+              "role": "intent",
+              "fqdn": "intent.task.claude.h.f24c45208983.myc.md",
+              "commitment": "8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c"
+            },
+            {
+              "role": "naming-proof",
+              "fqdn": "naming-proof.claude.h.f24c45208983.myc.md",
+              "commitment": "05ec81a52b7bb93545867f26038b52d47e9c314beeb45a29bc42178487e7274c"
+            }
+          ],
+          "function": {
+            "fqdn": "h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md",
+            "commitment": "849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e",
+            "determinism": "deterministic"
+          },
+          "context_commitment": "fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b",
+          "params_commitment": "7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f",
+          "output": [
+            {
+              "role": "artifact",
+              "fqdn": "task.claude.h.f24c45208983.myc.md",
+              "commitment": "acfdc17f7458d39cd603bad14912d2905e767119e592d449c43d4c5f3287a1b7",
+              "artifact_hash": "192e2cad69a1800f3f6dd134170918002628ab5d7604ba3df21b998e66ba4aad"
+            }
+          ],
+          "oct": "oct:5.1",
+          "note": "Produce the final artifact descriptor from raw, intent, and naming proof.",
+          "receipts": []
+        }
+      },
+      "rawText": "---\nchord:\n  primary: \"oct:5.1\"\n  secondary: [\"oct:6.4\", \"oct:3.7\"]\nenergy: 0.68\nmode: \"PATCH\"\ntension: \"transformationdescriptor-generated\"\nconfidence: \"medium\"\nreceipt: \"file\"\n---\n\n# transform.forward.project.claude.h.f24c45208983.myc.md\n\nFirst-class transformation edge. This file describes a verified knowledge transformation.\n\n```json myc\n{\n  \"type\": \"TransformationDescriptor\",\n  \"schema_version\": \"myc.transform.v0.1\",\n  \"fqdn\": \"transform.forward.project.claude.h.f24c45208983.myc.md\",\n  \"commitment\": {\n    \"algorithm\": \"sha256\",\n    \"value\": \"688c9fa58ce8f937930fe3dbbdfbc1a5e5d5d8527f355f494040107a69b003f9\",\n    \"covers\": \"descriptor.body\"\n  },\n  \"body\": {\n    \"step\": \"project\",\n    \"direction\": \"forward\",\n    \"proof_mode\": \"deterministic\",\n    \"actor\": \"claude\",\n    \"input\": [\n      {\n        \"role\": \"raw\",\n        \"fqdn\": \"h.f24c45208983.knowledge.claude.raw.myc.md\",\n        \"commitment\": \"f24c4520898371f6523a45200291d00696f3b1aece2053951eb435a8da02c2ea\"\n      },\n      {\n        \"role\": \"intent\",\n        \"fqdn\": \"intent.task.claude.h.f24c45208983.myc.md\",\n        \"commitment\": \"8a7d430c5f53c8f6a5ada23f4195c4cd2adba70438940146d4eb2ced9450047c\"\n      },\n      {\n        \"role\": \"naming-proof\",\n        \"fqdn\": \"naming-proof.claude.h.f24c45208983.myc.md\",\n        \"commitment\": \"05ec81a52b7bb93545867f26038b52d47e9c314beeb45a29bc42178487e7274c\"\n      }\n    ],\n    \"function\": {\n      \"fqdn\": \"h.849874aa8a18.myc-fqdn-naming-policy.function.myc.md\",\n      \"commitment\": \"849874aa8a185af43168cc957d7db7abbad478aefdaae848df120b97f888b91e\",\n      \"determinism\": \"deterministic\"\n    },\n    \"context_commitment\": \"fb06813273f054eff554e65874d79a9d921e45852923c6bb44af8779446fab4b\",\n    \"params_commitment\": \"7ca5fa841fe4d5706f95ad71becb2f6f88cae11cbbc1605fbaa89d8ed74b337f\",\n    \"output\": [\n      {\n        \"role\": \"artifact\",\n        \"fqdn\": \"task.claude.h.f24c45208983.myc.md\",\n        \"commitment\": \"acfdc17f7458d39cd603bad14912d2905e767119e592d449c43d4c5f3287a1b7\",\n        \"artifact_hash\": \"192e2cad69a1800f3f6dd134170918002628ab5d7604ba3df21b998e66ba4aad\"\n      }\n    ],\n    \"oct\": \"oct:5.1\",\n    \"note\": \"Produce the final artifact descriptor from raw, intent, and naming proof.\",\n    \"receipts\": []\n  }\n}\n```\n"
     },
     {
       "fqdn": "transform.forward.project.codex.h.2b9fe46da984.myc.md",

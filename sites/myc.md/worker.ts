@@ -1305,16 +1305,28 @@ export default {
     }
 
     if (url.pathname === "/verify-projections") {
+      // AUDIT A7 — was a hardcoded `ok:true` stub (verified nothing). Now it
+      // actually re-verifies every served record's commitment BY HASH using the
+      // shared verifier (A2), so this endpoint can no longer lie.
+      const recs = await allRecords();
+      const errors: string[] = [];
+      let verified = 0;
+      for (const r of recs) {
+        const v = r?.descriptor
+          ? await verifyCommitment(r.descriptor)
+          : { ok: false, errors: ["record has no descriptor"] };
+        if (v.ok) verified++;
+        else errors.push(`${r.fqdn}: ${v.errors.join("; ")}`);
+      }
       return response(
         JSON.stringify(
           {
-            ok: true,
-            index_synced: true,
-            graph_synced: true,
-            descriptor_count: (await allRecords()).length,
-            index_record_count: (await allRecords()).length,
-            errors: [],
-            warnings: [],
+            ok: errors.length === 0,
+            verified,
+            descriptor_count: recs.length,
+            errors: errors.slice(0, 20),
+            note:
+              "each record's commitment re-verified by hash at the edge; for full canonical verification run: t myc verify-snapshot https://myc.md/snapshot.json",
           },
           null,
           2,
