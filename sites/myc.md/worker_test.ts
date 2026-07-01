@@ -102,27 +102,34 @@ Deno.test("myc.md worker falls back to shell for FQDN routes", async () => {
 });
 
 // --- provenance-corruption guard (GOAL: adversary / notary) ---
-// This worker was found SYSTEMATICALLY escape-corrupted: every regex and the
-// commitment separator carried a DOUBLE backslash, so the frontmatter regexes
-// matched a literal "\r\n" (never real newlines) and the commitment hashed
-// `fqdn + "\\n" + body` — diverging from the CLI's canonicalCommitment. The
-// public PWA computed WRONG commitments and could not parse frontmatter at all.
-// Fixed; these red the instant the corruption returns.
+// The PWA JS lived INSIDE a `const JS = \`…\`` template literal, which silently
+// ate the backslashes in every regex + string escape (\/ → /, "…\n" → a real
+// newline), so the served app.js was a SYNTAX ERROR and the whole PWA never ran
+// on the deployed site — the commitment/frontmatter code was dead. The durable
+// fix moved the JS to `app.client.js`, served VERBATIM (import … type "text"),
+// where single backslashes are correct normal JS. These guards red the instant
+// the corruption returns: worker.ts must carry no JS blob (→ no `\\`), and the
+// verbatim client must keep single backslashes (a `\\` there means someone
+// re-introduced template-literal doubling).
 const WORKER_SRC = Deno.readTextFileSync(
   new URL("./worker.ts", import.meta.url),
 );
+const CLIENT_SRC = Deno.readTextFileSync(
+  new URL("./app.client.js", import.meta.url),
+);
 
-Deno.test("worker.ts is not escape-corrupted (zero double-backslashes)", () => {
-  const doubles = WORKER_SRC.match(/\\\\/g)?.length ?? 0;
+Deno.test("PWA sources are not escape-corrupted (zero double-backslashes)", () => {
+  const wd = WORKER_SRC.match(/\\\\/g)?.length ?? 0;
+  const cd = CLIENT_SRC.match(/\\\\/g)?.length ?? 0;
   assert(
-    doubles === 0,
-    `worker.ts has ${doubles} double-backslash sequence(s) — its markdown/frontmatter regexes and the provenance-commitment separator would be broken, so the deployed PWA would compute wrong commitments.`,
+    wd === 0 && cd === 0,
+    `escape corruption: worker.ts has ${wd} and app.client.js has ${cd} double-backslash sequence(s). The verbatim client needs SINGLE backslashes; a double means the template-literal doubling was re-introduced, which would break the regexes + commitment separator.`,
   );
 });
 
-Deno.test("worker.ts commitment uses the canonical formula (fqdn + real newline + body.trimEnd)", () => {
+Deno.test("app.client.js commitment uses the canonical formula (fqdn + real newline + body.trimEnd)", () => {
   assert(
-    WORKER_SRC.includes('fqdn + "\\n" + contentBody.trimEnd()'),
+    CLIENT_SRC.includes('fqdn + "\\n" + contentBody.trimEnd()'),
     "the PWA commitment must hash fqdn + a real newline + body.trimEnd(), matching src/x0200_resolve.ts canonicalCommitment (conformance vector 0cd0ac37…)",
   );
 });
