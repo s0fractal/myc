@@ -1311,22 +1311,26 @@ export default {
       const recs = await allRecords();
       const errors: string[] = [];
       let verified = 0;
+      let canonicalOnly = 0; // no embedded descriptor → verifiable only via verify-snapshot
       for (const r of recs) {
-        const v = r?.descriptor
-          ? await verifyCommitment(r.descriptor)
-          : { ok: false, errors: ["record has no descriptor"] };
+        if (!r?.descriptor) {
+          canonicalOnly++;
+          continue;
+        }
+        const v = await verifyCommitment(r.descriptor);
         if (v.ok) verified++;
         else errors.push(`${r.fqdn}: ${v.errors.join("; ")}`);
       }
       return response(
         JSON.stringify(
           {
-            ok: errors.length === 0,
+            ok: errors.length === 0, // no record with an embedded descriptor is forged
             verified,
+            canonical_only: canonicalOnly,
             descriptor_count: recs.length,
             errors: errors.slice(0, 20),
             note:
-              "each record's commitment re-verified by hash at the edge; for full canonical verification run: t myc verify-snapshot https://myc.md/snapshot.json",
+              "records with an embedded descriptor are re-verified by hash here; the rest are canonical-only — run: t myc verify-snapshot https://myc.md/snapshot.json for full verification",
           },
           null,
           2,
