@@ -242,33 +242,11 @@ export function joinPath(...parts: string[]): string {
   return absolute ? `/${normalized.replace(/^\/+/, "")}` : normalized;
 }
 
-export async function sha256Hex(input: string | Uint8Array): Promise<string> {
-  const bytes = typeof input === "string" ? TEXT_ENCODER.encode(input) : input;
-  const buffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  ) as ArrayBuffer;
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-export function stableStringify(value: Json): string {
-  if (value === null) return "null";
-  if (typeof value === "boolean" || typeof value === "number") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "string") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  }
-  const keys = Object.keys(value).sort();
-  return `{${
-    keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-      .join(",")
-  }}`;
-}
+// The pure hash + canonical-serialization primitives live in verify_core.ts so
+// the Cloudflare Worker can share the EXACT verification (audit A2). Imported +
+// re-exported here to keep the existing x0100 public API stable.
+import { sha256Hex, stableStringify, verifyCommitment } from "./verify_core.ts";
+export { sha256Hex, stableStringify, verifyCommitment };
 
 export function slug(value: string): string {
   const normalized = value

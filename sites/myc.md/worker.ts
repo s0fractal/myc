@@ -4,6 +4,7 @@
 //   t myc import-snapshot https://myc.md/snapshot.json --write
 import SNAPSHOT from "./snapshot.gen.json" with { type: "json" };
 import APP_JS_RAW from "./app.client.js" with { type: "text" };
+import { verifyCommitment } from "../../src/verify_core.ts";
 
 const RESOLVER_DEFAULT = "http://127.0.0.1:8787";
 const CACHE_NAME = "myc-local-first-v0";
@@ -1080,6 +1081,22 @@ async function handlePublish(request: Request, env: Env): Promise<Response> {
   }
   if (!ok) {
     return jsonResp({ ok: false, error: "bad witness signature", digest }, 403);
+  }
+  // AUDIT A2 — verify content BY HASH before it becomes authoritative. The
+  // witness vouched, but the membrane must never serve a record whose commitment
+  // doesn't match its own body. This is the SAME canonical check verify-snapshot
+  // runs (verifyCommitment), now enforced on the live ingest path — so a bad
+  // publish is rejected at write, not merely detectable afterward.
+  for (const r of records) {
+    const v = r?.descriptor
+      ? await verifyCommitment(r.descriptor)
+      : { ok: false, errors: ["record has no descriptor"] };
+    if (!v.ok) {
+      return jsonResp({
+        ok: false,
+        error: `record ${r?.fqdn} fails commitment: ${v.errors.join("; ")}`,
+      }, 422);
+    }
   }
   // merge into the live store (last-write-wins by fqdn)
   const existing = await readPublished(env);
