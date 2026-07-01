@@ -4,7 +4,41 @@
 //   t myc import-snapshot https://myc.md/snapshot.json --write
 import SNAPSHOT from "./snapshot.gen.json" with { type: "json" };
 import APP_JS_RAW from "./app.client.js" with { type: "text" };
+import VERIFY_JS from "./verify.client.js" with { type: "text" };
 import { verifyCommitment } from "../../src/verify_core.ts";
+
+// The /verify page — a stranger confirms the federation's Substrate Court verdict
+// in their OWN browser, trusting no one. All verification runs client-side in
+// verify.client.js; this shell just loads it.
+const VERIFY_HTML = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify the federation — trusting no one</title>
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; max-width: 46rem; margin: 3rem auto; padding: 0 1.2rem; color: #1a1a1a; background: #fafafa; }
+  h1 { font-size: 1.5rem; } p { color: #333; }
+  button { font: inherit; padding: .6rem 1rem; margin: .3rem .4rem .3rem 0; border: 1px solid #888; border-radius: 8px; background: #fff; cursor: pointer; }
+  button:hover { background: #f0f0f0; }
+  #result h2 { font-size: 1.15rem; } #result h2.ok { color: #147a3d; } #result h2.bad { color: #b3261e; }
+  #result li.ok { color: #147a3d; } #result li.bad { color: #b3261e; } #result .d { color: #666; font-size: .85em; }
+  ul { list-style: none; padding-left: 0; } li { padding: .15rem 0; }
+  code { background: #eee; padding: .1rem .3rem; border-radius: 4px; font-size: .9em; }
+</style></head><body>
+<h1>Verify this federation — trusting no one</h1>
+<p>This page fetches only <strong>public bytes</strong> (a signed attestation + the
+public key registry from raw GitHub) and verifies them <strong>in your browser</strong>:
+it recomputes every <code>body_hash</code> from the raw substrate bodies with the same
+canonical encoder, re-derives the Substrate Court's agreement, and checks the signature
+with your browser's own crypto. Nothing of ours runs but the public code you just
+loaded — no secret, no server-side "trust me".</p>
+<button id="verify">Verify the live court verdict</button>
+<button id="verify-tampered">Try a tampered attestation (must be rejected)</button>
+<div id="result"></div>
+<p style="color:#666;font-size:.85em;margin-top:2rem">The signature only proves <em>who</em>
+published; the verdict is re-derived here, so a registered voice cannot make you accept a
+lie. Prefer a terminal? The same check runs headless — see the repo README's
+"Verify us without trusting us".</p>
+<script type="module" src="/verify.client.js"></script>
+</body></html>`;
 
 const RESOLVER_DEFAULT = "http://127.0.0.1:8787";
 const CACHE_NAME = "myc-local-first-v0";
@@ -1302,6 +1336,13 @@ export default {
         ),
         "application/json; charset=utf-8",
       );
+    }
+
+    if (url.pathname === "/verify") {
+      return response(VERIFY_HTML, "text/html; charset=utf-8");
+    }
+    if (url.pathname === "/verify.client.js") {
+      return response(VERIFY_JS, "application/javascript; charset=utf-8");
     }
 
     if (url.pathname === "/published") {
