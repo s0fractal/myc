@@ -3179,7 +3179,9 @@ export async function main(args: string[]): Promise<void> {
 
   // `membrane` — the single surface: the body + its trust + its mutations'
   // lives, composed into one read-only view (the architect's founding vision).
-  if (args[0] === "membrane") {
+  // `overview` is an alias — install.sh advertised it as the browse-the-network
+  // path, but it was not a command (a newcomer got the raw help list). Dogfood.
+  if (args[0] === "membrane" || args[0] === "overview") {
     const memPath = new URL("./x8FF0_membrane.ts", import.meta.url).pathname;
     const proc = new Deno.Command("deno", {
       args: ["run", "--allow-read", memPath, ...args.slice(1)],
