@@ -248,6 +248,59 @@ async function verifyAttestation(url) {
     attestedAt: attested_at
   };
 }
+var MODELS = /* @__PURE__ */ new Set(["claude", "codex", "gemini", "antigravity"]);
+var QUORUM_CHORD = "https://raw.githubusercontent.com/s0fractal/trinity/main/src/x3300_955660_claude_first-real-swarm-quorum-reached-3of5-evidence-unif.myc.md";
+async function verifyQuorum(chordUrl) {
+  const [registry, content] = await Promise.all([
+    fetch(REGISTRY_URL).then((r) => r.json()),
+    fetch(chordUrl).then((r) => r.text())
+  ]);
+  const checks = [];
+  const digest = content.match(/sha256:[0-9a-f]{64}/)?.[0] ?? "";
+  let claimForm = null;
+  for (const m of content.matchAll(/```text\n([\s\S]*?)\n```/g)) {
+    const block = m[1];
+    if (/^\s*sha256:/.test(block)) continue;
+    for (const [form, t] of [
+      ["verbatim", block],
+      ["soft-wrap-joined", block.replace(/([^\n])\n([^\n])/g, "$1 $2")]
+    ]) {
+      if (await sha256Prefixed(t) === digest) claimForm = form;
+    }
+  }
+  checks.push({
+    name: "the displayed claim text reproduces the signed digest",
+    ok: claimForm !== null,
+    detail: claimForm ?? void 0
+  });
+  const validKeys = /* @__PURE__ */ new Set();
+  const modelKeys = /* @__PURE__ */ new Set();
+  for (const m of content.matchAll(
+    /-\s*voice:\s*(\S+)([\s\S]*?)(?=\n\s*-\s*voice:|\n```|$)/g
+  )) {
+    const voice = m[1];
+    const sig = m[2].match(/\n\s*sig:\s*(\S+)/)?.[1]?.replace(/^"|"$/g, "");
+    const pk = registry.keys?.[voice]?.pubkey;
+    if (sig && pk && digest && await ed25519Verify(unb64(pk), encU(digest), unb64(sig)) && !validKeys.has(voice)) {
+      validKeys.add(voice);
+      if (MODELS.has(voice)) modelKeys.add(voice);
+    }
+  }
+  checks.push({
+    name: "distinct registered keys each validly signed that exact claim",
+    ok: validKeys.size >= 3,
+    detail: `${validKeys.size} keys (${modelKeys.size} model-voices): ${[...validKeys].join(", ")}`
+  });
+  return {
+    checks,
+    allOk: checks.every((c) => c.ok),
+    caveats: [
+      "distinct KEYS are not distinct CUSTODIANS \u2014 the keys are single-machine (governance discipline + an audit trail, not a cryptographic Sybil guarantee)",
+      "the AYE/NAY stance is author prose \u2014 each voice signed the claim digest, not the vote",
+      "these signatures bind the claim TEXT, not this chord; the newer chord-bound scheme prevents replay going forward"
+    ]
+  };
+}
 var doc = globalThis.document;
 if (doc) {
   const out = doc.getElementById("result");
@@ -257,7 +310,8 @@ if (doc) {
       (c) => `<li class="${c.ok ? "ok" : "bad"}">${c.ok ? "\u2713" : "\u2717"} ${c.name}${c.detail ? ` <span class="d">(${c.detail})</span>` : ""}</li>`
     ).join("");
     const asOf = r.attestedAt ? `<p class="d">court verdict as of ${r.attestedAt} \u2014 a receipt of that moment, not a live feed</p>` : "";
-    out.innerHTML = `<h2 class="${r.allOk ? "ok" : "bad"}">${title}: ${r.allOk ? "CONFIRMED \u2014 verified in your browser, trusting no one" : "REJECTED"}</h2>${asOf}<ul>${rows}</ul>`;
+    const caveats = r.caveats?.length ? `<p class="d" style="margin-top:1rem">Proven, and no more. What this does NOT prove:</p><ul>${r.caveats.map((c) => `<li class="d">\xB7 ${c}</li>`).join("")}</ul>` : "";
+    out.innerHTML = `<h2 class="${r.allOk ? "ok" : "bad"}">${title}: ${r.allOk ? "CONFIRMED \u2014 verified in your browser, trusting no one" : "REJECTED"}</h2>${asOf}<ul>${rows}</ul>${caveats}`;
   };
   const btn = doc.getElementById("verify");
   if (btn) {
@@ -281,7 +335,20 @@ if (doc) {
       );
     };
   }
+  const qbtn = doc.getElementById("verify-quorum");
+  if (qbtn) {
+    qbtn.onclick = async () => {
+      if (out) {
+        out.innerHTML = "<p>fetching the quorum chord + registry, verifying each signature\u2026</p>";
+      }
+      render(
+        "Swarm quorum decision (evidence unification)",
+        await verifyQuorum(QUORUM_CHORD)
+      );
+    };
+  }
 }
 export {
-  verifyAttestation
+  verifyAttestation,
+  verifyQuorum
 };

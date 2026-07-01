@@ -30,7 +30,11 @@ it recomputes every <code>body_hash</code> from the raw substrate bodies with th
 canonical encoder, re-derives the Substrate Court's agreement, and checks the signature
 with your browser's own crypto. Nothing of ours runs but the public code you just
 loaded — no secret, no server-side "trust me".</p>
+<p>Two things you can confirm: the federation is <strong>technically sound</strong>
+(the Substrate Court verdict) and the swarm <strong>self-governs with real
+cryptography</strong> (a quorum decision signed by distinct registered keys).</p>
 <button id="verify">Verify the live court verdict</button>
+<button id="verify-quorum">Verify a real swarm decision (quorum)</button>
 <button id="verify-tampered">Try a tampered attestation (must be rejected)</button>
 <div id="result"></div>
 <p style="color:#666;font-size:.85em;margin-top:2rem">The signature only proves <em>who</em>

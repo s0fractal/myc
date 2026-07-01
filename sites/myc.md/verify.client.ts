@@ -128,6 +128,81 @@ export async function verifyAttestation(
   };
 }
 
+// The swarm's real governance, verified from outside: a quorum chord records a
+// claim, its digest, and per-voice signatures. This confirms — honestly, no more —
+// that N distinct REGISTERED keys each produced a valid ed25519 signature over the
+// exact claim. It is scrupulous about what that does NOT prove (mirrors quorum.ts).
+const MODELS = new Set(["claude", "codex", "gemini", "antigravity"]);
+const QUORUM_CHORD =
+  "https://raw.githubusercontent.com/s0fractal/trinity/main/src/x3300_955660_claude_first-real-swarm-quorum-reached-3of5-evidence-unif.myc.md";
+
+export async function verifyQuorum(
+  chordUrl: string,
+): Promise<{ checks: Check[]; allOk: boolean; caveats: string[] }> {
+  const [registry, content] = await Promise.all([
+    fetch(REGISTRY_URL).then((r) => r.json()),
+    fetch(chordUrl).then((r) => r.text()),
+  ]);
+  const checks: Check[] = [];
+  const digest = content.match(/sha256:[0-9a-f]{64}/)?.[0] ?? "";
+
+  let claimForm: string | null = null;
+  for (const m of content.matchAll(/```text\n([\s\S]*?)\n```/g)) {
+    const block = m[1];
+    if (/^\s*sha256:/.test(block)) continue;
+    for (
+      const [form, t] of [
+        ["verbatim", block],
+        ["soft-wrap-joined", block.replace(/([^\n])\n([^\n])/g, "$1 $2")],
+      ] as const
+    ) {
+      if ((await sha256Prefixed(t)) === digest) claimForm = form;
+    }
+  }
+  checks.push({
+    name: "the displayed claim text reproduces the signed digest",
+    ok: claimForm !== null,
+    detail: claimForm ?? undefined,
+  });
+
+  const validKeys = new Set<string>();
+  const modelKeys = new Set<string>();
+  for (
+    const m of content.matchAll(
+      /-\s*voice:\s*(\S+)([\s\S]*?)(?=\n\s*-\s*voice:|\n```|$)/g,
+    )
+  ) {
+    const voice = m[1];
+    const sig = m[2].match(/\n\s*sig:\s*(\S+)/)?.[1]?.replace(/^"|"$/g, "");
+    const pk = registry.keys?.[voice]?.pubkey;
+    if (
+      sig && pk && digest &&
+      await ed25519Verify(unb64(pk), encU(digest), unb64(sig)) &&
+      !validKeys.has(voice)
+    ) {
+      validKeys.add(voice);
+      if (MODELS.has(voice)) modelKeys.add(voice);
+    }
+  }
+  checks.push({
+    name: "distinct registered keys each validly signed that exact claim",
+    ok: validKeys.size >= 3,
+    detail: `${validKeys.size} keys (${modelKeys.size} model-voices): ${
+      [...validKeys].join(", ")
+    }`,
+  });
+
+  return {
+    checks,
+    allOk: checks.every((c) => c.ok),
+    caveats: [
+      "distinct KEYS are not distinct CUSTODIANS — the keys are single-machine (governance discipline + an audit trail, not a cryptographic Sybil guarantee)",
+      "the AYE/NAY stance is author prose — each voice signed the claim digest, not the vote",
+      "these signatures bind the claim TEXT, not this chord; the newer chord-bound scheme prevents replay going forward",
+    ],
+  };
+}
+
 // ── DOM wiring (only runs in a browser) ──────────────────────────────────────
 // deno-lint-ignore no-explicit-any
 const doc = (globalThis as any).document;
@@ -135,7 +210,12 @@ if (doc) {
   const out = doc.getElementById("result");
   const render = (
     title: string,
-    r: { checks: Check[]; allOk: boolean; attestedAt?: string },
+    r: {
+      checks: Check[];
+      allOk: boolean;
+      attestedAt?: string;
+      caveats?: string[];
+    },
   ) => {
     if (!out) return;
     const rows = r.checks.map((c: Check) =>
@@ -146,11 +226,16 @@ if (doc) {
     const asOf = r.attestedAt
       ? `<p class="d">court verdict as of ${r.attestedAt} — a receipt of that moment, not a live feed</p>`
       : "";
+    const caveats = r.caveats?.length
+      ? `<p class="d" style="margin-top:1rem">Proven, and no more. What this does NOT prove:</p><ul>${
+        r.caveats.map((c) => `<li class="d">· ${c}</li>`).join("")
+      }</ul>`
+      : "";
     out.innerHTML = `<h2 class="${r.allOk ? "ok" : "bad"}">${title}: ${
       r.allOk
         ? "CONFIRMED — verified in your browser, trusting no one"
         : "REJECTED"
-    }</h2>${asOf}<ul>${rows}</ul>`;
+    }</h2>${asOf}<ul>${rows}</ul>${caveats}`;
   };
   const btn = doc.getElementById("verify");
   if (btn) {
@@ -172,6 +257,19 @@ if (doc) {
       render(
         "Tampered fixture",
         await verifyAttestation(`${RAW}/court-attestation.tampered.json`),
+      );
+    };
+  }
+  const qbtn = doc.getElementById("verify-quorum");
+  if (qbtn) {
+    qbtn.onclick = async () => {
+      if (out) {
+        out.innerHTML =
+          "<p>fetching the quorum chord + registry, verifying each signature…</p>";
+      }
+      render(
+        "Swarm quorum decision (evidence unification)",
+        await verifyQuorum(QUORUM_CHORD),
       );
     };
   }
