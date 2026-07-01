@@ -87,10 +87,10 @@ const HTML = `<!doctype html>
           <span class="door-title">Дивитись</span>
           <span class="door-sub">досліди мережу прямо тут</span>
         </button>
-        <a class="door" href="https://relay.myc.md/mesh/">
-          <span class="door-icon">🛰</span>
+        <a class="door" href="/verify">
+          <span class="door-icon">✓</span>
           <span class="door-title">Перевірити</span>
-          <span class="door-sub">браузер сам перевірить підпис</span>
+          <span class="door-sub">браузер сам перевірить підпис — нікому не довіряючи</span>
         </a>
         <button class="door" id="door-join" type="button">
           <span class="door-icon">🌱</span>
