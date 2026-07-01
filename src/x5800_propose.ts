@@ -160,6 +160,24 @@ function parseFlags(args: string[]): Record<string, string> {
   return flags;
 }
 
+/** Human-friendly proposal summary (TTY default). `t myc propose` is the canonical
+ *  CONTRIBUTE doorway (install.sh + affordances); a newcomer should see what happened
+ *  and what it means, not a wall of JSON. Raw JSON stays with --json / when piped. */
+export function renderProposeHuman(r: ProposeResult, requires: string): string {
+  if (!r.ok) return `✗ ${r.error ?? "proposal failed"}`;
+  return [
+    "✓ your proposal is in the network — DORMANT, keyless, content-addressed.",
+    "",
+    `  address:  ${r.fqdn}`,
+    `  concerns: ${
+      requires || "(unspecified)"
+    }   — the organ it proposes to change`,
+    "",
+    "  It carries NO trust yet: a proposal stays dormant until a voice witnesses it",
+    "  and it germinates (gated). Watch it earn trust:  t myc lifecycle",
+  ].join("\n");
+}
+
 export async function runCli(args: string[] = Deno.args): Promise<void> {
   const f = parseFlags(args);
   const root = f.root ?? Deno.env.get("MYC_ROOT") ?? Deno.cwd();
@@ -216,18 +234,25 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
     finality_policy: Object.keys(classes).length > 0 ? { classes } : undefined,
     action_grant,
   });
-  console.log(JSON.stringify(
-    {
-      type: "proposed_mutation",
-      position: "5/8",
-      ...result,
-      note: result.ok
-        ? "dormant proposal written; it carries no trust until witnessed + germinated (gated). See `t myc lifecycle` / `t myc membrane`."
-        : undefined,
-    },
-    null,
-    2,
-  ));
+  const wantJson = Boolean(f.json) || !Deno.stdout.isTerminal();
+  if (wantJson) {
+    console.log(JSON.stringify(
+      {
+        type: "proposed_mutation",
+        position: "5/8",
+        ...result,
+        note: result.ok
+          ? "dormant proposal written; it carries no trust until witnessed + germinated (gated). See `t myc lifecycle` / `t myc membrane`."
+          : undefined,
+      },
+      null,
+      2,
+    ));
+  } else {
+    console.log(
+      renderProposeHuman(result, String(f.requires ?? f.backend ?? "")),
+    );
+  }
   if (!result.ok) Deno.exitCode = 1;
 }
 
