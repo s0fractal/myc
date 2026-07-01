@@ -169,7 +169,6 @@ export interface NutritionLabel {
   reasons: string[];
 }
 
-const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
 const MYC_VERSION = "0.1.0";
 

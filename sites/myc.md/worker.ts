@@ -1027,7 +1027,6 @@ const _hex = (b: ArrayBuffer) =>
   Array.from(new Uint8Array(b)).map((x) => x.toString(16).padStart(2, "0"))
     .join("");
 
-// deno-lint-ignore no-explicit-any
 async function ed25519Verify(
   sig: Uint8Array,
   msg: Uint8Array,
