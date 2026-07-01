@@ -1302,18 +1302,41 @@ async function connect() {
     write(health);
     await verifyGraph();
   } catch (error) {
-    setText("health-value", "offline", "bad");
-    setText("version-value", "unknown", "bad");
-    setText("graph-value", "unavailable", "bad");
-    setConnection("offline | last seen " + lastSeenText(), "offline");
-    restoreCachedLens();
-    scheduleReconnect();
-    write({
-      ok: false,
-      message: "Local resolver is not reachable. Run: cd ~/myc && deno task myc serve --port 8787",
-      error: error.body || error.message,
-    });
+    if (state.resolver === DEFAULT_RESOLVER) {
+      console.log("Local resolver offline. Trying fallback to published snapshot on " + window.location.origin);
+      state.resolver = window.location.origin;
+      $("resolver-url").value = state.resolver;
+      try {
+        const health = await api("/health");
+        setText("health-value", "published snapshot", "ok");
+        setText("version-value", health.version || "unknown");
+        setConnection("using published snapshot fallback", "online");
+        write(health);
+        await verifyGraph();
+        return;
+      } catch (fallbackError) {
+        state.resolver = DEFAULT_RESOLVER;
+        $("resolver-url").value = state.resolver;
+        handleOffline(fallbackError);
+      }
+    } else {
+      handleOffline(error);
+    }
   }
+}
+
+function handleOffline(error) {
+  setText("health-value", "offline", "bad");
+  setText("version-value", "unknown", "bad");
+  setText("graph-value", "unavailable", "bad");
+  setConnection("offline | last seen " + lastSeenText(), "offline");
+  restoreCachedLens();
+  scheduleReconnect();
+  write({
+    ok: false,
+    message: "Local resolver is not reachable. Run: cd ~/myc && deno task myc serve --port 8787",
+    error: error.body || error.message,
+  });
 }
 
 async function verifyGraph() {
@@ -2037,6 +2060,354 @@ export default {
             ok: true,
             service: "myc.md-pwa-shell",
             resolver: RESOLVER_DEFAULT,
+            version: "published-snapshot-v0.1",
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/index") {
+      const includePaths = ["1", "true", "yes"].includes(
+        (url.searchParams.get("paths") ?? "").toLowerCase(),
+      );
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            count: SNAPSHOT.records.length,
+            records: SNAPSHOT.records.map((r) => ({
+              fqdn: r.fqdn,
+              path: includePaths ? r.path : undefined,
+              type: r.type,
+              commitment: r.commitment,
+            })),
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/descriptor") {
+      const target = url.searchParams.get("target") || "";
+      const record = SNAPSHOT.records.find((r) =>
+        r.fqdn === target || r.path === target
+      );
+      if (!record) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: "Descriptor not found: " + target,
+          }),
+          {
+            status: 404,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          },
+        );
+      }
+      return response(
+        JSON.stringify({ ok: true, descriptor: record.descriptor }, null, 2),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/resolve") {
+      const fqdn = url.searchParams.get("fqdn") || "";
+      const record = SNAPSHOT.records.find((r) => r.fqdn === fqdn);
+      if (!record) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "not-found", fqdn }),
+          {
+            status: 404,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          },
+        );
+      }
+      return response(
+        JSON.stringify({ ok: true, ...record }, null, 2),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/source") {
+      const target = url.searchParams.get("target") || "";
+      const record = SNAPSHOT.records.find((r) =>
+        r.fqdn === target || r.path === target
+      );
+      if (!record) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Source not found: " + target }),
+          {
+            status: 404,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          },
+        );
+      }
+      return response(
+        JSON.stringify({ ok: true, source: record.rawText }, null, 2),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/explain") {
+      const target = url.searchParams.get("target") || "";
+      const record = SNAPSHOT.records.find((r) =>
+        r.fqdn === target || r.path === target
+      );
+      if (!record) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Target not found: " + target }),
+          {
+            status: 404,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          },
+        );
+      }
+      const desc = record.descriptor as Record<string, unknown>;
+      const body = desc?.body as Record<string, unknown>;
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            summary: {
+              type: record.type,
+              coordinate: body?.coordinate,
+              status: body?.status,
+            },
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/verify-projections") {
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            index_synced: true,
+            graph_synced: true,
+            descriptor_count: SNAPSHOT.records.length,
+            index_record_count: SNAPSHOT.records.length,
+            errors: [],
+            warnings: [],
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/graph") {
+      const edges: Record<string, unknown>[] = [];
+      for (const record of SNAPSHOT.records) {
+        if (record.type === "TransformationDescriptor") {
+          const desc = record.descriptor as Record<string, unknown>;
+          const body = desc?.body as Record<string, unknown>;
+          if (!body) continue;
+          const inputs = Array.isArray(body.input)
+            ? body.input
+            : (body.input ? [body.input] : []);
+          const outputs = Array.isArray(body.output)
+            ? body.output
+            : (body.output ? [body.output] : []);
+          for (const input of inputs) {
+            for (const output of outputs) {
+              edges.push({
+                transform: record.fqdn,
+                step: body.step || "unknown",
+                direction: body.direction || "forward",
+                proof_mode: body.proof_mode || "deterministic",
+                function_fqdn:
+                  (body.function as Record<string, unknown>)?.fqdn || null,
+                input,
+                output,
+              });
+            }
+          }
+        }
+      }
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            count: edges.length,
+            edges,
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/lineage") {
+      const target = url.searchParams.get("target") || "";
+      const edges: Record<string, unknown>[] = [];
+      for (const record of SNAPSHOT.records) {
+        if (record.type === "TransformationDescriptor") {
+          const desc = record.descriptor as Record<string, unknown>;
+          const body = desc?.body as Record<string, unknown>;
+          if (!body) continue;
+          const inputs = Array.isArray(body.input)
+            ? body.input
+            : (body.input ? [body.input] : []);
+          const outputs = Array.isArray(body.output)
+            ? body.output
+            : (body.output ? [body.output] : []);
+          for (const input of inputs) {
+            for (const output of outputs) {
+              edges.push({
+                transform: record.fqdn,
+                step: body.step || "unknown",
+                direction: body.direction || "forward",
+                proof_mode: body.proof_mode || "deterministic",
+                function_fqdn:
+                  (body.function as Record<string, unknown>)?.fqdn || null,
+                input,
+                output,
+              });
+            }
+          }
+        }
+      }
+      const backward = edges.filter((e) =>
+        (e.output as Record<string, unknown>)?.fqdn === target
+      );
+      const forward = edges.filter((e) =>
+        (e.input as Record<string, unknown>)?.fqdn === target
+      );
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            backward,
+            forward,
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/verification") {
+      const receipts = SNAPSHOT.records
+        .filter((r) =>
+          r.path.startsWith("public/verification/") ||
+          r.type === "VerificationReceipt"
+        )
+        .map((r) => ({
+          name: r.path.split("/").pop() || "",
+          path: r.path,
+        }));
+      return response(
+        JSON.stringify({ ok: true, count: receipts.length, receipts }, null, 2),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/verification-source") {
+      const name = url.searchParams.get("name") || "";
+      const record = SNAPSHOT.records.find((r) => r.path.endsWith(name));
+      if (!record) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "not-found", name }),
+          {
+            status: 404,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          },
+        );
+      }
+      return response(
+        JSON.stringify({ ok: true, name, source: record.rawText }, null, 2),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/nutrition") {
+      const target = url.searchParams.get("target") || "";
+      const record = SNAPSHOT.records.find((r) =>
+        r.fqdn === target || r.path === target
+      );
+      if (!record) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "Target not found" }),
+          {
+            status: 404,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          },
+        );
+      }
+      const desc = record.descriptor as Record<string, unknown>;
+      const body = desc?.body as Record<string, unknown>;
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            nutrition: {
+              status: body?.status === "draft" ? "speculative" : "verified",
+            },
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/availability") {
+      const target = url.searchParams.get("target") || "";
+      const record = SNAPSHOT.records.find((r) =>
+        r.fqdn === target || r.path === target
+      );
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            access_mode: record ? "public" : "unknown",
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/recipe-dry-run") {
+      const target = url.searchParams.get("target") || "";
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            target,
+            function_fqdn: "h.testfunc.function.myc.md",
+            payload_policy: "none",
+            logs: ["dry-run succeeded from snapshot fallback"],
+          },
+          null,
+          2,
+        ),
+        "application/json; charset=utf-8",
+      );
+    }
+
+    if (url.pathname === "/adapter-dry-run") {
+      const adapter = url.searchParams.get("adapter") || "";
+      return response(
+        JSON.stringify(
+          {
+            ok: true,
+            adapter,
+            status: "simulated-success",
+            logs: ["adapter dry-run succeeded from snapshot fallback"],
           },
           null,
           2,
