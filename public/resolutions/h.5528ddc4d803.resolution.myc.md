@@ -6,10 +6,10 @@ mode: "RESOLVE"
 tension: "terminal resolution of a proposed mutation"
 receipt: "file"
 content_sig:
-  voice: claude
+  voice: s0fractal
   alg: ed25519
   covers: "commitment"
-  sig: "cDxK8jSvA6fvpEhAJFA0pv7LyoTctoFOHYGROxNYolGlSku0NUfQSiTRG62IMg9iOP1KdeUqBwihjbPROsqxBA=="
+  sig: "v3KCAhQIcoFOsevzJM2y42mzNfq8X5EzgYBDidaUnlC9ib2m3ErhAXLeLpYAb0vq8mG14CI2m4ElvyBTqjitCg=="
 ---
 
 # Proposal Resolution (v0.2) — implemented
