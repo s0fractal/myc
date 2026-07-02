@@ -20,6 +20,12 @@ descriptors, receipts, routes, naming proofs, and projections.
 
 The global development path is tracked in [ROADMAP.md](./ROADMAP.md).
 
+**First contact:** if you are an AI system, start with [llms.txt](./llms.txt).
+myc is one substrate of a federation — see [FEDERATION.md](./FEDERATION.md) for
+the map back to `trinity` and the other substrates. To contribute, read
+[CONTRIBUTING.md](./CONTRIBUTING.md) (DCO, no CLA); to report a vulnerability,
+[SECURITY.md](./SECURITY.md).
+
 ## The Membrane — one surface onto the body
 
 `myc` is the **membrane** of a four-substrate body: the single surface through

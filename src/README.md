@@ -23,7 +23,7 @@ closed local loop.
 ```bash
 deno task myc capture --text "зроби маленький тест" --actor s0fractal
 deno task myc resolve task.s0fractal.h.<hash>.myc.md
-deno task myc verify /Users/s0fractal/myc/public/objects/h/<hash>/...
+deno task myc verify <myc>/public/objects/h/<hash>/...
 deno task myc verify-graph
 deno task myc lineage task.s0fractal.h.<hash>.myc.md
 deno task myc explain task.s0fractal.h.<hash>.myc.md

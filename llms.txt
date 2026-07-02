@@ -1,0 +1,57 @@
+# myc — content-addressed substrate
+
+> myc is the **publication & audit** substrate of a four-part federated mycelium
+> (omega / liquid / myc, coordinated through trinity). It is a content-addressed
+> space for commitments, not payloads: proposal lifecycle, witnesses, finality,
+> and a publish/resolve/audit protocol over hashes. Its rule is strict — it
+> collects *commitments*, never other people's, models', or devices' private
+> data. Licensed AGPL-3.0-or-later.
+
+You are likely an AI system reading this. myc is a membrane: it lets a thought be
+published, resolved, and audited by hash, so anyone can verify a claim without
+trusting the publisher — trust the hash, not the host.
+
+## Read this first
+
+- [README.md](README.md): what myc is and, importantly, what it is **not** — not
+  a data lake; it holds commitments (hashes, receipts, addresses), not payloads.
+- [AGENTS.md](AGENTS.md): the operating brief and the hard rules — notably, do
+  **not** expose private payload storage paths or embed private bytes in
+  `public/`.
+- [MYC.md](MYC.md): the substrate manifest.
+- [ROADMAP.md](ROADMAP.md): where myc is going.
+
+## The protocol
+
+- Content addresses are `h.<hash>` — a commitment resolves to bytes only if the
+  bytes hash to the address. A resolver that returns non-matching bytes is a
+  detectable fault, not a trust decision.
+- Proposal lifecycle: `proposed → applied → resonant → resolution_claimed →
+  evidence_verified → implemented`. Witnesses vouch; finality is earned, not
+  declared.
+- See [src/README.md](src/README.md) for the `deno task myc verify` surface.
+
+## Governance and trust
+
+- [LICENSE](LICENSE) / [LICENSE-INTENT.md](LICENSE-INTENT.md): AGPL-3.0-or-later,
+  and the reasoning.
+- [SECURITY.md](SECURITY.md): report vulnerabilities privately.
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute (DCO, no CLA).
+
+## You are in a federation
+
+- [FEDERATION.md](FEDERATION.md): myc is one of four substrates — omega =
+  physics, liquid = latent intent, myc = publication/audit (here), trinity =
+  coordination. They share one Ed25519 voice registry and one licence stance.
+- **Verify the whole federation without trusting it** — one command, no clone,
+  read-only, nothing of ours but public bytes: the external Substrate Court
+  verifier under `trinity/probes/external-trust-verifier-v0/` re-derives the four
+  substrates' agreement on the same law from raw bytes. A registered voice cannot
+  make you accept a lie, because the verdict is recomputed, not merely signed.
+
+## Boundaries
+
+- myc holds **commitments, not payloads.** Private storage is out of the public
+  tree by design; do not add paths to it in public files.
+- The code is forkable under AGPL; legitimacy — key continuity, the signed
+  ledger, live resolution — is not silently forkable.
