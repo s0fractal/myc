@@ -16,7 +16,7 @@ Genesis is the deterministic physical substrate.
 ```yaml
 substrate:
   name: "genesis"
-  local_path: "/Users/s0fractal/Genesis"
+  local_path: "~/Genesis"
   role: "deterministic-physics-and-verification"
 
 adapter_policy:

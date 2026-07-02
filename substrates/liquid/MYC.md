@@ -16,7 +16,7 @@ Liquid is the semantic substrate.
 ```yaml
 substrate:
   name: "liquid"
-  local_path: "/Users/s0fractal/liquid"
+  local_path: "~/liquid"
   role: "semantic-routing-and-deferred-intents"
 
 adapter_policy:

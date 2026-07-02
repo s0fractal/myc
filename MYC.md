@@ -16,7 +16,7 @@ This file describes the local `myc` namespace.
 ```yaml
 namespace:
   fqdn: "myc.md"
-  local_root: "/Users/s0fractal/myc"
+  local_root: "~/myc"
   status: "draft"
   owner_hint: "s0fractal"
   default_visibility: "descriptor-public-payload-private"
@@ -34,13 +34,13 @@ policies:
     - sealed
 
 substrates:
-  genesis: "/Users/s0fractal/Genesis"
-  liquid: "/Users/s0fractal/liquid"
+  genesis: "~/Genesis"
+  liquid: "~/liquid"
 
 layers:
-  public: "/Users/s0fractal/myc/public"
-  private: "/Users/s0fractal/myc/private"
-  sealed: "/Users/s0fractal/myc/sealed"
+  public: "~/myc/public"
+  private: "~/myc/private"
+  sealed: "~/myc/sealed"
 ```
 
 ## Meaning

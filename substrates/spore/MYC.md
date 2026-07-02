@@ -16,7 +16,7 @@ SPORE is the deterministic apply-record substrate.
 ```yaml
 substrate:
   name: "spore"
-  local_path: "/Users/s0fractal/trinity/probes"
+  local_path: "~/trinity/probes"
   role: "deterministic-mutation-receipts"
 
 adapter_policy:
