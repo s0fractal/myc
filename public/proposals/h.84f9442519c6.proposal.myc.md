@@ -7,6 +7,11 @@ mode: "PROPOSE"
 tension: "dormant mutation proposed into the membrane"
 confidence: "low"
 receipt: "file"
+content_sig:
+  voice: s0fractal
+  alg: ed25519
+  covers: "commitment"
+  sig: "K4WXtF5pfi+VChPFDktKSJ/EEeWDwt3yjUVurQGyWQtbU2+vTcP15InP69PNtjper4Z1BZ6/C0nIuPVemqzuAw=="
 ---
 
 # Proposed Mutation (dormant)
