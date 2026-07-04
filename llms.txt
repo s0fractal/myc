@@ -43,6 +43,7 @@ trusting the publisher — trust the hash, not the host.
 - [FEDERATION.md](FEDERATION.md): myc is one of four substrates — omega =
   physics, liquid = latent intent, myc = publication/audit (here), trinity =
   coordination. They share one Ed25519 voice registry and one licence stance.
+- **Verify myc alone (no trinity checkout):** `deno task myc verify <descriptor>` and `verify-graph` re-derive a content-addressed claim from raw bytes locally — trust the hash, not the host.
 - **Verify the whole federation without trusting it** — one command, no clone,
   read-only, nothing of ours but public bytes: the external Substrate Court
   verifier under `trinity/probes/external-trust-verifier-v0/` re-derives the four
