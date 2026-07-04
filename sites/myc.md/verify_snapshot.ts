@@ -8,7 +8,7 @@
 // Usage: deno run --allow-read --allow-write verify_snapshot.ts <snapshot.json>
 //        ./t myc verify-snapshot <snapshot.json>
 import { dirname, join } from "jsr:@std/path@1.1.4";
-import { loadSnapshot, type Snapshot } from "./snapshot.ts";
+import { loadSnapshot, type Snapshot, type SnapshotRecord } from "./snapshot.ts";
 import { verifyPath } from "../../src/x0100_myc.ts";
 
 export interface SnapshotVerification {
@@ -46,8 +46,13 @@ export async function verifySnapshot(
           });
         }
       } catch (e) {
+        // The record itself may be null / not an object (a snapshot is untrusted
+        // JSON, and loadSnapshot does not shape-validate), so read its fqdn
+        // defensively — otherwise the catch that is supposed to contain one bad
+        // record would itself throw and crash the whole verification.
+        const rec = r as SnapshotRecord | null | undefined;
         failed.push({
-          fqdn: r.fqdn ?? "(unknown)",
+          fqdn: rec?.fqdn ?? "(unknown)",
           errors: ["unparseable/invalid record: " + (e as Error).message],
         });
       }

@@ -58,4 +58,16 @@ Deno.test("verifySnapshot: canonical per-record verification, trust the hash", a
     empty.verdict === "VERIFIED",
     "empty snapshot verdict is well-defined",
   );
+
+  // robustness (external autonomy audit, R5): a snapshot is untrusted JSON, so a
+  // record may be null or a non-object. One malformed record must be reported as
+  // FAILED, never crash the whole verification (the verifier's own contract).
+  // deno-lint-ignore no-explicit-any
+  const junk = await verifySnapshot({
+    schema: "myc.public-snapshot.v0.1",
+    record_count: 3,
+    records: [null, 42, { fqdn: "x.partial", path: "x" }] as any,
+  });
+  assert(junk.verdict === "FAILED", "a snapshot with junk records is FAILED, not a crash");
+  assert(junk.failed.length === 3, "every junk record is reported individually");
 });
