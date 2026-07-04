@@ -53,7 +53,7 @@ async function ed25519Sign(msg: string, privPkcs8B64: string): Promise<string> {
   return b64(new Uint8Array(sig));
 }
 
-async function ed25519Verify(
+export async function ed25519Verify(
   msg: string,
   sigB64: string,
   pubB64: string,

@@ -3331,6 +3331,34 @@ export async function main(args: string[]): Promise<void> {
     return;
   }
 
+  // `petition` — external PETITION intake (codex x5000_956709 / claude x3300_956707):
+  // a non-citizen agent's SIGNED, reference-mode submission that lands as a DORMANT
+  // proposal (reusing propose). Verifies the Ed25519 envelope; never fetches; grants
+  // nothing until witnessed. Effect class (writes).
+  if (args[0] === "petition") {
+    const petPath = new URL("./x5850_petition.ts", import.meta.url).pathname;
+    const proc = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        petPath,
+        ...args.slice(1),
+      ],
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
+    const { code } = await proc.output();
+    if (code !== 0) {
+      Deno.exitCode = code;
+    } else {
+      await rebuildIndex(defaultRoot());
+    }
+    return;
+  }
+
   // `verify-deployment [url]` — Resonant Resolution step 1: verify a deployed
   // myc.md fallback serves ONLY what local source attests, by content hash
   // (trust the hash, not the host). Read-only; network. (chord x6000_954726)

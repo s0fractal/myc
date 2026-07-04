@@ -64,6 +64,20 @@ export interface ProposeInput {
    *  A warrant admits an action only if a final proposal grants exactly its intent;
    *  a proposal with no grant is governance history, never actuation authority. */
   action_grant?: { intent_commitment: string };
+  /** Optional external PETITION envelope (codex x5000_956709, claude x3300_956707):
+   *  a non-citizen agent's SIGNED, reference-mode submission. Recorded verbatim in
+   *  the body so it is content-addressed; it does NOT change the invariant — a
+   *  petition is still an UNSIGNED-by-the-federation, always-DORMANT proposal that
+   *  earns nothing until a voice witnesses it. The agent's own signature proves who
+   *  submitted, never that the federation accepted. */
+  petition?: {
+    petition_id: string;
+    ref: string;
+    agent: string;
+    ts: number;
+    nonce: string;
+    sig: string;
+  };
 }
 
 export interface ProposeResult {
@@ -72,6 +86,8 @@ export interface ProposeResult {
   path?: string;
   commitment?: string;
   state?: "dormant";
+  /** false when a content-identical descriptor already existed (idempotent write). */
+  created?: boolean;
   error?: string;
 }
 
@@ -99,6 +115,7 @@ export async function propose(
   };
   if (input.finality_policy) body.finality_policy = input.finality_policy;
   if (input.action_grant) body.action_grant = input.action_grant;
+  if (input.petition) body.petition = input.petition;
   const commitment = await sha256Hex(
     stableStringify(body as unknown as Parameters<typeof stableStringify>[0]),
   );
@@ -143,8 +160,23 @@ ${JSON.stringify(descriptor, null, 2)}
   const dir = join(root, "public", "proposals");
   await ensureDir(dir);
   const path = join(dir, fqdn);
+  // Content-addressed → a re-submission of the same body writes the same file.
+  // Report whether it was new, so callers (e.g. petition intake) can treat a
+  // duplicate as idempotent rather than an error.
+  let existed = false;
+  try {
+    await Deno.stat(path);
+    existed = true;
+  } catch { /* new */ }
   await Deno.writeTextFile(path, md);
-  return { ok: true, fqdn, path, commitment, state: "dormant" };
+  return {
+    ok: true,
+    fqdn,
+    path,
+    commitment,
+    state: "dormant",
+    created: !existed,
+  };
 }
 
 function parseFlags(args: string[]): Record<string, string> {
