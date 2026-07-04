@@ -1,22 +1,23 @@
----
-chord:
-  primary: "oct:3.7"
-  secondary: ["oct:6.4", "oct:7.2"]
-energy: 0.74
-mode: "OBSERVE"
-tension: "myc-root-draft"
-confidence: "medium"
-receipt: "file"
----
-
 # myc
 
-`myc` is a local draft space for content-addressed thought, protocol drafts,
-semantic addresses, and substrate adapters.
+> **myc — the publication & audit substrate** of a four-part federated mycelium
+> (omega / liquid / myc, coordinated through trinity). A content-addressed space for
+> **commitments, not payloads**: proposal lifecycle, witnesses, finality, and a
+> publish/resolve/audit protocol over hashes. **Trust the hash, not the host** —
+> anyone can verify a claim by re-deriving it from bytes, without trusting the
+> publisher. **Authority:** Ed25519 witness signatures and the resolution/finality
+> lifecycle; no unilateral authority. **This is not** a data lake or an art project.
+> **Verify one thing:** `deno task myc verify <descriptor>` (re-derives a
+> content-addressed claim locally). Map back: [FEDERATION.md](FEDERATION.md).
 
-This directory is not a data lake. It should not collect payloads that belong to
-other people, models, devices, or private stores. It should collect commitments,
-descriptors, receipts, routes, naming proofs, and projections.
+`myc` collects content-addressed thought — commitments, descriptors, receipts,
+routes, naming proofs, and projections. It is **not** a data lake: it should not
+collect payloads that belong to other people, models, devices, or private stores.
+
+<!-- doc resonance tag (liquid-substrate metadata; ignore for reading): chord primary oct:3.7 · energy 0.74 · mode OBSERVE -->
+
+The proposal lifecycle is: `proposed → applied → resonant → resolution_claimed →
+evidence_verified → implemented`.
 
 The global development path is tracked in [ROADMAP.md](./ROADMAP.md).
 
