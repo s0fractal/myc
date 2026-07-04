@@ -64,20 +64,22 @@ export interface PetitionResult {
 const STANDING_NOTE =
   "diagnostic-only (P4, not yet implemented); grants no rights";
 
-/** Accept one external petition. Validates + verifies the signature BEFORE anything
- *  else (no fetch in P0), then writes a DORMANT proposal via x5800_propose. Pure over
- *  its inputs except the descriptor write; `opts.now` makes the freshness check
- *  testable. */
-export async function submitPetition(
-  root: string,
+export interface PetitionValidation {
+  ok: boolean;
+  petition_id?: string;
+  error?: string;
+}
+
+/** PURE validation + signature verification for a petition envelope: bound-checks,
+ *  freshness, Ed25519 verify, and the `petition_id`. NO filesystem and NO fetch, so
+ *  the SAME gate is reusable by the CLI (which then writes a descriptor via x5800)
+ *  and by the myc.md worker (which then puts to KV) — both store only AFTER this
+ *  passes. `opts.now` makes the freshness window testable. The signature is checked
+ *  here precisely so no caller ever fetches or stores an unverified petition. */
+export async function validatePetition(
   e: PetitionEnvelope,
-  opts: {
-    now?: number;
-    maxAgeSec?: number;
-    requires?: Backend;
-    inlineBody?: string;
-  } = {},
-): Promise<PetitionResult> {
+  opts: { now?: number; maxAgeSec?: number; inlineBody?: string } = {},
+): Promise<PetitionValidation> {
   // 0. An inline body is rejected outright — a petition carries a reference only.
   if (opts.inlineBody != null && opts.inlineBody !== "") {
     return {
@@ -112,8 +114,7 @@ export async function submitPetition(
       error: "stale or future timestamp (outside the freshness window)",
     };
   }
-  // 2. Verify the signature over the canonical payload — BEFORE any fetch. (P0 does
-  //    no fetch at all; this guard is what P1/P2 will also gate their fetch behind.)
+  // 2. Verify the signature over the canonical payload — BEFORE any fetch or store.
   const payload = canonicalPetitionPayload(e);
   if (!(await ed25519Verify(payload, e.sig, e.agent))) {
     return {
@@ -122,8 +123,26 @@ export async function submitPetition(
     };
   }
   // 3. Idempotency key: the hash of exactly what was signed.
-  const petition_id = await sha256Hex(payload);
-  // 4. Land it as a DORMANT proposal — reusing x5800's descriptor + invariant.
+  return { ok: true, petition_id: await sha256Hex(payload) };
+}
+
+/** Accept one external petition into LOCAL myc: validate + verify (no fetch), then
+ *  write a DORMANT proposal via x5800_propose. The worker path (P1) reuses
+ *  `validatePetition` and puts to KV instead; this is the filesystem caller. */
+export async function submitPetition(
+  root: string,
+  e: PetitionEnvelope,
+  opts: {
+    now?: number;
+    maxAgeSec?: number;
+    requires?: Backend;
+    inlineBody?: string;
+  } = {},
+): Promise<PetitionResult> {
+  const v = await validatePetition(e, opts);
+  if (!v.ok) return { ok: false, error: v.error };
+  const petition_id = v.petition_id!;
+  // Land it as a DORMANT proposal — reusing x5800's descriptor + invariant.
   const requires: Backend = opts.requires && BACKENDS.includes(opts.requires)
     ? opts.requires
     : "trinity";

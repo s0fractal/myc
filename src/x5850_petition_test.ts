@@ -4,6 +4,7 @@ import {
   canonicalPetitionPayload,
   type PetitionEnvelope,
   submitPetition,
+  validatePetition,
 } from "./x5850_petition.ts";
 
 function b64(u: Uint8Array): string {
@@ -200,4 +201,41 @@ Deno.test("petition — a stale timestamp is rejected", async () => {
   } finally {
     await Deno.remove(root, { recursive: true });
   }
+});
+
+Deno.test("petition — validatePetition is a PURE gate (no fs): valid → petition_id, forged → error", async () => {
+  const a = await makeAgent();
+  const ok = await validatePetition(await signed(a), { now: TS });
+  assert(
+    ok.ok && ok.petition_id!.length === 64,
+    "a valid envelope yields a petition_id",
+  );
+
+  const other = await makeAgent();
+  const e = await signed(a);
+  const forged = { ...e, sig: await other.sign(canonicalPetitionPayload(e)) };
+  const bad = await validatePetition(forged, { now: TS });
+  assert(
+    !bad.ok && bad.error!.includes("signature"),
+    "a forged signature is rejected",
+  );
+
+  const inline = await validatePetition(await signed(a), {
+    now: TS,
+    inlineBody: "x",
+  });
+  assert(
+    !inline.ok && inline.error!.includes("reference"),
+    "an inline body is rejected",
+  );
+
+  // same envelope → same petition_id (idempotency key is deterministic)
+  const e2 = await signed(a);
+  const a1 = await validatePetition(e2, { now: TS });
+  const a2 = await validatePetition(e2, { now: TS });
+  assertEquals(
+    a1.petition_id,
+    a2.petition_id,
+    "petition_id is deterministic over the envelope",
+  );
 });
