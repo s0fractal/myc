@@ -8,7 +8,11 @@
 // Usage: deno run --allow-read --allow-write verify_snapshot.ts <snapshot.json>
 //        ./t myc verify-snapshot <snapshot.json>
 import { dirname, join } from "jsr:@std/path@1.1.4";
-import { loadSnapshot, type Snapshot, type SnapshotRecord } from "./snapshot.ts";
+import {
+  loadSnapshot,
+  type Snapshot,
+  type SnapshotRecord,
+} from "./snapshot.ts";
 import { verifyPath } from "../../src/x0100_myc.ts";
 
 export interface SnapshotVerification {

@@ -68,6 +68,12 @@ Deno.test("verifySnapshot: canonical per-record verification, trust the hash", a
     record_count: 3,
     records: [null, 42, { fqdn: "x.partial", path: "x" }] as any,
   });
-  assert(junk.verdict === "FAILED", "a snapshot with junk records is FAILED, not a crash");
-  assert(junk.failed.length === 3, "every junk record is reported individually");
+  assert(
+    junk.verdict === "FAILED",
+    "a snapshot with junk records is FAILED, not a crash",
+  );
+  assert(
+    junk.failed.length === 3,
+    "every junk record is reported individually",
+  );
 });
