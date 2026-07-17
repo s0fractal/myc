@@ -51,6 +51,7 @@ function flagString(
 interface ShellCommandSpec {
   script: string;
   permissions: string[] | (() => string[]);
+  matches?: (input: string[]) => boolean;
   forward?: "all" | "tail";
   reindex?: boolean;
 }
@@ -129,6 +130,9 @@ const SHELL_COMMANDS: Record<string, ShellCommandSpec> = {
   publish: {
     script: "../sites/myc.md/publish.ts",
     permissions: ["--allow-read", "--allow-run", "--allow-net", "--allow-env"],
+    // `publish <fqdn>` creates a local PublishDescriptor. Preserve the older
+    // live-membrane spelling only when its identifying flags are present.
+    matches: (input) => hasFlag(input, "witness") || hasFlag(input, "content"),
   },
   "import-snapshot": {
     script: "../sites/myc.md/import_snapshot.ts",
@@ -161,7 +165,7 @@ export function shellCommandInvocation(
 ): ShellCommandInvocation | null {
   const command = input[0];
   const spec = command ? SHELL_COMMANDS[command] : undefined;
-  if (!spec) return null;
+  if (!spec || (spec.matches && !spec.matches(input))) return null;
   const permissions = typeof spec.permissions === "function"
     ? spec.permissions()
     : spec.permissions;
@@ -247,6 +251,8 @@ function helpText(): string {
     "  adapter-dry-run <adapter-name>",
     "  dry-run <recipe-fqdn>",
     "  publish <fqdn>",
+    "  publish --witness <voice> --content <hash> [--url url]",
+    "                                       (publish witnessed content live)",
     "  import <path>",
     "  witness <fqdn> [--actor s0fractal]",
     "  review <fqdn> <rating> [comment] [--reviewer s0fractal]",
@@ -257,4 +263,11 @@ function helpText(): string {
     "  MYC_ROOT=~/trinity/myc   (mycelium install; falls back to ~/myc standalone,",
     "                            or the repo root when run inside it)",
   ].join("\n");
+}
+
+function hasFlag(input: string[], name: string): boolean {
+  const flag = `--${name}`;
+  return input.slice(1).some((arg) =>
+    arg === flag || arg.startsWith(`${flag}=`)
+  );
 }

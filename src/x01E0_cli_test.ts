@@ -6,6 +6,7 @@ import {
   shellCommandInvocation,
   shellCommandNames,
 } from "./x01E0_cli.ts";
+import { localCommandNames } from "./x01F0_local_commands.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -121,5 +122,41 @@ Deno.test("shell aliases and argument forwarding preserve legacy behavior", () =
   assert(
     standing.args.slice(-2).join(" ") === "standing --json",
     "standing full forwarding drift",
+  );
+});
+
+Deno.test("publish overload routes local lifecycle and live membrane forms", async () => {
+  const overlaps = shellCommandNames().filter((command) =>
+    localCommandNames().includes(command)
+  );
+  assert(
+    JSON.stringify(overlaps) === JSON.stringify(["publish"]),
+    "an undeclared shell/local command collision appeared",
+  );
+
+  const live = shellCommandInvocation([
+    "publish",
+    "--witness",
+    "claude",
+    "--content=abc123",
+  ]);
+  assert(
+    live?.script_path.endsWith("/sites/myc.md/publish.ts"),
+    "live publish route missing",
+  );
+  assert(
+    shellCommandInvocation(["publish", "h.abc.intent.myc.md"]) === null,
+    "local descriptor publish was intercepted by the live route",
+  );
+
+  let message = "";
+  try {
+    await main(["publish"]);
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  assert(
+    message.includes("publish requires a fqdn"),
+    "bare publish did not reach local lifecycle validation",
   );
 });
