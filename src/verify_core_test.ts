@@ -45,9 +45,18 @@ Deno.test("verifyCommitment: valid passes, tampered/forged fails", async () => {
 });
 
 Deno.test("stableStringify is key-order independent (canonical)", () => {
+  const canonical = stableStringify({ b: 1, a: 2 });
   assert(
-    stableStringify({ b: 1, a: 2 } as never) ===
-      stableStringify({ a: 2, b: 1 } as never),
+    canonical === stableStringify({ a: 2, b: 1 }),
     "stableStringify must be canonical (sorted keys)",
+  );
+  assert(canonical === '{"a":2,"b":1}', "canonical bytes must stay stable");
+});
+
+Deno.test("sha256Hex matches a fixed canonical vector", async () => {
+  assert(
+    await sha256Hex('{"a":2,"b":1}') ===
+      "d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772",
+    "canonical commitment hash must stay stable",
   );
 });

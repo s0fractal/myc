@@ -1,10 +1,16 @@
-type Json =
-  | null
-  | boolean
-  | number
-  | string
-  | Json[]
-  | { [key: string]: Json };
+import {
+  type Json,
+  sha256Hex,
+  stableStringify,
+  verifyCommitment,
+} from "./verify_core.ts";
+
+export {
+  type Json,
+  sha256Hex,
+  stableStringify,
+  verifyCommitment,
+} from "./verify_core.ts";
 
 export interface MycDescriptor {
   type: string;
@@ -240,12 +246,6 @@ export function joinPath(...parts: string[]): string {
     .join("/");
   return absolute ? `/${normalized.replace(/^\/+/, "")}` : normalized;
 }
-
-// The pure hash + canonical-serialization primitives live in verify_core.ts so
-// the Cloudflare Worker can share the EXACT verification (audit A2). Imported +
-// re-exported here to keep the existing x0100 public API stable.
-import { sha256Hex, stableStringify, verifyCommitment } from "./verify_core.ts";
-export { sha256Hex, stableStringify, verifyCommitment };
 
 export function slug(value: string): string {
   const normalized = value

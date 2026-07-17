@@ -15,6 +15,7 @@ const sample: CaptureResult = {
   artifactFqdn: "message.tester.h.b2cdcb5d03c1.myc.md",
   artifactHash: "aa".repeat(32),
   transformationFqdns: [],
+  files: [],
 };
 
 Deno.test("renderCaptureHuman: a newcomer sees a friendly summary, not JSON", () => {

@@ -13,6 +13,7 @@
 
 import { basename, dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
 import { blake3 } from "npm:@noble/hashes@1.4.0/blake3";
+import { type Json, sha256Hex, stableStringify } from "./verify_core.ts";
 import { verifyCommitment } from "./x2F50_voice_auth.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
@@ -33,26 +34,6 @@ export interface EvidenceVerdict {
   reason: string;
 }
 
-type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
-function stableStringify(v: Json): string {
-  if (v === null) return "null";
-  if (typeof v === "boolean" || typeof v === "number") return JSON.stringify(v);
-  if (typeof v === "string") return JSON.stringify(v);
-  if (Array.isArray(v)) return `[${v.map(stableStringify).join(",")}]`;
-  return `{${
-    Object.keys(v).sort().map((k) =>
-      `${JSON.stringify(k)}:${stableStringify(v[k])}`
-    )
-      .join(",")
-  }}`;
-}
-async function sha256Hex(s: string): Promise<string> {
-  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(d)).map((b) =>
-    b.toString(16).padStart(2, "0")
-  )
-    .join("");
-}
 function norm(commitment: string): string {
   return commitment.replace(/^sha256:/, "").trim();
 }

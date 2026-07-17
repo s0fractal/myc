@@ -11,18 +11,8 @@
 // Usage: deno run --allow-net verify_deployment.ts [url]   (default https://myc.md)
 //        ./t myc verify-deployment <url>
 // (chord x6000_954726)
+import { sha256Hex } from "../../src/verify_core.ts";
 import { attestation, SERVED_ASSETS } from "./worker.ts";
-
-async function sha256Hex(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(text),
-  );
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0"))
-    .join(
-      "",
-    );
-}
 
 export interface DeploymentVerdict {
   digest_match: boolean;

@@ -13,6 +13,7 @@
 
 import { ensureDir } from "jsr:@std/fs@1.0.23";
 import { dirname, join } from "jsr:@std/path@1.1.4";
+import { type Json, sha256Hex, stableStringify } from "./verify_core.ts";
 import { verifyEvidence } from "./x2A00_evidence.ts";
 import { authenticateFile } from "./x2F50_voice_auth.ts";
 
@@ -24,34 +25,6 @@ export const OUTCOMES = [
   "expired",
 ] as const;
 export type Outcome = (typeof OUTCOMES)[number];
-
-type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
-function stableStringify(value: Json): string {
-  if (value === null) return "null";
-  if (typeof value === "boolean" || typeof value === "number") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "string") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((i) => stableStringify(i)).join(",")}]`;
-  }
-  const keys = Object.keys(value).sort();
-  return `{${
-    keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(
-      ",",
-    )
-  }}`;
-}
-async function sha256Hex(input: string): Promise<string> {
-  const d = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
-  return Array.from(new Uint8Array(d)).map((b) =>
-    b.toString(16).padStart(2, "0")
-  )
-    .join("");
-}
 
 /** Read a proposal's commitment so the resolution can BIND to it (not float). */
 async function proposalCommitment(

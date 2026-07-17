@@ -15,19 +15,12 @@
 // ceremony (the same immutable bytes verify as anchored, behind a Bitcoin source).
 
 import { verifyCommitment } from "./x2F50_voice_auth.ts";
+import { sha256Hex } from "./verify_core.ts";
 import {
   classifyStanding,
   type TemporalAnchorReceipt,
 } from "./x2F60_temporal_envelope.ts";
 import { verifyOtsProof } from "./x2F80_ots_adapter.ts";
-
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const d = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
-  return Array.from(new Uint8Array(d)).map((b) =>
-    b.toString(16).padStart(2, "0")
-  )
-    .join("");
-}
 
 export interface TemporalVerdict {
   ok: boolean;

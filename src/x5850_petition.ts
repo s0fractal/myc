@@ -17,6 +17,7 @@
 // x5800_propose), earning nothing until a voice witnesses it. No fetch happens here.
 
 import { ed25519Verify } from "./x2F50_voice_auth.ts";
+import { sha256Hex } from "./verify_core.ts";
 import { type Backend, BACKENDS, propose } from "./x5800_propose.ts";
 
 const PETITION_PREFIX = "trinity-petition:v1";
@@ -37,15 +38,6 @@ export interface PetitionEnvelope {
  *  ever rebuilt from the fields, never split. */
 export function canonicalPetitionPayload(e: PetitionEnvelope): string {
   return `${PETITION_PREFIX}:${e.ref}:${e.agent}:${e.ts}:${e.nonce}`;
-}
-
-async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export interface PetitionResult {

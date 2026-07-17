@@ -26,6 +26,7 @@
 //     ([[project_coherence_decreases_with_growth]]).
 
 import { dirname, fromFileUrl, join } from "jsr:@std/path@1.1.4";
+import { type Json, sha256Hex, stableStringify } from "./verify_core.ts";
 import { verifyCommitment, voiceFamily } from "./x2F50_voice_auth.ts";
 
 const HERE = dirname(fromFileUrl(import.meta.url));
@@ -43,34 +44,6 @@ function extractContentSig(
   const voice = block[1].match(/voice:\s*(\S+)/)?.[1];
   const sig = block[1].match(/sig:\s*"([^"]+)"/)?.[1];
   return voice && sig ? { voice, sig } : null;
-}
-
-// Canonical commitment, replicated from x0100_myc.ts (stableStringify + sha256Hex)
-// to avoid a circular import (x0100 imports this organ for capability-separated
-// dispatch). Parity with x0100 is the contract: same body → same commitment.
-type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
-
-function stableStringify(value: Json): string {
-  if (value === null) return "null";
-  if (typeof value === "boolean" || typeof value === "number") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "string") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  }
-  const keys = Object.keys(value).sort();
-  return `{${
-    keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-      .join(",")
-  }}`;
-}
-
-async function sha256Hex(input: string): Promise<string> {
-  const buffer = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 interface Descriptor {

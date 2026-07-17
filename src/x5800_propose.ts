@@ -20,36 +20,11 @@
 
 import { ensureDir } from "jsr:@std/fs@1.0.23";
 import { join } from "jsr:@std/path@1.1.4";
+import { type Json, sha256Hex, stableStringify } from "./verify_core.ts";
 
 // The verifier backends a proposal may require — the organism's proof-kinds.
 export const BACKENDS = ["omega", "liquid", "trinity", "spore"] as const;
 export type Backend = (typeof BACKENDS)[number];
-
-// Canonical commitment, parity with x0100_myc.ts / x3700 (same body → same hash).
-type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
-function stableStringify(value: Json): string {
-  if (value === null) return "null";
-  if (typeof value === "boolean" || typeof value === "number") {
-    return JSON.stringify(value);
-  }
-  if (typeof value === "string") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  }
-  const keys = Object.keys(value).sort();
-  return `{${
-    keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-      .join(",")
-  }}`;
-}
-async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(input),
-  );
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 export interface ProposeInput {
   proposal: string;
@@ -117,7 +92,7 @@ export async function propose(
   if (input.action_grant) body.action_grant = input.action_grant;
   if (input.petition) body.petition = input.petition;
   const commitment = await sha256Hex(
-    stableStringify(body as unknown as Parameters<typeof stableStringify>[0]),
+    stableStringify(body as Json),
   );
   const short = commitment.slice(0, 12);
   const fqdn = `h.${short}.proposal.myc.md`;
