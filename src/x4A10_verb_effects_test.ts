@@ -1,5 +1,18 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { shellCommandNames } from "./x01E0_cli.ts";
+import { localCommandNames } from "./x01F0_local_commands.ts";
 import { classify, VERB_EFFECTS } from "./x4A10_verb_effects.ts";
+
+Deno.test("x4A10 — effect projection exactly covers executable commands", () => {
+  const executable = [
+    ...new Set([
+      ...shellCommandNames(),
+      ...localCommandNames(),
+      "help",
+    ]),
+  ].sort();
+  assertEquals(Object.keys(VERB_EFFECTS).sort(), executable);
+});
 
 Deno.test("x4A10 — the read surfaces are typed read (no write/net)", () => {
   for (

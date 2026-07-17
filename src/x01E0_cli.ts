@@ -3,6 +3,7 @@
 
 import { defaultRoot } from "./x0140_paths.ts";
 import { rebuildIndex } from "./x0170_projections.ts";
+import type { CommandEffect } from "./x01E8_command_contract.ts";
 import { dispatchLocalCommand } from "./x01F0_local_commands.ts";
 
 export { renderCaptureHuman } from "./x01F0_local_commands.ts";
@@ -50,6 +51,7 @@ function flagString(
 
 interface ShellCommandSpec {
   script: string;
+  effect: CommandEffect;
   permissions: string[] | (() => string[]);
   matches?: (input: string[]) => boolean;
   forward?: "all" | "tail";
@@ -66,98 +68,115 @@ export interface ShellCommandInvocation {
 const READ_ONLY = ["--allow-read"];
 const READ_WRITE_ENV = ["--allow-read", "--allow-write", "--allow-env"];
 
+function shell(
+  effect: CommandEffect,
+  script: string,
+  permissions: ShellCommandSpec["permissions"],
+  options: Omit<ShellCommandSpec, "effect" | "script" | "permissions"> = {},
+): ShellCommandSpec {
+  return { effect, script, permissions, ...options };
+}
+
 const SHELL_COMMANDS: Record<string, ShellCommandSpec> = {
-  coord: {
-    script: "./x0200_resolve.ts",
-    permissions: [
+  coord: shell(
+    "read",
+    "./x0200_resolve.ts",
+    [
       "--allow-read",
       "--allow-write",
       "--allow-run",
       "--allow-env",
     ],
-  },
-  organism: { script: "./x8F00_organism.ts", permissions: READ_ONLY },
-  membrane: { script: "./x8FF0_membrane.ts", permissions: READ_ONLY },
-  overview: { script: "./x8FF0_membrane.ts", permissions: READ_ONLY },
-  trust: { script: "./x3700_trust.ts", permissions: READ_ONLY },
-  resonance: { script: "./x3700_trust.ts", permissions: READ_ONLY },
-  standing: {
-    script: "./x2F60_temporal_envelope.ts",
-    permissions: READ_ONLY,
+  ),
+  organism: shell("read", "./x8F00_organism.ts", READ_ONLY),
+  membrane: shell("read", "./x8FF0_membrane.ts", READ_ONLY),
+  overview: shell("read", "./x8FF0_membrane.ts", READ_ONLY),
+  trust: shell("read", "./x3700_trust.ts", READ_ONLY),
+  resonance: shell("read", "./x3700_trust.ts", READ_ONLY),
+  standing: shell("read", "./x2F60_temporal_envelope.ts", READ_ONLY, {
     forward: "all",
-  },
-  "temporal-verify": {
-    script: "./x2FA0_temporal_verify.ts",
-    permissions: ["--allow-read", "--allow-run", "--allow-env"],
-  },
-  "temporal-sign": {
-    script: "./x2F90_temporal_sign.ts",
-    permissions: () => [
+  }),
+  "temporal-verify": shell("read", "./x2FA0_temporal_verify.ts", [
+    "--allow-read",
+    "--allow-run",
+    "--allow-env",
+  ]),
+  "temporal-sign": shell(
+    "effect",
+    "./x2F90_temporal_sign.ts",
+    () => [
       "--allow-read",
       "--allow-env",
       `--allow-write=${
         new URL("../public/temporal", import.meta.url).pathname
       }`,
     ],
-  },
-  "ots-verify": {
-    script: "./x2F80_ots_adapter.ts",
-    permissions: ["--allow-read", "--allow-run"],
-  },
-  lifecycle: { script: "./x3F00_lifecycle.ts", permissions: READ_ONLY },
-  propose: {
-    script: "./x5800_propose.ts",
-    permissions: READ_WRITE_ENV,
+  ),
+  "ots-verify": shell("read", "./x2F80_ots_adapter.ts", [
+    "--allow-read",
+    "--allow-run",
+  ]),
+  lifecycle: shell("read", "./x3F00_lifecycle.ts", READ_ONLY),
+  propose: shell("effect", "./x5800_propose.ts", READ_WRITE_ENV, {
     reindex: true,
-  },
-  petition: {
-    script: "./x5850_petition.ts",
-    permissions: READ_WRITE_ENV,
+  }),
+  petition: shell("effect", "./x5850_petition.ts", READ_WRITE_ENV, {
     reindex: true,
-  },
-  "verify-deployment": {
-    script: "../sites/myc.md/verify_deployment.ts",
-    permissions: ["--allow-net", "--allow-read"],
-  },
-  snapshot: {
-    script: "../sites/myc.md/snapshot.ts",
-    permissions: READ_WRITE_ENV,
-  },
-  "verify-snapshot": {
-    script: "../sites/myc.md/verify_snapshot.ts",
-    permissions: ["--allow-read", "--allow-write", "--allow-net"],
-  },
-  publish: {
-    script: "../sites/myc.md/publish.ts",
-    permissions: ["--allow-read", "--allow-run", "--allow-net", "--allow-env"],
-    // `publish <fqdn>` creates a local PublishDescriptor. Preserve the older
-    // live-membrane spelling only when its identifying flags are present.
-    matches: (input) => hasFlag(input, "witness") || hasFlag(input, "content"),
-  },
-  "import-snapshot": {
-    script: "../sites/myc.md/import_snapshot.ts",
-    permissions: [
+  }),
+  "verify-deployment": shell("read", "../sites/myc.md/verify_deployment.ts", [
+    "--allow-net",
+    "--allow-read",
+  ]),
+  snapshot: shell("effect", "../sites/myc.md/snapshot.ts", READ_WRITE_ENV),
+  "verify-snapshot": shell("effect", "../sites/myc.md/verify_snapshot.ts", [
+    "--allow-read",
+    "--allow-write",
+    "--allow-net",
+  ]),
+  publish: shell(
+    "effect",
+    "../sites/myc.md/publish.ts",
+    ["--allow-read", "--allow-run", "--allow-net", "--allow-env"],
+    {
+      // `publish <fqdn>` creates a local PublishDescriptor. Preserve the older
+      // live-membrane spelling only when its identifying flags are present.
+      matches: (input) =>
+        hasFlag(input, "witness") || hasFlag(input, "content"),
+    },
+  ),
+  "import-snapshot": shell(
+    "effect",
+    "../sites/myc.md/import_snapshot.ts",
+    [
       "--allow-read",
       "--allow-write",
       "--allow-env",
       "--allow-net",
     ],
-  },
-  "resolve-proposal": {
-    script: "./x5810_resolve_proposal.ts",
-    permissions: READ_WRITE_ENV,
-    reindex: true,
-  },
-  authenticate: {
-    script: "./x2F50_voice_auth.ts",
-    permissions: READ_WRITE_ENV,
-  },
-  render: { script: "./x8FE0_render.ts", permissions: READ_ONLY },
-  effects: { script: "./x4A10_verb_effects.ts", permissions: READ_ONLY },
+  ),
+  "resolve-proposal": shell(
+    "effect",
+    "./x5810_resolve_proposal.ts",
+    READ_WRITE_ENV,
+    {
+      reindex: true,
+    },
+  ),
+  authenticate: shell("effect", "./x2F50_voice_auth.ts", READ_WRITE_ENV),
+  render: shell("read", "./x8FE0_render.ts", READ_ONLY),
+  effects: shell("read", "./x4A10_verb_effects.ts", READ_ONLY),
 };
 
 export function shellCommandNames(): string[] {
   return Object.keys(SHELL_COMMANDS).sort();
+}
+
+export function shellCommandEffects(): Record<string, CommandEffect> {
+  return Object.fromEntries(
+    Object.entries(SHELL_COMMANDS).map((
+      [command, spec],
+    ) => [command, spec.effect]),
+  );
 }
 
 export function shellCommandInvocation(

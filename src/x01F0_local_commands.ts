@@ -29,6 +29,7 @@ import {
   reprojectRaw,
   verifyRawPayload,
 } from "./x01D0_capture_pipeline.ts";
+import type { CommandEffect } from "./x01E8_command_contract.ts";
 
 export type CliFlags = Record<string, string | boolean>;
 
@@ -43,39 +44,59 @@ type LocalCommandHandler = (
   context: LocalCommandContext,
 ) => void | Promise<void>;
 
-const LOCAL_COMMANDS: Record<string, LocalCommandHandler> = {
-  capture: captureCommand,
-  resolve: resolveCommand,
-  verify: verifyCommand,
-  "verify-graph": verifyGraphCommand,
-  "verify-projections": verifyProjectionsCommand,
-  index: indexCommand,
-  "reconcile-published": reconcilePublishedCommand,
-  graph: graphCommand,
-  lineage: lineageCommand,
-  explain: explainCommand,
-  reproject: reprojectCommand,
-  "adapter-dry-run": adapterDryRunCommand,
-  "dry-run": recipeDryRunCommand,
-  publish: publishCommand,
-  import: importCommand,
-  witness: witnessCommand,
-  review: reviewCommand,
-  availability: availabilityCommand,
-  serve: serveCommand,
-  demo: demoCommand,
+interface LocalCommandSpec {
+  effect: CommandEffect;
+  handler: LocalCommandHandler;
+}
+
+function local(
+  effect: CommandEffect,
+  handler: LocalCommandHandler,
+): LocalCommandSpec {
+  return { effect, handler };
+}
+
+const LOCAL_COMMANDS: Record<string, LocalCommandSpec> = {
+  capture: local("effect", captureCommand),
+  resolve: local("read", resolveCommand),
+  verify: local("read", verifyCommand),
+  "verify-graph": local("read", verifyGraphCommand),
+  "verify-projections": local("read", verifyProjectionsCommand),
+  index: local("effect", indexCommand),
+  "reconcile-published": local("effect", reconcilePublishedCommand),
+  graph: local("effect", graphCommand),
+  lineage: local("read", lineageCommand),
+  explain: local("read", explainCommand),
+  reproject: local("effect", reprojectCommand),
+  "adapter-dry-run": local("read", adapterDryRunCommand),
+  "dry-run": local("read", recipeDryRunCommand),
+  publish: local("effect", publishCommand),
+  import: local("effect", importCommand),
+  witness: local("effect", witnessCommand),
+  review: local("effect", reviewCommand),
+  availability: local("read", availabilityCommand),
+  serve: local("serve", serveCommand),
+  demo: local("effect", demoCommand),
 };
 
 export function localCommandNames(): string[] {
   return Object.keys(LOCAL_COMMANDS).sort();
 }
 
+export function localCommandEffects(): Record<string, CommandEffect> {
+  return Object.fromEntries(
+    Object.entries(LOCAL_COMMANDS).map((
+      [command, spec],
+    ) => [command, spec.effect]),
+  );
+}
+
 export async function dispatchLocalCommand(
   context: LocalCommandContext,
 ): Promise<boolean> {
-  const handler = LOCAL_COMMANDS[context.command];
-  if (!handler) return false;
-  await handler(context);
+  const spec = LOCAL_COMMANDS[context.command];
+  if (!spec) return false;
+  await spec.handler(context);
   return true;
 }
 

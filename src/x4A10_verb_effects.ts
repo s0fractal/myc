@@ -10,48 +10,19 @@
 // passthrough MIRRORS this map and is parity-checked against it, so the capability
 // boundary is typed and auditable — not a hardcoded social convention.
 
-export type Effect = "read" | "effect" | "serve";
+import { shellCommandEffects } from "./x01E0_cli.ts";
+import type { CommandEffect } from "./x01E8_command_contract.ts";
+import { localCommandEffects } from "./x01F0_local_commands.ts";
 
-// Verb → minimum authority. Unknown verbs default to `read` (fail-closed).
-export const VERB_EFFECTS: Record<string, Effect> = {
-  // read surfaces — perceive, never mutate
-  resolve: "read",
-  coord: "read", // exception: `coord --stamp` writes — see classify()
-  organism: "read",
-  membrane: "read",
-  trust: "read",
-  resonance: "read",
-  lifecycle: "read",
-  verify: "read",
-  "verify-graph": "read",
-  "verify-projections": "read",
-  lineage: "read",
-  explain: "read",
-  availability: "read",
-  "adapter-dry-run": "read",
-  "dry-run": "read",
-  capabilities: "read",
-  status: "read",
-  search: "read",
-  effects: "read",
-  render: "read",
-  help: "read",
-  // effect surfaces — write the descriptor graph / stamp provenance
-  propose: "effect",
-  "resolve-proposal": "effect",
-  authenticate: "effect",
-  capture: "effect",
-  publish: "effect",
-  witness: "effect",
-  review: "effect",
-  import: "effect",
-  reproject: "effect",
-  index: "effect",
-  graph: "effect",
-  demo: "effect",
-  // network
-  serve: "serve",
-};
+export type Effect = CommandEffect;
+
+// Verb → minimum authority, projected from the executable registries. `help`
+// is the only dispatcher fallback rather than a registered command.
+export const VERB_EFFECTS: Readonly<Record<string, Effect>> = mergeEffects(
+  shellCommandEffects(),
+  localCommandEffects(),
+  { help: "read" },
+);
 
 /** Classify a verb's effect, accounting for effectful flags (coord --stamp
  *  writes a provenance block on disk). Unknown verbs are `read` (fail-closed). */
@@ -92,3 +63,21 @@ export function runCli(args: string[] = Deno.args): void {
 }
 
 if (import.meta.main) runCli();
+
+function mergeEffects(
+  ...catalogs: Array<Record<string, CommandEffect>>
+): Readonly<Record<string, CommandEffect>> {
+  const merged: Record<string, CommandEffect> = {};
+  for (const catalog of catalogs) {
+    for (const [command, effect] of Object.entries(catalog)) {
+      const previous = merged[command];
+      if (previous && previous !== effect) {
+        throw new Error(
+          `conflicting command effect for ${command}: ${previous} != ${effect}`,
+        );
+      }
+      merged[command] = effect;
+    }
+  }
+  return Object.freeze(merged);
+}

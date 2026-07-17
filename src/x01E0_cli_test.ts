@@ -3,6 +3,7 @@ import { type CaptureResult } from "./x01D0_capture_pipeline.ts";
 import {
   main,
   renderCaptureHuman,
+  shellCommandEffects,
   shellCommandInvocation,
   shellCommandNames,
 } from "./x01E0_cli.ts";
@@ -72,6 +73,11 @@ Deno.test("shell command registry is complete and permission-bounded", () => {
   assert(
     JSON.stringify(shellCommandNames()) === JSON.stringify(expected),
     "shell command registry drift",
+  );
+  assert(
+    JSON.stringify(Object.keys(shellCommandEffects()).sort()) ===
+      JSON.stringify(expected),
+    "shell effect catalog drift",
   );
 
   const readOnly = [
