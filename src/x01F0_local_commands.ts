@@ -29,12 +29,14 @@ import {
   reprojectRaw,
   verifyRawPayload,
 } from "./x01D0_capture_pipeline.ts";
-import type {
-  CommandEffect,
-  CommandHelpEntry,
+import {
+  type CliFlags,
+  type CommandEffect,
+  type CommandHelpEntry,
+  flagBoolean,
+  flagString,
+  required,
 } from "./x01E8_command_contract.ts";
-
-export type CliFlags = Record<string, string | boolean>;
 
 export interface LocalCommandContext {
   command: string;
@@ -362,29 +364,6 @@ async function demoCommand({ root }: LocalCommandContext) {
       storePayload: true,
     }),
   );
-}
-
-function flagString(flags: CliFlags, name: string): string | undefined {
-  const value = flags[name];
-  return typeof value === "string" ? value : undefined;
-}
-
-function flagBoolean(
-  flags: CliFlags,
-  name: string,
-  defaultValue: boolean,
-): boolean {
-  const value = flags[name];
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    return !["0", "false", "no"].includes(value.toLowerCase());
-  }
-  return defaultValue;
-}
-
-function required(value: string | undefined, message: string): string {
-  if (!value) throw new Error(message);
-  return value;
 }
 
 function printJson(value: unknown): void {

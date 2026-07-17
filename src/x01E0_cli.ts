@@ -3,9 +3,12 @@
 
 import { defaultRoot } from "./x0140_paths.ts";
 import { rebuildIndex } from "./x0170_projections.ts";
-import type {
-  CommandEffect,
-  CommandHelpEntry,
+import {
+  type CommandEffect,
+  type CommandHelpEntry,
+  flagString,
+  hasFlag,
+  parseCliArgs,
 } from "./x01E8_command_contract.ts";
 import {
   dispatchLocalCommand,
@@ -13,47 +16,6 @@ import {
 } from "./x01F0_local_commands.ts";
 
 export { renderCaptureHuman } from "./x01F0_local_commands.ts";
-
-function parseArgs(
-  args: string[],
-): {
-  command: string;
-  flags: Record<string, string | boolean>;
-  rest: string[];
-} {
-  const [command = "help", ...tail] = args;
-  const flags: Record<string, string | boolean> = {};
-  const rest: string[] = [];
-  for (let index = 0; index < tail.length; index++) {
-    const arg = tail[index];
-    if (!arg.startsWith("--")) {
-      rest.push(arg);
-      continue;
-    }
-    const trimmed = arg.slice(2);
-    const eq = trimmed.indexOf("=");
-    if (eq >= 0) {
-      flags[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
-      continue;
-    }
-    const next = tail[index + 1];
-    if (next && !next.startsWith("--")) {
-      flags[trimmed] = next;
-      index++;
-    } else {
-      flags[trimmed] = true;
-    }
-  }
-  return { command, flags, rest };
-}
-
-function flagString(
-  flags: Record<string, string | boolean>,
-  name: string,
-): string | undefined {
-  const value = flags[name];
-  return typeof value === "string" ? value : undefined;
-}
 
 interface ShellCommandSpec {
   script: string;
@@ -304,7 +266,7 @@ async function dispatchShellCommand(input: string[]): Promise<boolean> {
 export async function main(args: string[]): Promise<void> {
   if (await dispatchShellCommand(args)) return;
 
-  const { command, flags, rest } = parseArgs(args);
+  const { command, flags, rest } = parseCliArgs(args);
   const root = flagString(flags, "root") ?? defaultRoot();
   if (await dispatchLocalCommand({ command, flags, rest, root })) return;
 
@@ -335,11 +297,4 @@ function renderCommandGroup(
       `  ${command}${usage ? ` ${usage}` : ""}`
     ),
   ];
-}
-
-function hasFlag(input: string[], name: string): boolean {
-  const flag = `--${name}`;
-  return input.slice(1).some((arg) =>
-    arg === flag || arg.startsWith(`${flag}=`)
-  );
 }
