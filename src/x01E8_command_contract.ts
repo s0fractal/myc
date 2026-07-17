@@ -9,6 +9,45 @@ export interface CommandHelpEntry {
   usage: string;
 }
 
+export interface CommandMetadata {
+  effect: CommandEffect;
+  usage: string;
+}
+
+function sortedCommandEntries<T extends CommandMetadata>(
+  commands: Readonly<Record<string, T>>,
+): Array<[string, T]> {
+  return Object.entries(commands).sort(([left], [right]) =>
+    left.localeCompare(right)
+  );
+}
+
+export function commandNames<T extends CommandMetadata>(
+  commands: Readonly<Record<string, T>>,
+): string[] {
+  return sortedCommandEntries(commands).map(([command]) => command);
+}
+
+export function commandEffects<T extends CommandMetadata>(
+  commands: Readonly<Record<string, T>>,
+): Record<string, CommandEffect> {
+  return Object.fromEntries(
+    sortedCommandEntries(commands).map(([command, spec]) => [
+      command,
+      spec.effect,
+    ]),
+  );
+}
+
+export function commandHelp<T extends CommandMetadata>(
+  commands: Readonly<Record<string, T>>,
+): CommandHelpEntry[] {
+  return sortedCommandEntries(commands).map(([command, spec]) => ({
+    command,
+    usage: spec.usage,
+  }));
+}
+
 export type CliFlags = Record<string, string | boolean>;
 
 export interface ParsedCliArgs {

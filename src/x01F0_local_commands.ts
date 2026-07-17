@@ -3,7 +3,11 @@
 
 import {
   type CommandEffect,
+  commandEffects,
+  commandHelp,
   type CommandHelpEntry,
+  type CommandMetadata,
+  commandNames,
   type LocalCommandContext,
   type LocalCommandHandler,
 } from "./x01E8_command_contract.ts";
@@ -35,10 +39,8 @@ import { serveCommand } from "./x01F3_local_serve_command.ts";
 export { renderCaptureHuman } from "./x01E9_cli_output.ts";
 export type { LocalCommandContext } from "./x01E8_command_contract.ts";
 
-interface LocalCommandSpec {
-  effect: CommandEffect;
+interface LocalCommandSpec extends CommandMetadata {
   handler: LocalCommandHandler;
-  usage: string;
 }
 
 function local(
@@ -105,21 +107,15 @@ const LOCAL_COMMANDS: Record<string, LocalCommandSpec> = {
 };
 
 export function localCommandNames(): string[] {
-  return Object.keys(LOCAL_COMMANDS).sort();
+  return commandNames(LOCAL_COMMANDS);
 }
 
 export function localCommandEffects(): Record<string, CommandEffect> {
-  return Object.fromEntries(
-    Object.entries(LOCAL_COMMANDS).map((
-      [command, spec],
-    ) => [command, spec.effect]),
-  );
+  return commandEffects(LOCAL_COMMANDS);
 }
 
 export function localCommandHelp(): CommandHelpEntry[] {
-  return Object.entries(LOCAL_COMMANDS)
-    .map(([command, spec]) => ({ command, usage: spec.usage }))
-    .sort((a, b) => a.command.localeCompare(b.command));
+  return commandHelp(LOCAL_COMMANDS);
 }
 
 export async function dispatchLocalCommand(

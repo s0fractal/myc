@@ -1,4 +1,7 @@
 import {
+  commandEffects,
+  commandHelp,
+  commandNames,
   flagBoolean,
   flagString,
   hasFlag,
@@ -35,6 +38,49 @@ Deno.test("CLI parser separates command, flags, and positional arguments", () =>
     parseCliArgs([]),
     { command: "help", flags: {}, rest: [] },
     "empty CLI did not select help",
+  );
+});
+
+Deno.test("command projections are sorted and isolated from callers", () => {
+  const commands = {
+    zeta: { effect: "effect" as const, usage: "zeta usage", extra: 1 },
+    alpha: { effect: "read" as const, usage: "alpha usage", extra: 2 },
+  };
+  const names = commandNames(commands);
+  const effects = commandEffects(commands);
+  const help = commandHelp(commands);
+
+  assertJson(names, ["alpha", "zeta"], "command names are not sorted");
+  assertJson(
+    effects,
+    { alpha: "read", zeta: "effect" },
+    "command effects drift",
+  );
+  assertJson(
+    help,
+    [
+      { command: "alpha", usage: "alpha usage" },
+      { command: "zeta", usage: "zeta usage" },
+    ],
+    "command help drift",
+  );
+
+  names.push("mutated");
+  effects.alpha = "serve";
+  help[0].usage = "mutated";
+  assertJson(
+    commandNames(commands),
+    ["alpha", "zeta"],
+    "name projection shares caller state",
+  );
+  assertJson(
+    commandEffects(commands),
+    { alpha: "read", zeta: "effect" },
+    "effect projection shares caller state",
+  );
+  assert(
+    commandHelp(commands)[0].usage === "alpha usage",
+    "help projection shares caller state",
   );
 });
 

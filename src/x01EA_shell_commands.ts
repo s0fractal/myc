@@ -3,14 +3,16 @@
 
 import {
   type CommandEffect,
+  commandEffects,
+  commandHelp,
   type CommandHelpEntry,
+  type CommandMetadata,
+  commandNames,
   hasFlag,
 } from "./x01E8_command_contract.ts";
 
-interface ShellCommandSpec {
+interface ShellCommandSpec extends CommandMetadata {
   script: string;
-  effect: CommandEffect;
-  usage: string;
   permissions: string[] | (() => string[]);
   matches?: (input: string[]) => boolean;
   forward?: "all" | "tail";
@@ -187,21 +189,15 @@ const SHELL_COMMANDS: Record<string, ShellCommandSpec> = {
 };
 
 export function shellCommandNames(): string[] {
-  return Object.keys(SHELL_COMMANDS).sort();
+  return commandNames(SHELL_COMMANDS);
 }
 
 export function shellCommandEffects(): Record<string, CommandEffect> {
-  return Object.fromEntries(
-    Object.entries(SHELL_COMMANDS).map((
-      [command, spec],
-    ) => [command, spec.effect]),
-  );
+  return commandEffects(SHELL_COMMANDS);
 }
 
 export function shellCommandHelp(): CommandHelpEntry[] {
-  return Object.entries(SHELL_COMMANDS)
-    .map(([command, spec]) => ({ command, usage: spec.usage }))
-    .sort((a, b) => a.command.localeCompare(b.command));
+  return commandHelp(SHELL_COMMANDS);
 }
 
 export function shellCommandInvocation(
