@@ -10,14 +10,21 @@ import {
   type MycDescriptor,
   slug,
 } from "./x0110_descriptor_core.ts";
-import {
-  parseDescriptorText,
-  verifyDescriptor,
-} from "./x0120_descriptor_verify.ts";
+import { verifyDescriptor } from "./x0120_descriptor_verify.ts";
 import {
   nutritionForDescriptor,
   payloadStateForDescriptor,
 } from "./x0130_nutrition.ts";
+import { defaultRoot, joinPath } from "./x0140_paths.ts";
+import {
+  descriptorAddresses,
+  descriptorNodeKeys,
+  type DescriptorRecord,
+  parseDescriptorFile,
+  resolveFqdn,
+  scanDescriptors,
+  verifyPath,
+} from "./x0150_descriptor_index.ts";
 
 export {
   type Json,
@@ -36,6 +43,13 @@ export {
   nutritionForDescriptor,
   type NutritionLabel,
 } from "./x0130_nutrition.ts";
+export { defaultRoot, joinPath } from "./x0140_paths.ts";
+export {
+  parseDescriptorFile,
+  resolveFqdn,
+  scanDescriptors,
+  verifyPath,
+} from "./x0150_descriptor_index.ts";
 
 export interface CaptureOptions {
   root?: string;
@@ -84,11 +98,6 @@ interface GraphEdge {
   function_commitment: string | null;
   input: Record<string, Json>;
   output: Record<string, Json>;
-}
-
-interface DescriptorRecord {
-  path: string;
-  descriptor: MycDescriptor;
 }
 
 export interface GraphVerificationResult {
@@ -200,48 +209,6 @@ const FUNCTION_DEFINITIONS = {
       "Render artifact FQDN as <intent-kind>.<actor>.h.<raw-short>.myc.md using slugged labels.",
   },
 } as const;
-
-export function defaultRoot(): string {
-  const envRoot = Deno.env.get("MYC_ROOT");
-  if (envRoot) return envRoot;
-  const cwd = Deno.cwd();
-  try {
-    const config = Deno.statSync(joinPath(cwd, "deno.jsonc"));
-    // After flat-src migration (2026-05-22): myc.ts lives at src/x0100_myc.ts.
-    const entry = Deno.statSync(joinPath(cwd, "src", "x0100_myc.ts"));
-    if (config.isFile && entry.isFile) return cwd;
-  } catch {
-    // Fall back to the local operator convention below.
-  }
-  const home = Deno.env.get("HOME") ?? Deno.cwd();
-  // Canonical install is "join the mycelium": clone trinity to ~/trinity, myc is
-  // its submodule at ~/trinity/myc. Prefer that; fall back to a standalone ~/myc
-  // clone (myc is also published on its own); default to the mycelium location.
-  const mycelium = joinPath(home, "trinity", "myc");
-  const standalone = joinPath(home, "myc");
-  try {
-    if (Deno.statSync(mycelium).isDirectory) return mycelium;
-  } catch { /* mycelium clone not present */ }
-  try {
-    if (Deno.statSync(standalone).isDirectory) return standalone;
-  } catch { /* standalone clone not present */ }
-  return mycelium;
-}
-
-export function joinPath(...parts: string[]): string {
-  const filtered = parts.filter((part) => part.length > 0);
-  if (filtered.length === 0) return ".";
-  const first = filtered[0];
-  const absolute = first.startsWith("/");
-  const normalized = filtered
-    .map((part, index) => {
-      if (index === 0) return part.replace(/\/+$/g, "");
-      return part.replace(/^\/+|\/+$/g, "");
-    })
-    .filter((part) => part.length > 0)
-    .join("/");
-  return absolute ? `/${normalized.replace(/^\/+/, "")}` : normalized;
-}
 
 async function ensureDir(path: string): Promise<void> {
   await Deno.mkdir(path, { recursive: true });
@@ -801,21 +768,6 @@ async function readInputText(options: CaptureOptions): Promise<string> {
   return TEXT_DECODER.decode(bytes);
 }
 
-export async function parseDescriptorFile(
-  path: string,
-): Promise<MycDescriptor> {
-  const text = await Deno.readTextFile(path);
-  return await parseDescriptorText(text, path);
-}
-
-export async function verifyPath(
-  path: string,
-): Promise<{ ok: boolean; errors: string[]; descriptor: MycDescriptor }> {
-  const descriptor = await parseDescriptorFile(path);
-  const result = await verifyDescriptor(descriptor);
-  return { ...result, descriptor };
-}
-
 export async function verifyRawPayload(
   root: string,
   descriptor: MycDescriptor,
@@ -845,95 +797,6 @@ export async function verifyRawPayload(
     };
   }
   return { ok: true, errors: [] };
-}
-
-export async function scanDescriptors(
-  root: string,
-): Promise<DescriptorRecord[]> {
-  const scanRoots = [
-    "public",
-    "protocols",
-    "sites",
-    "substrates",
-    "sealed",
-    "src",
-  ]
-    .map((part) => joinPath(root, part));
-  // AUDIT A7 — the PUBLIC graph must not carry non-content. Skip *.schema.md
-  // (schemas carry EXAMPLE fqdns like h.abcdef123456, not real content) and the
-  // empty-content footgun (sha256("") = e3b0c44298fc…; captureText rejects it at
-  // the source, this stops fossils from re-indexing).
-  const EMPTY_CONTENT_ADDR = "e3b0c44298fc";
-  const records: DescriptorRecord[] = [];
-  for (const scanRoot of scanRoots) {
-    if (!(await exists(scanRoot))) continue;
-    for await (const path of walkMarkdown(scanRoot)) {
-      if (path.endsWith(".schema.md")) continue;
-      try {
-        const descriptor = await parseDescriptorFile(path);
-        if (descriptor.fqdn.includes(EMPTY_CONTENT_ADDR)) continue;
-        records.push({ path, descriptor });
-      } catch {
-        // Human-only markdown files are valid; they are just not resolvable.
-      }
-    }
-  }
-  return records;
-}
-
-async function* walkMarkdown(root: string): AsyncGenerator<string> {
-  for await (const entry of Deno.readDir(root)) {
-    const path = joinPath(root, entry.name);
-    if (entry.isDirectory) {
-      yield* walkMarkdown(path);
-    } else if (entry.isFile && entry.name.endsWith(".md")) {
-      yield path;
-    }
-  }
-}
-
-export async function resolveFqdn(
-  root: string,
-  fqdn: string,
-): Promise<{ path: string; descriptor: MycDescriptor } | null> {
-  const records = await scanDescriptors(root);
-  for (const record of records) {
-    if (record.descriptor.fqdn === fqdn) return record;
-  }
-  for (const record of records) {
-    if (descriptorAddresses(record.descriptor).includes(fqdn)) return record;
-  }
-  return null;
-}
-
-function descriptorAddresses(descriptor: MycDescriptor): string[] {
-  const addresses = new Set<string>();
-  addresses.add(descriptor.fqdn);
-  const immutable = descriptor.body.immutable_fqdn;
-  if (typeof immutable === "string") addresses.add(immutable);
-  const output = descriptor.body.output as Record<string, Json> | undefined;
-  if (output) {
-    if (typeof output.fqdn === "string") addresses.add(output.fqdn);
-    if (typeof output.immutable_fqdn === "string") {
-      addresses.add(output.immutable_fqdn);
-    }
-  }
-  return [...addresses];
-}
-
-function descriptorNodeKeys(descriptor: MycDescriptor): string[] {
-  const keys = new Set<string>();
-  for (const address of descriptorAddresses(descriptor)) keys.add(address);
-  keys.add(descriptor.commitment.value);
-  if (descriptor.type === "RawDescriptor") {
-    const value = descriptor.body.hash;
-    if (typeof value === "string") keys.add(value);
-  }
-  if (descriptor.type === "ArtifactDescriptor") {
-    const value = descriptor.body.artifact_hash;
-    if (typeof value === "string") keys.add(value);
-  }
-  return [...keys];
 }
 
 function refKeys(ref: Record<string, Json>): string[] {
