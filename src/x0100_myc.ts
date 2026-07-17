@@ -10,7 +10,6 @@ import {
   type MycDescriptor,
   slug,
 } from "./x0110_descriptor_core.ts";
-import { verifyDescriptor } from "./x0120_descriptor_verify.ts";
 import { defaultRoot, joinPath } from "./x0140_paths.ts";
 import { resolveFqdn, verifyPath } from "./x0150_descriptor_index.ts";
 import { rebuildGraph, verifyGraph } from "./x0160_graph.ts";
@@ -31,6 +30,13 @@ import {
   recipeDryRun,
   verificationReceipts,
 } from "./x01A0_policy_services.ts";
+import { writeDescriptorFile } from "./x01B0_descriptor_store.ts";
+import {
+  importGraph,
+  publishTarget,
+  reviewTarget,
+  witnessTarget,
+} from "./x01C0_mutation_lifecycle.ts";
 
 export {
   type Json,
@@ -89,6 +95,14 @@ export {
   type VerificationReceiptRecord,
   verificationReceipts,
 } from "./x01A0_policy_services.ts";
+export {
+  importGraph,
+  type ImportGraphResult,
+  type MutationResult,
+  publishTarget,
+  reviewTarget,
+  witnessTarget,
+} from "./x01C0_mutation_lifecycle.ts";
 
 export interface CaptureOptions {
   root?: string;
@@ -168,47 +182,6 @@ async function exists(path: string): Promise<boolean> {
     if (error instanceof Deno.errors.NotFound) return false;
     throw error;
   }
-}
-
-async function writeDescriptorFile(
-  path: string,
-  descriptor: MycDescriptor,
-  title: string,
-  note: string,
-): Promise<void> {
-  await ensureDir(dirname(path));
-  const markdown = [
-    "---",
-    "chord:",
-    chordLines(descriptor),
-    "energy: 0.68",
-    'mode: "PATCH"',
-    `tension: "${descriptor.type.toLowerCase()}-generated"`,
-    'confidence: "medium"',
-    'receipt: "file"',
-    "---",
-    "",
-    `# ${title}`,
-    "",
-    note,
-    "",
-    "```json myc",
-    JSON.stringify(descriptor, null, 2),
-    "```",
-    "",
-  ].join("\n");
-  await Deno.writeTextFile(path, markdown);
-}
-
-function chordLines(descriptor: MycDescriptor): string {
-  const primary = typeof descriptor.body.oct === "string"
-    ? descriptor.body.oct
-    : descriptor.type === "RawDescriptor"
-    ? "oct:6.4"
-    : descriptor.type === "FunctionDescriptor"
-    ? "oct:5.1"
-    : "oct:3.7";
-  return `  primary: "${primary}"\n  secondary: ["oct:6.4", "oct:3.7"]`;
 }
 
 function dirname(path: string): string {
@@ -841,407 +814,6 @@ export async function handleRequest(
     adapterDryRun,
     recipeDryRun,
   });
-}
-
-export async function publishTarget(
-  root: string,
-  target: string,
-  // Optional thread to the apply-receipt this publication derives from
-  // (a SPORE spore_id / liquid intent_hash). Closes the lifecycle's
-  // apply→published gap — the mutation x5800-proposed (h.9068b4888a6f).
-  derivedFrom?: string,
-): Promise<{
-  ok: boolean;
-  fqdn: string;
-  path?: string;
-  errors: string[];
-}> {
-  const record = await resolveTargetRecord(root, target);
-  if (!record) return { ok: false, fqdn: target, errors: ["target-not-found"] };
-
-  const graphVerified = await verifyProjections(root);
-  if (!graphVerified.ok) {
-    return {
-      ok: false,
-      fqdn: target,
-      errors: ["graph-verification-failed", ...graphVerified.errors],
-    };
-  }
-
-  const lineage = await lineageFor(root, target);
-  const descriptorsToPublish = new Map<string, MycDescriptor>();
-
-  async function addDescriptor(fqdn: string) {
-    if (!fqdn || descriptorsToPublish.has(fqdn)) return;
-    const r = await resolveTargetRecord(root, fqdn);
-    if (!r) return;
-
-    const clone = JSON.parse(JSON.stringify(r.descriptor));
-
-    // Redact payload if private
-    if (clone.body.payload_policy === "private" && clone.body.payload) {
-      delete clone.body.payload;
-    }
-
-    // Redact local paths in IntentDescriptor
-    if (clone.type === "IntentDescriptor") {
-      if (clone.body.address && clone.body.address.local_path) {
-        clone.body.address.local_path = null;
-      }
-    }
-
-    descriptorsToPublish.set(fqdn, clone);
-  }
-
-  await addDescriptor(record.descriptor.fqdn);
-  for (const edge of lineage.backward) {
-    if (edge.transform) await addDescriptor(edge.transform);
-    if (edge.function_fqdn) await addDescriptor(edge.function_fqdn);
-    if (edge.input && typeof edge.input === "object" && "fqdn" in edge.input) {
-      await addDescriptor(edge.input.fqdn as string);
-    }
-  }
-
-  const targetHashMatch = record.descriptor.fqdn.match(
-    /(?:^|\.)h\.([0-9a-f]+)\./,
-  );
-  const targetHash = targetHashMatch ? targetHashMatch[1] : "unknown";
-  const publishFqdn = `h.${targetHash}.publish.myc.md`;
-  const publishDescriptor: MycDescriptor = {
-    type: "PublishDescriptor",
-    schema_version: "myc.publish.v0.1",
-    fqdn: publishFqdn,
-    commitment: {
-      algorithm: "sha256",
-      value: "",
-      covers: "descriptor.body",
-    },
-    body: {
-      publish_clearance: {
-        target_fqdn: record.descriptor.fqdn,
-        target_commitment: record.descriptor.commitment.value,
-        export_scope: "closure",
-      },
-      publication_gates: {
-        naming_proof_verified: true, // We assume true if it's in the graph
-        graph_verified: true,
-        payload_scrubbed: true,
-      },
-      destinations: [],
-      // present only when supplied → keeps the commitment of older publishes stable
-      ...(derivedFrom ? { derived_from: derivedFrom } : {}),
-    },
-  };
-
-  publishDescriptor.commitment.value = await sha256Hex(
-    stableStringify(
-      publishDescriptor.body as unknown as Json,
-    ),
-  );
-
-  descriptorsToPublish.set(publishFqdn, publishDescriptor);
-
-  const exportLines = Array.from(descriptorsToPublish.values()).map((d) =>
-    stableStringify(d as unknown as Json)
-  );
-
-  await ensureDir(joinPath(root, "public", "exports"));
-  const exportPath = joinPath(
-    root,
-    "public",
-    "exports",
-    `${record.descriptor.fqdn}.export.ndjson`,
-  );
-  await Deno.writeTextFile(exportPath, exportLines.join("\n") + "\n");
-
-  // The PublishDescriptor must also live in the graph as a resolvable node —
-  // the export ndjson alone leaves it invisible to resolveFqdn, which made
-  // `witness` (whose target must BE a PublishDescriptor) unsatisfiable for
-  // every publication. Mirror the witness layout under public/consensus/.
-  // Deterministic body (no timestamp) → republishing the same bytes rewrites
-  // the same file, so this stays idempotent.
-  const publishWritePath = joinPath(
-    root,
-    "public",
-    "consensus",
-    "publish",
-    "h",
-    targetHash,
-    publishFqdn,
-  );
-  await writeDescriptorFile(
-    publishWritePath,
-    publishDescriptor,
-    "Publish Descriptor",
-    "Publication clearance for the target closure; witnessable consensus node.",
-  );
-  await rebuildIndex(root);
-
-  return { ok: true, fqdn: publishFqdn, path: exportPath, errors: [] };
-}
-
-export async function importGraph(
-  root: string,
-  path: string,
-): Promise<{
-  ok: boolean;
-  imported: number;
-  errors: string[];
-}> {
-  let content: string;
-  try {
-    content = await Deno.readTextFile(path);
-  } catch (e) {
-    return { ok: false, imported: 0, errors: [`failed to read file: ${e}`] };
-  }
-
-  const lines = content.split("\n").filter(Boolean);
-  const descriptors: MycDescriptor[] = [];
-
-  for (const line of lines) {
-    try {
-      descriptors.push(JSON.parse(line));
-    } catch (e) {
-      return {
-        ok: false,
-        imported: 0,
-        errors: [`failed to parse json line: ${e}`],
-      };
-    }
-  }
-
-  const errors: string[] = [];
-  let importedCount = 0;
-
-  for (const descriptor of descriptors) {
-    const expected = await sha256Hex(stableStringify(descriptor.body));
-    if (descriptor.commitment.value !== expected) {
-      errors.push(
-        `invalid commitment for ${descriptor.fqdn}: expected ${expected}, got ${descriptor.commitment.value}`,
-      );
-      continue;
-    }
-
-    let targetDir = "objects";
-    if (descriptor.type === "FunctionDescriptor") targetDir = "functions";
-    if (descriptor.type === "TransformationDescriptor") {
-      targetDir = "transforms";
-    }
-    if (descriptor.type === "WitnessDescriptor") {
-      targetDir = "consensus/witness";
-    }
-    if (descriptor.type === "ReviewDescriptor") targetDir = "consensus/review";
-
-    // We infer the short hash from the fqdn: h.<hash>....
-    const shortHashMatch = descriptor.fqdn.match(/(?:^|\.)h\.([0-9a-f]+)\./);
-    if (!shortHashMatch) {
-      errors.push(`invalid fqdn format: ${descriptor.fqdn}`);
-      continue;
-    }
-    const shortHash = shortHashMatch[1];
-
-    let writePath: string;
-    if (descriptor.type === "FunctionDescriptor") {
-      writePath = joinPath(root, "public", targetDir, descriptor.fqdn);
-    } else {
-      writePath = joinPath(
-        root,
-        "public",
-        targetDir,
-        "h",
-        shortHash,
-        descriptor.fqdn,
-      );
-    }
-
-    const exists = await Deno.stat(writePath).then(() => true).catch(() =>
-      false
-    );
-    if (!exists) {
-      await writeDescriptorFile(
-        writePath,
-        descriptor,
-        `Imported ${descriptor.type}`,
-        "Imported from external graph bundle.",
-      );
-      importedCount++;
-    }
-  }
-
-  if (errors.length > 0) {
-    return { ok: false, imported: importedCount, errors };
-  }
-
-  await rebuildIndex(root);
-  const syncResult = await verifyProjections(root);
-  if (!syncResult.ok) {
-    return {
-      ok: false,
-      imported: importedCount,
-      errors: ["projections sync failed", ...syncResult.errors],
-    };
-  }
-
-  return { ok: true, imported: importedCount, errors: [] };
-}
-
-export async function witnessTarget(
-  root: string,
-  target: string,
-  actor: string,
-): Promise<{ ok: boolean; fqdn?: string; path?: string; errors: string[] }> {
-  const record = await resolveFqdn(root, target);
-  if (!record) return { ok: false, errors: [`target not found: ${target}`] };
-  if (record.descriptor.type !== "PublishDescriptor") {
-    // Friction found walking the loop as a user: the instinct is to witness the
-    // proposal directly, but a witness targets the PUBLISH. Guide, don't just deny.
-    const hint = record.descriptor.type === "ProposedMutationDescriptor"
-      ? ` — publish it first: \`t myc publish ${target}\`, then witness the resulting *.publish.myc.md`
-      : "";
-    return {
-      ok: false,
-      errors: [
-        `WitnessDescriptor must target a PublishDescriptor, got ${record.descriptor.type}${hint}`,
-      ],
-    };
-  }
-
-  const verified = await verifyDescriptor(record.descriptor);
-  if (!verified.ok) {
-    return {
-      ok: false,
-      errors: [
-        "Target descriptor structural verification failed",
-        ...verified.errors,
-      ],
-    };
-  }
-
-  const witnessDescriptor: MycDescriptor = {
-    type: "WitnessDescriptor",
-    schema_version: "myc.witness.v0.1",
-    fqdn: "",
-    commitment: {
-      algorithm: "sha256",
-      value: "",
-      covers: "descriptor.body",
-    },
-    body: {
-      target_fqdn: record.descriptor.fqdn,
-      target_commitment: record.descriptor.commitment.value,
-      witness_actor: actor,
-      timestamp: new Date().toISOString(),
-      verification_status: "structurally_valid",
-    },
-  };
-
-  const bodyString = stableStringify(witnessDescriptor.body as unknown as Json);
-  witnessDescriptor.commitment.value = await sha256Hex(bodyString);
-
-  const shortHash = witnessDescriptor.commitment.value.slice(0, 12);
-  witnessDescriptor.fqdn = `h.${shortHash}.witness.myc.md`;
-
-  const writePath = joinPath(
-    root,
-    "public",
-    "consensus",
-    "witness",
-    "h",
-    shortHash,
-    witnessDescriptor.fqdn,
-  );
-  await ensureDir(dirname(writePath));
-  await writeDescriptorFile(
-    writePath,
-    witnessDescriptor,
-    "Witness Descriptor",
-    "Generated locally to prove receipt and structural validity.",
-  );
-
-  await rebuildIndex(root);
-
-  return {
-    ok: true,
-    fqdn: witnessDescriptor.fqdn,
-    path: writePath,
-    errors: [],
-  };
-}
-
-export async function reviewTarget(
-  root: string,
-  target: string,
-  reviewer: string,
-  rating: string,
-  comment?: string,
-): Promise<{ ok: boolean; fqdn?: string; path?: string; errors: string[] }> {
-  if (!["approve", "reject", "neutral"].includes(rating)) {
-    return {
-      ok: false,
-      errors: [`rating must be approve, reject, or neutral`],
-    };
-  }
-
-  const record = await resolveFqdn(root, target);
-  if (!record) return { ok: false, errors: [`target not found: ${target}`] };
-
-  if (
-    record.descriptor.type !== "IntentDescriptor" &&
-    record.descriptor.type !== "PublishDescriptor"
-  ) {
-    return {
-      ok: false,
-      errors: [
-        `ReviewDescriptor must target an IntentDescriptor or PublishDescriptor, got ${record.descriptor.type}`,
-      ],
-    };
-  }
-
-  const reviewDescriptor: MycDescriptor = {
-    type: "ReviewDescriptor",
-    schema_version: "myc.review.v0.1",
-    fqdn: "",
-    commitment: {
-      algorithm: "sha256",
-      value: "",
-      covers: "descriptor.body",
-    },
-    body: {
-      target_fqdn: record.descriptor.fqdn,
-      target_commitment: record.descriptor.commitment.value,
-      reviewer,
-      rating,
-      ...(comment ? { comment } : {}),
-      timestamp: new Date().toISOString(),
-    },
-  };
-
-  const bodyString = stableStringify(reviewDescriptor.body as unknown as Json);
-  reviewDescriptor.commitment.value = await sha256Hex(bodyString);
-
-  const shortHash = reviewDescriptor.commitment.value.slice(0, 12);
-  reviewDescriptor.fqdn = `h.${shortHash}.review.myc.md`;
-
-  const writePath = joinPath(
-    root,
-    "public",
-    "consensus",
-    "review",
-    "h",
-    shortHash,
-    reviewDescriptor.fqdn,
-  );
-  await ensureDir(dirname(writePath));
-  await writeDescriptorFile(
-    writePath,
-    reviewDescriptor,
-    "Review Descriptor",
-    `Semantic evaluation: ${rating}`,
-  );
-
-  await rebuildIndex(root);
-
-  return { ok: true, fqdn: reviewDescriptor.fqdn, path: writePath, errors: [] };
 }
 
 function parseArgs(
