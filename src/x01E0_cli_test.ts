@@ -1,13 +1,15 @@
 import * as facade from "./x0100_myc.ts";
 import { type CaptureResult } from "./x01D0_capture_pipeline.ts";
 import {
+  helpText,
   main,
   renderCaptureHuman,
   shellCommandEffects,
+  shellCommandHelp,
   shellCommandInvocation,
   shellCommandNames,
 } from "./x01E0_cli.ts";
-import { localCommandNames } from "./x01F0_local_commands.ts";
+import { localCommandHelp, localCommandNames } from "./x01F0_local_commands.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -79,6 +81,11 @@ Deno.test("shell command registry is complete and permission-bounded", () => {
       JSON.stringify(expected),
     "shell effect catalog drift",
   );
+  assert(
+    JSON.stringify(shellCommandHelp().map(({ command }) => command)) ===
+      JSON.stringify(expected),
+    "shell help catalog drift",
+  );
 
   const readOnly = [
     "effects",
@@ -110,6 +117,24 @@ Deno.test("shell command registry is complete and permission-bounded", () => {
       JSON.stringify(["petition", "propose", "resolve-proposal"]),
     "post-success reindex drift",
   );
+});
+
+Deno.test("generated help covers every executable command form exactly once", () => {
+  const output = helpText();
+  assert(
+    output.includes("Local descriptor commands:"),
+    "local help group missing",
+  );
+  assert(output.includes("Subprocess tools:"), "shell help group missing");
+  for (
+    const { command, usage } of [
+      ...localCommandHelp(),
+      ...shellCommandHelp(),
+    ]
+  ) {
+    const line = `  ${command} ${usage}`;
+    assert(output.split(line).length === 2, `${command} help form drift`);
+  }
 });
 
 Deno.test("shell aliases and argument forwarding preserve legacy behavior", () => {

@@ -3,8 +3,14 @@
 
 import { defaultRoot } from "./x0140_paths.ts";
 import { rebuildIndex } from "./x0170_projections.ts";
-import type { CommandEffect } from "./x01E8_command_contract.ts";
-import { dispatchLocalCommand } from "./x01F0_local_commands.ts";
+import type {
+  CommandEffect,
+  CommandHelpEntry,
+} from "./x01E8_command_contract.ts";
+import {
+  dispatchLocalCommand,
+  localCommandHelp,
+} from "./x01F0_local_commands.ts";
 
 export { renderCaptureHuman } from "./x01F0_local_commands.ts";
 
@@ -52,6 +58,7 @@ function flagString(
 interface ShellCommandSpec {
   script: string;
   effect: CommandEffect;
+  usage: string;
   permissions: string[] | (() => string[]);
   matches?: (input: string[]) => boolean;
   forward?: "all" | "tail";
@@ -72,9 +79,13 @@ function shell(
   effect: CommandEffect,
   script: string,
   permissions: ShellCommandSpec["permissions"],
-  options: Omit<ShellCommandSpec, "effect" | "script" | "permissions"> = {},
+  usage: string,
+  options: Omit<
+    ShellCommandSpec,
+    "effect" | "script" | "permissions" | "usage"
+  > = {},
 ): ShellCommandSpec {
-  return { effect, script, permissions, ...options };
+  return { effect, script, permissions, usage, ...options };
 }
 
 const SHELL_COMMANDS: Record<string, ShellCommandSpec> = {
@@ -87,20 +98,50 @@ const SHELL_COMMANDS: Record<string, ShellCommandSpec> = {
       "--allow-run",
       "--allow-env",
     ],
+    "<coordinate> [proof flags] — resolve a graph coordinate with proof",
   ),
-  organism: shell("read", "./x8F00_organism.ts", READ_ONLY),
-  membrane: shell("read", "./x8FF0_membrane.ts", READ_ONLY),
-  overview: shell("read", "./x8FF0_membrane.ts", READ_ONLY),
-  trust: shell("read", "./x3700_trust.ts", READ_ONLY),
-  resonance: shell("read", "./x3700_trust.ts", READ_ONLY),
-  standing: shell("read", "./x2F60_temporal_envelope.ts", READ_ONLY, {
-    forward: "all",
-  }),
+  organism: shell(
+    "read",
+    "./x8F00_organism.ts",
+    READ_ONLY,
+    "— show the four substrates as one body",
+  ),
+  membrane: shell(
+    "read",
+    "./x8FF0_membrane.ts",
+    READ_ONLY,
+    "— show body, trust, and lifecycle",
+  ),
+  overview: shell(
+    "read",
+    "./x8FF0_membrane.ts",
+    READ_ONLY,
+    "— alias for membrane",
+  ),
+  trust: shell(
+    "read",
+    "./x3700_trust.ts",
+    READ_ONLY,
+    "— project resonance over published mutations",
+  ),
+  resonance: shell(
+    "read",
+    "./x3700_trust.ts",
+    READ_ONLY,
+    "— alias for trust",
+  ),
+  standing: shell(
+    "read",
+    "./x2F60_temporal_envelope.ts",
+    READ_ONLY,
+    "[args...] — inspect temporal standing",
+    { forward: "all" },
+  ),
   "temporal-verify": shell("read", "./x2FA0_temporal_verify.ts", [
     "--allow-read",
     "--allow-run",
     "--allow-env",
-  ]),
+  ], "[args...] — verify a temporal envelope"),
   "temporal-sign": shell(
     "effect",
     "./x2F90_temporal_sign.ts",
@@ -111,32 +152,52 @@ const SHELL_COMMANDS: Record<string, ShellCommandSpec> = {
         new URL("../public/temporal", import.meta.url).pathname
       }`,
     ],
+    "[args...] — create a temporal envelope",
   ),
   "ots-verify": shell("read", "./x2F80_ots_adapter.ts", [
     "--allow-read",
     "--allow-run",
-  ]),
-  lifecycle: shell("read", "./x3F00_lifecycle.ts", READ_ONLY),
-  propose: shell("effect", "./x5800_propose.ts", READ_WRITE_ENV, {
-    reindex: true,
-  }),
-  petition: shell("effect", "./x5850_petition.ts", READ_WRITE_ENV, {
-    reindex: true,
-  }),
+  ], "[args...] — verify an OpenTimestamps proof"),
+  lifecycle: shell(
+    "read",
+    "./x3F00_lifecycle.ts",
+    READ_ONLY,
+    "— show the canonical mutation lifecycle",
+  ),
+  propose: shell(
+    "effect",
+    "./x5800_propose.ts",
+    READ_WRITE_ENV,
+    "--text <text> --requires <backend> [--actor <actor>]",
+    { reindex: true },
+  ),
+  petition: shell(
+    "effect",
+    "./x5850_petition.ts",
+    READ_WRITE_ENV,
+    "[args...] — submit a signed petition",
+    { reindex: true },
+  ),
   "verify-deployment": shell("read", "../sites/myc.md/verify_deployment.ts", [
     "--allow-net",
     "--allow-read",
-  ]),
-  snapshot: shell("effect", "../sites/myc.md/snapshot.ts", READ_WRITE_ENV),
+  ], "[url] — compare a deployment with local attested bytes"),
+  snapshot: shell(
+    "effect",
+    "../sites/myc.md/snapshot.ts",
+    READ_WRITE_ENV,
+    "[--write <path>] — export the public network",
+  ),
   "verify-snapshot": shell("effect", "../sites/myc.md/verify_snapshot.ts", [
     "--allow-read",
     "--allow-write",
     "--allow-net",
-  ]),
+  ], "<file|url> — verify a peer snapshot by hash"),
   publish: shell(
     "effect",
     "../sites/myc.md/publish.ts",
     ["--allow-read", "--allow-run", "--allow-net", "--allow-env"],
+    "--witness <voice> --content <hash> [--url <url>] — publish live",
     {
       // `publish <fqdn>` creates a local PublishDescriptor. Preserve the older
       // live-membrane spelling only when its identifying flags are present.
@@ -153,18 +214,35 @@ const SHELL_COMMANDS: Record<string, ShellCommandSpec> = {
       "--allow-env",
       "--allow-net",
     ],
+    "<file|url> [--write] — verify and merge peer records",
   ),
   "resolve-proposal": shell(
     "effect",
     "./x5810_resolve_proposal.ts",
     READ_WRITE_ENV,
+    "<proposal> --outcome <outcome> [evidence flags]",
     {
       reindex: true,
     },
   ),
-  authenticate: shell("effect", "./x2F50_voice_auth.ts", READ_WRITE_ENV),
-  render: shell("read", "./x8FE0_render.ts", READ_ONLY),
-  effects: shell("read", "./x4A10_verb_effects.ts", READ_ONLY),
+  authenticate: shell(
+    "effect",
+    "./x2F50_voice_auth.ts",
+    READ_WRITE_ENV,
+    "<descriptor> [--voice <voice>] — sign a witness",
+  ),
+  render: shell(
+    "read",
+    "./x8FE0_render.ts",
+    READ_ONLY,
+    "— render the membrane as HTML",
+  ),
+  effects: shell(
+    "read",
+    "./x4A10_verb_effects.ts",
+    READ_ONLY,
+    "— list typed capabilities for every verb",
+  ),
 };
 
 export function shellCommandNames(): string[] {
@@ -177,6 +255,12 @@ export function shellCommandEffects(): Record<string, CommandEffect> {
       [command, spec],
     ) => [command, spec.effect]),
   );
+}
+
+export function shellCommandHelp(): CommandHelpEntry[] {
+  return Object.entries(SHELL_COMMANDS)
+    .map(([command, spec]) => ({ command, usage: spec.usage }))
+    .sort((a, b) => a.command.localeCompare(b.command));
 }
 
 export function shellCommandInvocation(
@@ -227,61 +311,30 @@ export async function main(args: string[]): Promise<void> {
   console.log(helpText());
 }
 
-function helpText(): string {
+export function helpText(): string {
   return [
     "MYC local-first descriptor CLI",
     "",
-    "Commands:",
-    "  capture --text <text> [--actor s0fractal] [--kind message]",
-    "  capture --file <path> [--actor s0fractal] [--kind message]",
-    "  resolve <fqdn>                       (descriptor FQDN → descriptor)",
-    "  coord <xNNNN_handle> [--graph|--lattice|--why|--stamp <signer>|--cat]",
-    "                                       (graph coordinate → git+crypto proof)",
-    "  membrane                             (THE single surface — body+trust+life)",
-    "  organism                             (the four substrates as one body)",
-    "  trust                                (resonance over published mutations)",
-    "  lifecycle                            (one vocabulary for a mutation's life)",
-    "  effects                              (the typed capability of each verb)",
-    "  render                               (the membrane as HTML — for human eyes)",
-    "  propose --text <t> --requires <omega|liquid|trinity|spore> [--actor a]",
-    "                                       (propose a DORMANT mutation; writes)",
-    "  verify-deployment [url]              (verify a deployed myc.md serves only",
-    "                                        local-source bytes — trust the hash)",
-    "  snapshot [--write path]              (portable content-addressed export of",
-    "                                        the public network — fallback/peer feed)",
-    "  verify-snapshot <file|url>           (verify a peer's snapshot by hash with",
-    "                                        myc's canonical verifier — trust the hash)",
-    "  import-snapshot <file|url> [--write] (verify then merge a peer's new records",
-    "                                        into your network; dry-run by default)",
-    "  authenticate <descriptor> [--voice claude]",
-    "                                       (sign a witness — integrity → authenticity)",
-    "  resolve-proposal <proposal> --outcome <implemented|rejected|…>",
-    "       --from-receipt <path> (derives the ref from the proof) | --evidence-ref <k:r:c>",
-    "       [--actor a]   then `authenticate`  (a CLAIM; final only when authenticated)",
-    "  verify <path-or-fqdn> [--with-private]",
-    "  verify-graph",
-    "  verify-projections",
-    "  index",
-    "  graph",
-    "  lineage <path-or-fqdn>",
-    "  explain <path-or-fqdn>",
-    "  availability <path-or-fqdn>",
-    "  reproject <raw-fqdn> [--actor s0fractal] [--kind message]",
-    "  adapter-dry-run <adapter-name>",
-    "  dry-run <recipe-fqdn>",
-    "  publish <fqdn>",
-    "  publish --witness <voice> --content <hash> [--url url]",
-    "                                       (publish witnessed content live)",
-    "  import <path>",
-    "  witness <fqdn> [--actor s0fractal]",
-    "  review <fqdn> <rating> [comment] [--reviewer s0fractal]",
-    "  serve [--host 127.0.0.1] [--port 8787]",
-    "  demo",
+    ...renderCommandGroup("Local descriptor commands:", localCommandHelp()),
+    "",
+    ...renderCommandGroup("Subprocess tools:", shellCommandHelp()),
     "",
     "Environment:",
     "  MYC_ROOT=~/trinity/myc   (mycelium install; falls back to ~/myc standalone,",
     "                            or the repo root when run inside it)",
   ].join("\n");
+}
+
+function renderCommandGroup(
+  title: string,
+  entries: CommandHelpEntry[],
+): string[] {
+  return [
+    title,
+    ...entries.map(({ command, usage }) =>
+      `  ${command}${usage ? ` ${usage}` : ""}`
+    ),
+  ];
 }
 
 function hasFlag(input: string[], name: string): boolean {

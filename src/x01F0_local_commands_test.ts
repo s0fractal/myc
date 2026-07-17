@@ -1,6 +1,7 @@
 import {
   dispatchLocalCommand,
   localCommandEffects,
+  localCommandHelp,
   localCommandNames,
 } from "./x01F0_local_commands.ts";
 
@@ -39,6 +40,11 @@ Deno.test("local command registry is complete and deterministic", () => {
     JSON.stringify(Object.keys(localCommandEffects()).sort()) ===
       JSON.stringify(expected),
     "local effect catalog drift",
+  );
+  assert(
+    JSON.stringify(localCommandHelp().map(({ command }) => command)) ===
+      JSON.stringify(expected),
+    "local help catalog drift",
   );
 });
 

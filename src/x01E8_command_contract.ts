@@ -3,3 +3,8 @@
 // local handlers to the shell dispatcher.
 
 export type CommandEffect = "read" | "effect" | "serve";
+
+export interface CommandHelpEntry {
+  command: string;
+  usage: string;
+}
