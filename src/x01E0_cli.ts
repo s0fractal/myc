@@ -116,437 +116,154 @@ export function renderCaptureHuman(r: CaptureResult): string {
   ].join("\n");
 }
 
+interface ShellCommandSpec {
+  script: string;
+  permissions: string[] | (() => string[]);
+  forward?: "all" | "tail";
+  reindex?: boolean;
+}
+
+export interface ShellCommandInvocation {
+  command: string;
+  script_path: string;
+  args: string[];
+  reindex: boolean;
+}
+
+const READ_ONLY = ["--allow-read"];
+const READ_WRITE_ENV = ["--allow-read", "--allow-write", "--allow-env"];
+
+const SHELL_COMMANDS: Record<string, ShellCommandSpec> = {
+  coord: {
+    script: "./x0200_resolve.ts",
+    permissions: [
+      "--allow-read",
+      "--allow-write",
+      "--allow-run",
+      "--allow-env",
+    ],
+  },
+  organism: { script: "./x8F00_organism.ts", permissions: READ_ONLY },
+  membrane: { script: "./x8FF0_membrane.ts", permissions: READ_ONLY },
+  overview: { script: "./x8FF0_membrane.ts", permissions: READ_ONLY },
+  trust: { script: "./x3700_trust.ts", permissions: READ_ONLY },
+  resonance: { script: "./x3700_trust.ts", permissions: READ_ONLY },
+  standing: {
+    script: "./x2F60_temporal_envelope.ts",
+    permissions: READ_ONLY,
+    forward: "all",
+  },
+  "temporal-verify": {
+    script: "./x2FA0_temporal_verify.ts",
+    permissions: ["--allow-read", "--allow-run", "--allow-env"],
+  },
+  "temporal-sign": {
+    script: "./x2F90_temporal_sign.ts",
+    permissions: () => [
+      "--allow-read",
+      "--allow-env",
+      `--allow-write=${
+        new URL("../public/temporal", import.meta.url).pathname
+      }`,
+    ],
+  },
+  "ots-verify": {
+    script: "./x2F80_ots_adapter.ts",
+    permissions: ["--allow-read", "--allow-run"],
+  },
+  lifecycle: { script: "./x3F00_lifecycle.ts", permissions: READ_ONLY },
+  propose: {
+    script: "./x5800_propose.ts",
+    permissions: READ_WRITE_ENV,
+    reindex: true,
+  },
+  petition: {
+    script: "./x5850_petition.ts",
+    permissions: READ_WRITE_ENV,
+    reindex: true,
+  },
+  "verify-deployment": {
+    script: "../sites/myc.md/verify_deployment.ts",
+    permissions: ["--allow-net", "--allow-read"],
+  },
+  snapshot: {
+    script: "../sites/myc.md/snapshot.ts",
+    permissions: READ_WRITE_ENV,
+  },
+  "verify-snapshot": {
+    script: "../sites/myc.md/verify_snapshot.ts",
+    permissions: ["--allow-read", "--allow-write", "--allow-net"],
+  },
+  publish: {
+    script: "../sites/myc.md/publish.ts",
+    permissions: ["--allow-read", "--allow-run", "--allow-net", "--allow-env"],
+  },
+  "import-snapshot": {
+    script: "../sites/myc.md/import_snapshot.ts",
+    permissions: [
+      "--allow-read",
+      "--allow-write",
+      "--allow-env",
+      "--allow-net",
+    ],
+  },
+  "resolve-proposal": {
+    script: "./x5810_resolve_proposal.ts",
+    permissions: READ_WRITE_ENV,
+    reindex: true,
+  },
+  authenticate: {
+    script: "./x2F50_voice_auth.ts",
+    permissions: READ_WRITE_ENV,
+  },
+  render: { script: "./x8FE0_render.ts", permissions: READ_ONLY },
+  effects: { script: "./x4A10_verb_effects.ts", permissions: READ_ONLY },
+};
+
+export function shellCommandNames(): string[] {
+  return Object.keys(SHELL_COMMANDS).sort();
+}
+
+export function shellCommandInvocation(
+  input: string[],
+): ShellCommandInvocation | null {
+  const command = input[0];
+  const spec = command ? SHELL_COMMANDS[command] : undefined;
+  if (!spec) return null;
+  const permissions = typeof spec.permissions === "function"
+    ? spec.permissions()
+    : spec.permissions;
+  const scriptPath = new URL(spec.script, import.meta.url).pathname;
+  return {
+    command,
+    script_path: scriptPath,
+    args: [
+      "run",
+      ...permissions,
+      scriptPath,
+      ...(spec.forward === "all" ? input : input.slice(1)),
+    ],
+    reindex: spec.reindex === true,
+  };
+}
+
+async function dispatchShellCommand(input: string[]): Promise<boolean> {
+  const invocation = shellCommandInvocation(input);
+  if (!invocation) return false;
+  const proc = new Deno.Command("deno", {
+    args: invocation.args,
+    stdin: "inherit",
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  const { code } = await proc.output();
+  if (code !== 0) Deno.exitCode = code;
+  else if (invocation.reindex) await rebuildIndex(defaultRoot());
+  return true;
+}
+
 export async function main(args: string[]): Promise<void> {
-  // `coord <coordinate> [--graph|--lattice|--why|--stamp <signer>|--cat|--json]`
-  // reaches the coordinate/provenance resolver (x0200_resolve.ts) through this
-  // one CLI, so `myc` now spans BOTH address families: descriptor FQDNs (the
-  // `resolve` command below — `task.actor.h.<hash>`) and graph coordinates
-  // (`coord` — `xNNNN_handle`). x0200 owns the git+crypto proof modes and needs
-  // --allow-run for git, so we shell it (matching the dispatcher-shells-organs
-  // idiom) rather than import across the x01→x02 direction. Handled before
-  // parseArgs so x0200's own flags pass through untouched.
-  if (args[0] === "coord") {
-    const resolverPath =
-      new URL("./x0200_resolve.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-write",
-        "--allow-run",
-        "--allow-env",
-        resolverPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `organism` / `membrane` — the membrane self-portrait: the four substrates
-  // as one proof-carrying body (LAW/omega · FIELD/liquid · MIND/trinity ·
-  // MYCELIUM/myc), their proof-kinds, the four roots of trust, and the spores
-  // germinated across substrate boundaries. Shelled (like `coord`) to keep
-  // x0100 lean; TTY-aware (a readable body for humans, JSON for models).
-  if (args[0] === "organism") {
-    const organismPath =
-      new URL("./x8F00_organism.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", organismPath, ...args.slice(1)],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `membrane` — the single surface: the body + its trust + its mutations'
-  // lives, composed into one read-only view (the architect's founding vision).
-  // `overview` is an alias — install.sh advertised it as the browse-the-network
-  // path, but it was not a command (a newcomer got the raw help list). Dogfood.
-  if (args[0] === "membrane" || args[0] === "overview") {
-    const memPath = new URL("./x8FF0_membrane.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", memPath, ...args.slice(1)],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `trust` — trust topology / resonance ranking (ROADMAP Phase 9). Reads the
-  // publish/witness/review consensus graph and surfaces a subjective resonance
-  // signal per published mutation. Shelled (like organism/coord) to keep x0100
-  // lean; TTY-aware.
-  if (args[0] === "trust" || args[0] === "resonance") {
-    const trustPath = new URL("./x3700_trust.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", trustPath, ...args.slice(1)],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `standing` — the temporal standing of signed descriptors (v0 current_registry_only
-  // vs v1 historically verifiable). Makes the Temporal Trust Envelope verifier live.
-  if (args[0] === "standing") {
-    const sp =
-      new URL("./x2F60_temporal_envelope.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", sp, ...args],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `temporal-sign` — emit a v1 Temporal Signature Envelope with the actor's OWN
-  // key (codex P3 step 1). Outputs subject_for_ots for the architect's anchor
-  // ceremony. Needs the private key (--allow-read + --allow-env HOME).
-  if (args[0] === "temporal-verify") {
-    const sp = new URL("./x2FA0_temporal_verify.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-run",
-        "--allow-env",
-        sp,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  if (args[0] === "temporal-sign") {
-    const sp = new URL("./x2F90_temporal_sign.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-env",
-        `--allow-write=${
-          new URL("../public/temporal", import.meta.url).pathname
-        }`,
-        sp,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `ots-verify` — read/verify an OpenTimestamps proof through the authoritative
-  // `ots` tool (codex P2). Embedded attestations via `ots info`; --verify runs the
-  // on-chain check (unavailable without a Bitcoin source). Needs --allow-run.
-  if (args[0] === "ots-verify") {
-    const sp = new URL("./x2F80_ots_adapter.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", "--allow-run", sp, ...args.slice(1)],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `lifecycle` — the canonical mutation lifecycle (T3): one vocabulary across
-  // apply-receipts (applied) and the consensus graph. Read-only; shelled.
-  if (args[0] === "lifecycle") {
-    const lifePath = new URL("./x3F00_lifecycle.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", lifePath, ...args.slice(1)],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `propose` — propose a mutation INTO the membrane (the efferent half, dormant
-  // slice). Writes a content-addressed, UNSIGNED, DORMANT ProposedMutationDescriptor
-  // under public/proposals/. Effect class (writes); never signs/germinates.
-  if (args[0] === "propose") {
-    const propPath = new URL("./x5800_propose.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-write",
-        "--allow-env",
-        propPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) {
-      Deno.exitCode = code;
-    } else {
-      // keep public/index.ndjson in sync (as publish/witness/review do) so the
-      // dormant proposal is indexed + resolvable and verify-projections stays green.
-      await rebuildIndex(defaultRoot());
-    }
-    return;
-  }
-
-  // `petition` — external PETITION intake (codex x5000_956709 / claude x3300_956707):
-  // a non-citizen agent's SIGNED, reference-mode submission that lands as a DORMANT
-  // proposal (reusing propose). Verifies the Ed25519 envelope; never fetches; grants
-  // nothing until witnessed. Effect class (writes).
-  if (args[0] === "petition") {
-    const petPath = new URL("./x5850_petition.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-write",
-        "--allow-env",
-        petPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) {
-      Deno.exitCode = code;
-    } else {
-      await rebuildIndex(defaultRoot());
-    }
-    return;
-  }
-
-  // `verify-deployment [url]` — Resonant Resolution step 1: verify a deployed
-  // myc.md fallback serves ONLY what local source attests, by content hash
-  // (trust the hash, not the host). Read-only; network. (chord x6000_954726)
-  if (args[0] === "verify-deployment") {
-    const vPath =
-      new URL("../sites/myc.md/verify_deployment.ts", import.meta.url)
-        .pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-net", "--allow-read", vPath, ...args.slice(1)],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `snapshot [--write path]` — Resonant Resolution: build a portable,
-  // content-addressed export of the public network (index + descriptors + raw
-  // source) — the content a fallback would serve + peers would exchange.
-  // Read-only unless --write. (chord x6000_954726)
-  if (args[0] === "snapshot") {
-    const sPath =
-      new URL("../sites/myc.md/snapshot.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-write",
-        "--allow-env",
-        sPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `verify-snapshot <file>` — Resonant Resolution: verify a snapshot (e.g. one
-  // received from a peer) with myc's canonical verifier — trust the hash, not the
-  // host. Rehydrates to a temp root + verifyPath per record. Read-only to your tree.
-  // (chord x6000_954726)
-  if (args[0] === "verify-snapshot") {
-    const vsPath =
-      new URL("../sites/myc.md/verify_snapshot.ts", import.meta.url)
-        .pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-write",
-        "--allow-net",
-        vsPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `publish --witness <voice> --content <hash>` — witness→publish: a keyed voice
-  // signs captured content and posts it to the membrane's /publish, so strangers
-  // resolve it on myc.md with NO CF creds and NO maintainer deploy. Pre-verifies
-  // every record with the canonical verifier before publishing.
-  if (args[0] === "publish") {
-    const pPath =
-      new URL("../sites/myc.md/publish.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-run",
-        "--allow-net",
-        "--allow-env",
-        pPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `import-snapshot <file> [--write]` — Resonant Resolution: receive a peer's
-  // network export, verify it by hash, and merge the NEW verified records into your
-  // local network. Dry-run unless --write; never overwrites; conflicts reported.
-  // (chord x6000_954726)
-  if (args[0] === "import-snapshot") {
-    const isPath =
-      new URL("../sites/myc.md/import_snapshot.ts", import.meta.url)
-        .pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-write",
-        "--allow-env",
-        "--allow-net",
-        isPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `resolve-proposal` — record a terminal, commitment-bound outcome for a
-  // dormant proposal (codex x6300_954228 P1). Effect class; rebuilds the index.
-  if (args[0] === "resolve-proposal") {
-    const resPath = new URL("./x5810_resolve_proposal.ts", import.meta.url)
-      .pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-write",
-        "--allow-env",
-        resPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    else await rebuildIndex(defaultRoot());
-    return;
-  }
-
-  // `authenticate` — add a voice content_sig to a descriptor (witness), lifting
-  // it from integrity to authenticity. Writes (frontmatter only; commitment
-  // stable). Effect class; needs the user-level voice key.
-  if (args[0] === "authenticate") {
-    const authPath = new URL("./x2F50_voice_auth.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: [
-        "run",
-        "--allow-read",
-        "--allow-write",
-        "--allow-env",
-        authPath,
-        ...args.slice(1),
-      ],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `render` — the membrane as a self-contained HTML page (for human eyes).
-  // Read-only; HTML to stdout (redirect to a file, open in any browser).
-  if (args[0] === "render") {
-    const renderPath = new URL("./x8FE0_render.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", renderPath, ...args.slice(1)],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
-
-  // `effects` — the typed effect of every myc verb (the capability boundary,
-  // mirrored by trinity's t myc passthrough). Read-only; shelled.
-  if (args[0] === "effects") {
-    const fxPath = new URL("./x4A10_verb_effects.ts", import.meta.url).pathname;
-    const proc = new Deno.Command("deno", {
-      args: ["run", "--allow-read", fxPath, ...args.slice(1)],
-      stdin: "inherit",
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const { code } = await proc.output();
-    if (code !== 0) Deno.exitCode = code;
-    return;
-  }
+  if (await dispatchShellCommand(args)) return;
 
   const { command, flags, rest } = parseArgs(args);
   const root = flagString(flags, "root") ?? defaultRoot();
