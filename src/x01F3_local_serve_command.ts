@@ -18,8 +18,25 @@ import {
 } from "./x01E8_command_contract.ts";
 import { printJson } from "./x01E9_cli_output.ts";
 
+const DEFAULT_SERVE_PORT = 8787;
+const PORT_ERROR = "serve --port must be a decimal integer from 1 to 65535";
+
+export function parseServePort(
+  value: string | boolean | undefined,
+): number {
+  if (value === undefined) return DEFAULT_SERVE_PORT;
+  if (typeof value !== "string" || !/^\d+$/.test(value)) {
+    throw new Error(PORT_ERROR);
+  }
+  const port = Number(value);
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65535) {
+    throw new Error(PORT_ERROR);
+  }
+  return port;
+}
+
 export function serveCommand({ root, flags }: LocalCommandContext) {
-  const port = Number(flagString(flags, "port") ?? "8787");
+  const port = parseServePort(flags.port);
   const hostname = flagString(flags, "host") ?? "127.0.0.1";
   printJson({ ok: true, root, hostname, port });
   Deno.serve({ hostname, port }, async (request) => {
