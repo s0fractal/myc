@@ -17,6 +17,17 @@ export interface ParsedCliArgs {
   rest: string[];
 }
 
+export interface LocalCommandContext {
+  command: string;
+  flags: CliFlags;
+  rest: string[];
+  root: string;
+}
+
+export type LocalCommandHandler = (
+  context: LocalCommandContext,
+) => void | Promise<void>;
+
 export function parseCliArgs(args: string[]): ParsedCliArgs {
   const [command = "help", ...tail] = args;
   const flags: CliFlags = {};

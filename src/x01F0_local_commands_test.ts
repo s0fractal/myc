@@ -79,4 +79,40 @@ Deno.test("local command module stays independent from CLI entrypoints", async (
   );
   assert(!source.includes("x0100_myc"), "local handlers import the facade");
   assert(!source.includes("x01E0_cli"), "local handlers import the dispatcher");
+  for (
+    const domain of [
+      "x0150_",
+      "x0160_",
+      "x0170_",
+      "x0180_",
+      "x0190_",
+      "x01A0_",
+      "x01C0_",
+      "x01D0_",
+    ]
+  ) {
+    assert(
+      !source.includes(domain),
+      `registry imports domain module ${domain}`,
+    );
+  }
+});
+
+Deno.test("capability handlers stay independent from CLI entrypoints", async () => {
+  for (
+    const file of [
+      "x01F1_local_read_commands.ts",
+      "x01F2_local_effect_commands.ts",
+      "x01F3_local_serve_command.ts",
+    ]
+  ) {
+    const source = await Deno.readTextFile(
+      new URL(`./${file}`, import.meta.url),
+    );
+    for (
+      const entrypoint of ["x0100_myc", "x01E0_cli", "x01F0_local_commands"]
+    ) {
+      assert(!source.includes(entrypoint), `${file} imports ${entrypoint}`);
+    }
+  }
 });
