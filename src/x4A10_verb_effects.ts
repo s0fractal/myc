@@ -10,8 +10,8 @@
 // passthrough MIRRORS this map and is parity-checked against it, so the capability
 // boundary is typed and auditable — not a hardcoded social convention.
 
-import { shellCommandEffects } from "./x01E0_cli.ts";
 import type { CommandEffect } from "./x01E8_command_contract.ts";
+import { shellCommandEffects } from "./x01EA_shell_commands.ts";
 import { localCommandEffects } from "./x01F0_local_commands.ts";
 
 export type Effect = CommandEffect;

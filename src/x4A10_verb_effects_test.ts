@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { shellCommandNames } from "./x01E0_cli.ts";
+import { shellCommandNames } from "./x01EA_shell_commands.ts";
 import { localCommandNames } from "./x01F0_local_commands.ts";
 import { classify, VERB_EFFECTS } from "./x4A10_verb_effects.ts";
 
