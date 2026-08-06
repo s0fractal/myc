@@ -14,8 +14,12 @@
 // Boundary note (contracts/SPORE_VS_OMEGA_SPORE_BOUNDARY.v0.1): capital-SPORE is
 // the Trinity-OWNED deterministic-apply PROTOCOL (backend-agnostic: wasmtime /
 // deno / omega-zk). It is NOT omega's lowercase `spore` (bare-metal mesh-witness
-// frames). omega's OWN proof is physics conformance (Genesis 0x549A6307, law
-// 0x30A95260, ZK-notarized mitosis), not a SPORE receipt.
+// frames). omega's OWN proof is physics conformance (Genesis 0x716EA2F8, law
+// 0xA43F38A1 — Era 961 Photosynthetic, ZK-notarized mitosis), not a SPORE
+// receipt. Both constants moved: the genesis was canonised to the Rust-computed
+// value on 2026-07-26, and the law hash on 2026-08-06 when omega's physical
+// operator changed (see omega/docs/PHYSICS_BOUNDARY.md). Trinity reads the law
+// live from omega; these strings are prose and had to be caught by hand.
 //
 // A GENERATION, not a doc: a bridge that reads germinated receipts live and points
 // at the live topology (`coord --lattice`) / court (`t court --live`), never a
@@ -32,8 +36,8 @@ const ORGANS = [
     substrate: "omega",
     organ: "LAW",
     proves: "a computation OBEYS the frozen physics",
-    proof_kind: "Genesis 0x549A6307 · law 0x30A95260 · ZK-notarized mitosis",
-    root: "Genesis 0x549A6307 (FNV-1a over frozen anchors, Bitcoin-inscribed)",
+    proof_kind: "Genesis 0x716EA2F8 · law 0xA43F38A1 · ZK-notarized mitosis",
+    root: "Genesis 0x716EA2F8 (FNV-1a over frozen anchors, Bitcoin-inscribed)",
   },
   {
     substrate: "liquid",
