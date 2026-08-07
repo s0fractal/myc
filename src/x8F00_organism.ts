@@ -15,7 +15,7 @@
 // the Trinity-OWNED deterministic-apply PROTOCOL (backend-agnostic: wasmtime /
 // deno / omega-zk). It is NOT omega's lowercase `spore` (bare-metal mesh-witness
 // frames). omega's OWN proof is physics conformance (Genesis 0x716EA2F8, law
-// 0x4D0E1949 — Era 973 Cyclic, ZK-notarized mitosis), not a SPORE
+// 0x5F9B2ABC — Era 974 Wrapped, ZK-notarized mitosis), not a SPORE
 // receipt. Both constants moved: the genesis was canonised to the Rust-computed
 // value on 2026-07-26, and the law hash on 2026-08-06 when omega's physical
 // operator changed (see omega/docs/PHYSICS_BOUNDARY.md). Trinity reads the law
@@ -36,7 +36,7 @@ const ORGANS = [
     substrate: "omega",
     organ: "LAW",
     proves: "a computation OBEYS the frozen physics",
-    proof_kind: "Genesis 0x716EA2F8 · law 0x4D0E1949 · ZK-notarized mitosis",
+    proof_kind: "Genesis 0x716EA2F8 · law 0x5F9B2ABC · ZK-notarized mitosis",
     root: "Genesis 0x716EA2F8 (FNV-1a over frozen anchors, Bitcoin-inscribed)",
   },
   {
