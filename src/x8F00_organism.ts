@@ -14,8 +14,15 @@
 // Boundary note (contracts/SPORE_VS_OMEGA_SPORE_BOUNDARY.v0.1): capital-SPORE is
 // the Trinity-OWNED deterministic-apply PROTOCOL (backend-agnostic: wasmtime /
 // deno / omega-zk). It is NOT omega's lowercase `spore` (bare-metal mesh-witness
-// frames). omega's OWN proof is physics conformance (Genesis 0x549A6307, law
-// 0x30A95260, ZK-notarized mitosis), not a SPORE receipt.
+// frames). omega's OWN proof is physics conformance — the frozen Genesis identity
+// plus the current physical law — not a SPORE receipt.
+//
+// The concrete law hash is deliberately NOT copied here. It versions the physical
+// law and changes when the law does: `ERA_ID` in omega_v2/src/law_hash.rs has moved
+// repeatedly, and each move produced a prose-only commit in this file that said a
+// stale number was the live one. A value that changes at the Omega boundary must be
+// read at that boundary. What this file states is the STABLE half — the Genesis
+// identity — and where the moving half lives.
 //
 // A GENERATION, not a doc: a bridge that reads germinated receipts live and points
 // at the live topology (`coord --lattice`) / court (`t court --live`), never a
@@ -32,8 +39,13 @@ const ORGANS = [
     substrate: "omega",
     organ: "LAW",
     proves: "a computation OBEYS the frozen physics",
-    proof_kind: "Genesis 0x549A6307 · law 0x30A95260 · ZK-notarized mitosis",
-    root: "Genesis 0x549A6307 (FNV-1a over frozen anchors, Bitcoin-inscribed)",
+    proof_kind:
+      "Genesis 0x716EA2F8 · physical law (live: omega_v2/src/law_hash.rs) · " +
+      "ZK-notarized mitosis",
+    root:
+      "Genesis 0x716EA2F8 — FNV-1a 32-bit over frozen anchors, deterministic " +
+      "and reproducible from omega_v2/src/genesis_inscription.rs; established " +
+      "by recomputation rather than by an on-chain record",
   },
   {
     substrate: "liquid",
