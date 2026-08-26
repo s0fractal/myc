@@ -15,6 +15,16 @@ sha256
     verify PendingAttestation('https://btc.calendar.catallaxy.com')
     verify BitcoinBlockHeaderAttestation(949022)`;
 
+// A repository-LOCAL fixture. This used to reach ../../probes/... in Trinity,
+// which resolves only when MYC is checked out nested inside it as a submodule:
+// standalone, the file is absent, and with `ots` installed the suite reported
+// available:true over an unreadable proof and failed. See fixtures/ots/README.md
+// for the pinned digests and why the bytes are copied rather than regenerated.
+const OTS_FIXTURE = new URL(
+  "../fixtures/ots/spore-bootstrap-v0.root.ots",
+  import.meta.url,
+).pathname;
+
 Deno.test("ots — parseOtsInfo extracts subject + embedded Bitcoin attestations", () => {
   const i = parseOtsInfo(OTS_INFO);
   assertEquals(
@@ -32,10 +42,7 @@ Deno.test("ots — parseOtsInfo on empty/garbage yields no subject, no attestati
 });
 
 Deno.test("ots — verifyOtsProof is honest in BOTH environments (tool present or absent)", async () => {
-  const path = new URL(
-    "../../probes/spore-bootstrap-pin-v0/external/spore-bootstrap-v0.root.ots",
-    import.meta.url,
-  ).pathname;
+  const path = OTS_FIXTURE;
   const v = await verifyOtsProof(path); // no --verify: offline `ots info` only
   // verify is ALWAYS one of the three honest states; it is never a fabricated pass.
   assert(["valid", "invalid", "unavailable"].includes(v.verify));
@@ -56,10 +63,7 @@ Deno.test("ots — verifyOtsProof is honest in BOTH environments (tool present o
 });
 
 Deno.test("ots — an expected subject mismatch is invalid before on-chain standing", async () => {
-  const path = new URL(
-    "../../probes/spore-bootstrap-pin-v0/external/spore-bootstrap-v0.root.ots",
-    import.meta.url,
-  ).pathname;
+  const path = OTS_FIXTURE;
   const v = await verifyOtsProof(path, {
     expectedSubject: `sha256:${"0".repeat(64)}`,
   });
