@@ -8,6 +8,7 @@ import {
   canonicalIntentText,
   intentCommitment,
   NUMERIC_PROFILE,
+  parseActionIntentBytes,
   unpairedSurrogateIndex,
   validateIntent,
 } from "./x5820_action_intent.ts";
@@ -185,4 +186,115 @@ Deno.test("x5820 action_intent — an unknown member is rejected, not dropped", 
     assert(r.error.includes("unknown member"), r.error);
     assert(r.error.includes("extra_authority"), r.error);
   }
+});
+
+Deno.test("x5820 action_intent - a changing getter cannot reach canonical bytes", async () => {
+  // Check-then-reread: the validator and the encoder each read the caller's
+  // properties, so an accessor could answer one and then the other. That
+  // produced canonical bytes containing the JSON number 1, and a digest over
+  // them. Normalization now happens ONCE and encoding uses only the snapshot.
+  const mk = (badFrom: number) => {
+    let reads = 0;
+    const evil: Record<string, unknown> = {
+      verb: "apply",
+      target_substrate: "myc",
+      args_commitment: "c1",
+      input_commitments: ["a"],
+    };
+    Object.defineProperty(evil, "requested_effects", {
+      enumerable: true,
+      get() {
+        reads++;
+        return reads >= badFrom ? [1] : ["write"];
+      },
+    });
+    return evil;
+  };
+
+  // Invalid from the FIRST read: refused at the boundary.
+  assert(!validateIntent(mk(1)).ok);
+
+  // Invalid from the SECOND read: the boundary said yes, so the encoder is the
+  // only thing standing between the caller and a digest.
+  const late = mk(2);
+  assert(validateIntent(late).ok, "the first read was supposed to be valid");
+  let refused = false;
+  try {
+    canonicalIntentText(late as never);
+  } catch (e) {
+    refused = e instanceof RangeError;
+  }
+  assert(refused, "the encoder used a value the check never saw");
+
+  // Whatever a getter does, no digest is ever produced over a non-string
+  // effect, and no canonical text ever contains one.
+  for (const from of [1, 2, 3, 4]) {
+    const v = mk(from);
+    let text = "";
+    try {
+      text = canonicalIntentText(v as never);
+    } catch { /* refusing is the other correct answer */ }
+    assert(!text.includes("[1]"), `canonical text carried a number: ${text}`);
+    let digest = "";
+    try {
+      digest = await intentCommitment(mk(from) as never);
+    } catch { /* refused */ }
+    if (digest) {
+      assertEquals(
+        digest,
+        await intentCommitment({
+          verb: "apply",
+          target_substrate: "myc",
+          args_commitment: "c1",
+          input_commitments: ["a"],
+          requested_effects: ["write"],
+        }),
+        "a digest was produced that does not match any validated value",
+      );
+    }
+  }
+});
+
+Deno.test("x5820 action_intent - raw bytes: duplicate member names are refused", () => {
+  // JSON.parse keeps the last one and the other becomes invisible; a proposal
+  // was written for an intent that also said "deny".
+  const enc = (s: string) => new TextEncoder().encode(s);
+  const dup = enc(
+    '{"verb":"deny","verb":"apply","target_substrate":"myc",' +
+      '"args_commitment":"c1","input_commitments":["a"],' +
+      '"requested_effects":["write"]}',
+  );
+  const r = parseActionIntentBytes(dup);
+  assert(!r.ok);
+  if (!r.ok) assert(r.error.includes("duplicate-member-name"), r.error);
+
+  // Escape-equivalent spelling: names are decoded before they are compared.
+  const esc = enc(
+    '{"verb":"deny","ve\\u0072b":"apply","target_substrate":"myc",' +
+      '"args_commitment":"c1","input_commitments":["a"],' +
+      '"requested_effects":["write"]}',
+  );
+  const r2 = parseActionIntentBytes(esc);
+  assert(!r2.ok, "an escaped duplicate name was admitted");
+  if (!r2.ok) assert(r2.error.includes("duplicate-member-name"), r2.error);
+
+  // A well-formed intent still parses, so the scanner is not simply refusing.
+  const good = parseActionIntentBytes(enc(JSON.stringify(VECTOR)));
+  assert(good.ok, good.ok ? "" : good.error);
+});
+
+Deno.test("x5820 action_intent - raw bytes: invalid UTF-8 is refused, not replaced", () => {
+  // A permissive decode turns 0xff into U+FFFD and commits to a character
+  // nobody wrote.
+  const bad = new Uint8Array([
+    ...new TextEncoder().encode('{"verb":"ap'),
+    0xff,
+    ...new TextEncoder().encode(
+      'ly","target_substrate":"myc","args_commitment":"c1",' +
+        '"input_commitments":["a"],"requested_effects":["write"]}',
+    ),
+  ]);
+  const r = parseActionIntentBytes(bad);
+  assert(!r.ok);
+  if (!r.ok) assert(r.error.includes("invalid-utf8"), r.error);
 });

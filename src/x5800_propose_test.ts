@@ -210,3 +210,92 @@ Deno.test("x5800 propose --action-intent — an unpaired surrogate writes nothin
     assert(!wrote, "a proposal was written despite an invalid intent");
   });
 });
+
+// The three executed attacks, at the CLI boundary, asserting on what lands on
+// disk. Each previously produced exit 0 and a written proposal.
+Deno.test("x5800 propose --action-intent - duplicate member names write nothing", async () => {
+  await withRoot(async (root) => {
+    const p = join(root, "dup.json");
+    await Deno.writeTextFile(
+      p,
+      '{"verb":"deny","verb":"apply","target_substrate":"myc",' +
+        '"args_commitment":"c1","input_commitments":["a","b"],' +
+        '"requested_effects":["receipt","write"]}',
+    );
+    await assertRefused(root, p, "duplicate-member-name");
+  });
+});
+
+Deno.test("x5800 propose --action-intent - an escaped duplicate name writes nothing", async () => {
+  await withRoot(async (root) => {
+    const p = join(root, "dupesc.json");
+    // "verb" and "ve\u0072b" are the same member name.
+    await Deno.writeTextFile(
+      p,
+      '{"verb":"deny","ve\\u0072b":"apply","target_substrate":"myc",' +
+        '"args_commitment":"c1","input_commitments":["a"],' +
+        '"requested_effects":["write"]}',
+    );
+    await assertRefused(root, p, "duplicate-member-name");
+  });
+});
+
+Deno.test("x5800 propose --action-intent - invalid UTF-8 writes nothing", async () => {
+  await withRoot(async (root) => {
+    const p = join(root, "bad.json");
+    await Deno.writeFile(
+      p,
+      new Uint8Array([
+        ...new TextEncoder().encode('{"verb":"ap'),
+        0xff,
+        ...new TextEncoder().encode(
+          'ly","target_substrate":"myc","args_commitment":"c1",' +
+            '"input_commitments":["a"],"requested_effects":["write"]}',
+        ),
+      ]),
+    );
+    await assertRefused(root, p, "invalid-utf8");
+  });
+});
+
+async function assertRefused(
+  root: string,
+  intentPath: string,
+  expect: string,
+): Promise<void> {
+  const prevExit = Deno.exitCode;
+  const errs: string[] = [];
+  const realError = console.error;
+  console.error = (...a: unknown[]) => errs.push(a.join(" "));
+  try {
+    await runCli([
+      "--root",
+      root,
+      "--proposal",
+      "should not land",
+      "--requires",
+      "trinity",
+      "--proposer",
+      "claude",
+      "--action-intent",
+      intentPath,
+      "--json",
+    ]);
+  } finally {
+    console.error = realError;
+  }
+  assertEquals(Deno.exitCode, 1, "the CLI did not fail closed");
+  Deno.exitCode = prevExit;
+  assert(
+    errs.some((e) => e.includes(expect)),
+    `expected ${expect}, got: ${errs.join(" | ")}`,
+  );
+
+  let wrote = false;
+  try {
+    for await (const _ of Deno.readDir(join(root, "public", "proposals"))) {
+      wrote = true;
+    }
+  } catch { /* never created, also correct */ }
+  assert(!wrote, "a proposal was written despite a refused intent");
+}

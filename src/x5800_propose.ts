@@ -203,18 +203,21 @@ export async function runCli(args: string[] = Deno.args): Promise<void> {
   let action_grant: { intent_commitment: string } | undefined;
   const intentPath = f["action-intent"];
   if (intentPath && intentPath !== "true") {
-    const { intentCommitment, validateIntent } = await import(
+    const { intentCommitment, parseActionIntentBytes } = await import(
       "./x5820_action_intent.ts"
     );
-    let raw: unknown;
+    // RAW BYTES, strictly. Reading text and calling JSON.parse erases duplicate
+    // member names (last-wins) and invalid UTF-8 (U+FFFD) before any validator
+    // can refuse them, and both produced real proposals.
+    let bytes: Uint8Array;
     try {
-      raw = JSON.parse(await Deno.readTextFile(intentPath));
+      bytes = await Deno.readFile(intentPath);
     } catch {
       console.error(`# error: could not read action-intent from ${intentPath}`);
       Deno.exitCode = 1;
       return;
     }
-    const v = validateIntent(raw);
+    const v = parseActionIntentBytes(bytes);
     if (!v.ok) {
       console.error(`# error: invalid action-intent: ${v.error}`);
       Deno.exitCode = 1;
