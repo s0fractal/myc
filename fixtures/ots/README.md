@@ -19,9 +19,20 @@ So the fixture is vendored, and pinned rather than merely copied:
 | `spore-bootstrap-v0.root` | `8c9b98451de989661796ea6392da8c4c1b05d28559d78618abe0880bd7d0b9fb` |
 | `spore-bootstrap-v0.root.ots` | `5eb5a18d3b365d8179111a2fc9a7b8648f8b30d0accdcdbc133e9d469eec80d3` |
 
-The first digest is also the `subject_digest` the proof commits to, and the value
-the test asserts — so the fixture is self-consistent, and a swapped file fails
-loudly rather than shifting what "correct" means.
+The first digest is also the `subject_digest` the proof commits to and the value
+the adapter test asserts when `ots` is available — so the fixture is
+self-consistent.
+
+**These digests are checked, not just recorded.**
+`ots fixture — each vendored file matches its pinned digest` in
+`src/x2F80_ots_adapter_test.ts` computes both and asserts them independently, so
+a failure names which file moved. A mutation control sits beside it and flips one
+bit of each file to prove the check discriminates.
+
+An earlier version of this file recorded the digests here and nowhere else, and
+claimed a swapped file would fail loudly. That was false: replacing the root with
+64 zeroes left every test green, because nothing opened it. A digest a reader can
+see and a runner cannot check is documentation, and documentation is not a pin.
 
 **Provenance:** copied byte-for-byte from Trinity
 `probes/spore-bootstrap-pin-v0/external/`. These are the same bytes, not a
