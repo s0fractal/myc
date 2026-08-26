@@ -4,7 +4,8 @@ import {
   assertStringIncludes,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { join } from "jsr:@std/path@1.1.4";
-import { propose } from "./x5800_propose.ts";
+import { propose, runCli } from "./x5800_propose.ts";
+import { intentCommitment } from "./x5820_action_intent.ts";
 import { auditRoot } from "./x6C00_protocol_audit.ts";
 
 async function withRoot(fn: (root: string) => Promise<void>): Promise<void> {
@@ -116,5 +117,96 @@ Deno.test("x5800 propose — SAFETY: the audit rejects a forged non-dormant prop
       audit.errors.some((e) => /state must be 'dormant'/.test(e)),
       "the audit must reject a non-dormant proposal",
     );
+  });
+});
+
+// END TO END: the CNP-0-JCS adoption reaches the committed artifact, not only the
+// unit that computes it. `propose --action-intent` is the doorway a caller
+// actually uses, and what it WRITES is what a later `actionBoundAuthority`
+// compares against — so the assertion is on the bytes on disk, not on a return
+// value. RFC-0003 Part 01 §5.1, Tranche A3.
+Deno.test("x5800 propose --action-intent — the committed grant is the CNP-0-JCS commitment", async () => {
+  await withRoot(async (root) => {
+    // --requires names the BACKEND the proposal needs; the intent's
+    // target_substrate is a different field and legitimately differs from it.
+    const intent = {
+      verb: "apply",
+      target_substrate: "myc" as const,
+      args_commitment: "c1",
+      input_commitments: ["a", "b"],
+      requested_effects: ["receipt", "write"],
+    };
+    const intentPath = join(root, "intent.json");
+    await Deno.writeTextFile(intentPath, JSON.stringify(intent));
+
+    await runCli([
+      "--root",
+      root,
+      "--proposal",
+      "adopt CNP-0-JCS on the authority path",
+      "--requires",
+      "trinity",
+      "--proposer",
+      "claude",
+      "--action-intent",
+      intentPath,
+      "--json",
+    ]);
+
+    const dir = join(root, "public", "proposals");
+    const names: string[] = [];
+    for await (const e of Deno.readDir(dir)) if (e.isFile) names.push(e.name);
+    assertEquals(names.length, 1, `expected one proposal, got ${names}`);
+
+    // The assertion is on the COMMITTED TEXT. A proposal is a chord on disk, and
+    // what a later actionBoundAuthority compares against is what landed there —
+    // not what the function returned to a caller that has since gone away.
+    const written = await Deno.readTextFile(join(dir, names[0]));
+    const expected =
+      "ccc26b8b460fe2debf0ad069d55ec170a78b7b70861f1f54c03e401e4576c3be";
+    assertStringIncludes(written, expected);
+    assertEquals(await intentCommitment(intent), expected);
+    // The pre-adoption value must appear nowhere in what was written.
+    assert(
+      !written.includes(
+        "d02d75adca7e0dbbd10244c7ea1e9aeafa7b6d019a0f570bcad471a38d997552",
+      ),
+      "the superseded digest was written to disk",
+    );
+  });
+});
+
+Deno.test("x5800 propose --action-intent — an unpaired surrogate writes nothing", async () => {
+  await withRoot(async (root) => {
+    const intentPath = join(root, "bad.json");
+    // Written as an explicit escape so the file really contains a lone surrogate.
+    await Deno.writeTextFile(
+      intentPath,
+      '{"verb":"x\\ud834y","target_substrate":"myc","args_commitment":"c",' +
+        '"input_commitments":[],"requested_effects":[]}',
+    );
+    const prevExit = Deno.exitCode;
+    await runCli([
+      "--root",
+      root,
+      "--proposal",
+      "should not land",
+      "--requires",
+      "trinity",
+      "--proposer",
+      "claude",
+      "--action-intent",
+      intentPath,
+      "--json",
+    ]);
+    assertEquals(Deno.exitCode, 1, "the CLI did not fail closed");
+    Deno.exitCode = prevExit;
+
+    const dir = join(root, "public", "proposals");
+    let wrote = false;
+    try {
+      for await (const _ of Deno.readDir(dir)) wrote = true;
+    } catch { /* the directory was never created, which is also correct */ }
+    assert(!wrote, "a proposal was written despite an invalid intent");
   });
 });
